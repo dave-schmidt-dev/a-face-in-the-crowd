@@ -1,0 +1,56 @@
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+*.local
+etc/bws-config.txt
+etc/*.local.yaml
+
+# Private source packet and future family data
+reference/packet/
+README.local.md
+PACKET.md
+G0-PLAN.md
+private/
+fixtures/private/
+*.photoslibrary/
+*.afitc-catalog
+*.afitc-backup
+
+# iOS and Xcode build state
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.app/
+*.dSYM/
+
+# Generic development state
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+node_modules/
+dist/
+.logs/
+*.log
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Local operational records in any future shared/public repository
+HISTORY.md
+TASKS.md
+history.md
+tasks.md
+
+# Agent workflow byproducts
+verifications/
+overnight-log.md
+overnight-report.html
+.verifier_prompt.md
+spikes/
+opencode.jsonc
