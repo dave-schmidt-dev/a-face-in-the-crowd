@@ -1,0 +1,13 @@
+# AFITC invariants
+
+Planning charter for the native MVP; rules are required, not claims of existing implementation. iPadOS17 minimum; one chosen drive root; local processing; human-confirmed Together/Any/Only search. Current user scope overrides archived packet examples.
+
+- **INV-1 — Visible, resumable work:** Discovery, reads, hashes, previews, detection, inference and restore show actual operation/counts, indeterminate totals where unknown, cancellation and durable checkpoints; failures preserve accepted work.
+- **INV-2 — Source integrity:** Read only within the selected folder grant. Never modify originals or infer empty/deleted source from access failure. Ambiguous content changes cannot inherit decisions.
+- **INV-3 — Local sensitive data:** Catalog/derived data stays in the protected app container, excluded from automatic app backups. No photo/name/path/crop/vector telemetry, provider upload, public fixture or sensitive log. Export is explicit and warns of unencrypted private contents.
+- **INV-4 — Human identity authority:** Naming confirms only the selected face. Suggestions cannot confirm themselves; rejection/unsure history persists. Correction/merge conflicts require explicit resolution; undo restores before-state atomically.
+- **INV-5 — Stable catalog versions:** Photo UUIDs and content/detector/model generations bind every face/job/decision. Stale work cannot overwrite newer decisions. Identical bytes at distinct paths are distinct photo records with separate confirmations/counts.
+- **INV-6 — Truthful search:** Together/Any use confirmed sets by default. Only requires the exact selected set and successful resolved detected-face index. Unknown real faces are not false detections. Counts/pagination share one revision; possible results remain separate.
+- **INV-7 — Recoverable catalog:** SQLite migrations, export and restore use validated consistent snapshots, version checks and rollback. Failed/partial restore cannot overwrite live work. Grants are renewed, never portable backup permissions.
+- **INV-8 — Bounded resources:** Decode/inference concurrency and the shared thumbnail/crop/example cache are bounded. Lock, source loss, low storage and memory pressure pause safely; cache eviction has explicit offline effects.
+- **INV-9 — Evidence-bound qualification:** Model rights/checksum/alignment/runtime/parity/usefulness are documented before recognition rollout. Simulator/core tests, physical iPad6 compatibility, installed M4 performance and owner usability are separate gates. No model substitution, install, upload or publication without its required authority.
