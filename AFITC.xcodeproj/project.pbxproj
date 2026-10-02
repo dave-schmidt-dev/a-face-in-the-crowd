@@ -1,0 +1,665 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA0000020000000000000001 /* AFITCApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000001 /* AFITCApp.swift */; };
+		AA0000020000000000000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000002 /* RootView.swift */; };
+		AA0000020000000000000003 /* AppServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000003 /* AppServices.swift */; };
+		BB0000020000000000000001 /* CatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000001 /* CatalogTypes.swift */; };
+		CC0000020000000000000001 /* BootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000001 /* BootstrapTests.swift */; };
+		DD0000020000000000000001 /* LaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000001 /* LaunchTests.swift */; };
+		EE0000020000000000000001 /* AFITCCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* AFITCCore.framework */; };
+		EE0000020000000000000002 /* AFITCCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* AFITCCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		EE0000020000000000000003 /* AFITCCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* AFITCCore.framework */; };
+		AA0000020000000000000005 /* DiagnosticLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000005 /* DiagnosticLog.swift */; };
+		CC0000020000000000000002 /* RunnerContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000002 /* RunnerContractTests.swift */; };
+		DD0000020000000000000002 /* NavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000002 /* NavigationTests.swift */; };
+		BB000002000000000000000A /* SourceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000A; };
+		BB000002000000000000000B /* CatalogRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000B; };
+		BB000002000000000000000C /* ScanCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000C; };
+		BB000002000000000000000D /* PhotoIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000D; };
+		BB000002000000000000000E /* FaceAnalysisState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000E; };
+		BB000002000000000000000F /* DetectionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB000001000000000000000F; };
+		BB0000020000000000000010 /* CatalogSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000010; };
+		AA000002000000000000000A /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000000A; };
+		AA000002000000000000000B /* StatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000000B; };
+		AA000002000000000000000C /* FolderSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000000C; };
+		AA000002000000000000000D /* PreviewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000000D; };
+		AA000002000000000000000E /* FaceDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000000E; };
+		CC000002000000000000000A /* SourceRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC000001000000000000000A; };
+		CC000002000000000000000B /* CatalogPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC000001000000000000000B; };
+		DD000002000000000000000A /* ScanProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000000A; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FF0000010000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000001;
+			remoteInfo = AFITCCore;
+		};
+		FF0000010000000000000002 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000001;
+			remoteInfo = AFITCCore;
+		};
+		FF0000010000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000002;
+			remoteInfo = AFITC;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		990000000000000000000001 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				EE0000020000000000000002 /* AFITCCore.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000011 /* AFITC.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AFITC.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000012 /* AFITCCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AFITCCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000013 /* AFITCCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AFITCCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000014 /* UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000010000000000000001 /* AFITCApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AFITCApp.swift; sourceTree = "<group>"; };
+		AA0000010000000000000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		AA0000010000000000000003 /* AppServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppServices.swift; sourceTree = "<group>"; };
+		AA0000010000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BB0000010000000000000001 /* CatalogTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogTypes.swift; sourceTree = "<group>"; };
+		CC0000010000000000000001 /* BootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootstrapTests.swift; sourceTree = "<group>"; };
+		DD0000010000000000000001 /* LaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchTests.swift; sourceTree = "<group>"; };
+		AA0000010000000000000005 /* DiagnosticLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/DiagnosticLog.swift"; sourceTree = "<group>"; };
+		CC0000010000000000000002 /* RunnerContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RunnerContractTests.swift"; sourceTree = "<group>"; };
+		DD0000010000000000000002 /* NavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NavigationTests.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000A /* SourceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SourceProtocol.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000B /* CatalogRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogRepository.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000C /* ScanCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScanCoordinator.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000D /* PhotoIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PhotoIdentity.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000E /* FaceAnalysisState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FaceAnalysisState.swift"; sourceTree = "<group>"; };
+		BB000001000000000000000F /* DetectionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DetectionProvider.swift"; sourceTree = "<group>"; };
+		BB0000010000000000000010 /* CatalogSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogSchema.swift"; sourceTree = "<group>"; };
+		AA000001000000000000000A /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LibraryView.swift"; sourceTree = "<group>"; };
+		AA000001000000000000000B /* StatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StatusView.swift"; sourceTree = "<group>"; };
+		AA000001000000000000000C /* FolderSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/FolderSource.swift"; sourceTree = "<group>"; };
+		AA000001000000000000000D /* PreviewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/PreviewService.swift"; sourceTree = "<group>"; };
+		AA000001000000000000000E /* FaceDetectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/FaceDetectionService.swift"; sourceTree = "<group>"; };
+		CC000001000000000000000A /* SourceRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SourceRecoveryTests.swift"; sourceTree = "<group>"; };
+		CC000001000000000000000B /* CatalogPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogPersistenceTests.swift"; sourceTree = "<group>"; };
+		DD000001000000000000000A /* ScanProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScanProgressTests.swift"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		880000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		880000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE0000020000000000000001 /* AFITCCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		880000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE0000020000000000000003 /* AFITCCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		880000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		000000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000003 /* App */,
+				000000000000000000000004 /* Sources */,
+				000000000000000000000005 /* Tests */,
+				000000000000000000000006 /* UITests */,
+				000000000000000000000007 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		000000000000000000000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA000001000000000000000E /* FaceDetectionService.swift */,
+				AA000001000000000000000D /* PreviewService.swift */,
+				AA000001000000000000000C /* FolderSource.swift */,
+				AA000001000000000000000B /* StatusView.swift */,
+				AA000001000000000000000A /* LibraryView.swift */,
+				AA0000010000000000000001 /* AFITCApp.swift */,
+				AA0000010000000000000002 /* RootView.swift */,
+				AA0000010000000000000003 /* AppServices.swift */,
+				AA0000010000000000000005 /* DiagnosticLog.swift */,
+				AA0000010000000000000004 /* Info.plist */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		000000000000000000000004 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000000000000000000001 /* AFITCCore */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		BB0000000000000000000001 /* AFITCCore */ = {
+			isa = PBXGroup;
+			children = (
+				BB0000010000000000000010 /* CatalogSchema.swift */,
+				BB000001000000000000000F /* DetectionProvider.swift */,
+				BB000001000000000000000E /* FaceAnalysisState.swift */,
+				BB000001000000000000000D /* PhotoIdentity.swift */,
+				BB000001000000000000000C /* ScanCoordinator.swift */,
+				BB000001000000000000000B /* CatalogRepository.swift */,
+				BB000001000000000000000A /* SourceProtocol.swift */,
+				BB0000010000000000000001 /* CatalogTypes.swift */,
+			);
+			path = AFITCCore;
+			sourceTree = "<group>";
+		};
+		000000000000000000000005 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				CC0000000000000000000001 /* AFITCCoreTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		CC0000000000000000000001 /* AFITCCoreTests */ = {
+			isa = PBXGroup;
+			children = (
+				CC000001000000000000000B /* CatalogPersistenceTests.swift */,
+				CC000001000000000000000A /* SourceRecoveryTests.swift */,
+				CC0000010000000000000001 /* BootstrapTests.swift */,
+				CC0000010000000000000002 /* RunnerContractTests.swift */,
+			);
+			path = AFITCCoreTests;
+			sourceTree = "<group>";
+		};
+		000000000000000000000006 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				DD000001000000000000000A /* ScanProgressTests.swift */,
+				DD0000010000000000000001 /* LaunchTests.swift */,
+				DD0000010000000000000002 /* NavigationTests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		000000000000000000000007 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000012 /* AFITCCore.framework */,
+				000000000000000000000011 /* AFITC.app */,
+				000000000000000000000013 /* AFITCCoreTests.xctest */,
+				000000000000000000000014 /* UITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		100000000000000000000001 /* AFITCCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 200000000000000000000001 /* Build configuration list for PBXNativeTarget "AFITCCore" */;
+			buildPhases = (
+				770000000000000000000001 /* Sources */,
+				880000000000000000000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AFITCCore;
+			productName = AFITCCore;
+			productReference = 000000000000000000000012 /* AFITCCore.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		100000000000000000000002 /* AFITC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 200000000000000000000002 /* Build configuration list for PBXNativeTarget "AFITC" */;
+			buildPhases = (
+				770000000000000000000002 /* Sources */,
+				880000000000000000000002 /* Frameworks */,
+				990000000000000000000001 /* Embed Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF0000020000000000000001 /* PBXTargetDependency */,
+			);
+			name = AFITC;
+			productName = AFITC;
+			productReference = 000000000000000000000011 /* AFITC.app */;
+			productType = "com.apple.product-type.application";
+		};
+		100000000000000000000003 /* AFITCCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 200000000000000000000003 /* Build configuration list for PBXNativeTarget "AFITCCoreTests" */;
+			buildPhases = (
+				770000000000000000000003 /* Sources */,
+				880000000000000000000003 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF0000020000000000000002 /* PBXTargetDependency */,
+			);
+			name = AFITCCoreTests;
+			productName = AFITCCoreTests;
+			productReference = 000000000000000000000013 /* AFITCCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		100000000000000000000004 /* UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 200000000000000000000004 /* Build configuration list for PBXNativeTarget "UITests" */;
+			buildPhases = (
+				770000000000000000000004 /* Sources */,
+				880000000000000000000004 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF0000020000000000000003 /* PBXTargetDependency */,
+			);
+			name = UITests;
+			productName = UITests;
+			productReference = 000000000000000000000014 /* UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					100000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					100000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					100000000000000000000003 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 100000000000000000000001;
+					};
+					100000000000000000000004 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = 100000000000000000000002;
+					};
+				};
+			};
+			buildConfigurationList = 000000000000000000000010 /* Build configuration list for PBXProject "AFITC" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 000000000000000000000002;
+			productRefGroup = 000000000000000000000007 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				100000000000000000000001 /* AFITCCore */,
+				100000000000000000000002 /* AFITC */,
+				100000000000000000000003 /* AFITCCoreTests */,
+				100000000000000000000004 /* UITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		770000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BB0000020000000000000010 /* CatalogSchema.swift in Sources */,
+				BB000002000000000000000F /* DetectionProvider.swift in Sources */,
+				BB000002000000000000000E /* FaceAnalysisState.swift in Sources */,
+				BB000002000000000000000D /* PhotoIdentity.swift in Sources */,
+				BB000002000000000000000C /* ScanCoordinator.swift in Sources */,
+				BB000002000000000000000B /* CatalogRepository.swift in Sources */,
+				BB000002000000000000000A /* SourceProtocol.swift in Sources */,
+				BB0000020000000000000001 /* CatalogTypes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		770000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000002000000000000000E /* FaceDetectionService.swift in Sources */,
+				AA000002000000000000000D /* PreviewService.swift in Sources */,
+				AA000002000000000000000C /* FolderSource.swift in Sources */,
+				AA000002000000000000000B /* StatusView.swift in Sources */,
+				AA000002000000000000000A /* LibraryView.swift in Sources */,
+				AA0000020000000000000001 /* AFITCApp.swift in Sources */,
+				AA0000020000000000000002 /* RootView.swift in Sources */,
+				AA0000020000000000000003 /* AppServices.swift in Sources */,
+				AA0000020000000000000005 /* DiagnosticLog.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		770000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CC000002000000000000000B /* CatalogPersistenceTests.swift in Sources */,
+				CC000002000000000000000A /* SourceRecoveryTests.swift in Sources */,
+				CC0000020000000000000001 /* BootstrapTests.swift in Sources */,
+				CC0000020000000000000002 /* RunnerContractTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		770000000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DD000002000000000000000A /* ScanProgressTests.swift in Sources */,
+				DD0000020000000000000001 /* LaunchTests.swift in Sources */,
+				DD0000020000000000000002 /* NavigationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FF0000020000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000001 /* AFITCCore */;
+			targetProxy = FF0000010000000000000001 /* PBXContainerItemProxy */;
+		};
+		FF0000020000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000001 /* AFITCCore */;
+			targetProxy = FF0000010000000000000002 /* PBXContainerItemProxy */;
+		};
+		FF0000020000000000000003 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000002 /* AFITC */;
+			targetProxy = FF0000010000000000000003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "2";
+			};
+			name = Debug;
+		};
+		000000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_REQUIRED = NO;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		200000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCCore;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		200000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCCore;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		200000000000000000000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		200000000000000000000022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITC;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		200000000000000000000031 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		200000000000000000000032 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		200000000000000000000041 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = AFITC;
+			};
+			name = Debug;
+		};
+		200000000000000000000042 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.UITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_TARGET_NAME = AFITC;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		000000000000000000000010 /* Build configuration list for PBXProject "AFITC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000021 /* Debug */,
+				000000000000000000000022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		200000000000000000000001 /* Build configuration list for PBXNativeTarget "AFITCCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				200000000000000000000011 /* Debug */,
+				200000000000000000000012 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		200000000000000000000002 /* Build configuration list for PBXNativeTarget "AFITC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				200000000000000000000021 /* Debug */,
+				200000000000000000000022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		200000000000000000000003 /* Build configuration list for PBXNativeTarget "AFITCCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				200000000000000000000031 /* Debug */,
+				200000000000000000000032 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		200000000000000000000004 /* Build configuration list for PBXNativeTarget "UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				200000000000000000000041 /* Debug */,
+				200000000000000000000042 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 000000000000000000000001 /* Project object */;
+}

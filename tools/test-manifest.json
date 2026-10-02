@@ -1,0 +1,240 @@
+{
+  "version": 2,
+  "tasks": {
+    "task1.1": {
+      "description": "Bootstrap buildable app and verification harness",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/BootstrapTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.BootstrapTests/testSQLite3LibraryAvailableAndCoreTypesWork"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "testFiles": [
+            "UITests/LaunchTests.swift"
+          ],
+          "phaseGateOnly": true,
+          "selectors": [
+            "UITests.LaunchTests/testAppLaunchesSuccessfully"
+          ]
+        }
+      }
+    },
+    "task_empty": {
+      "description": "Empty test selection fixture for runner validation",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": []
+        }
+      }
+    },
+    "task1.4": {
+      "description": "Navigation shell and verification contracts",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/RunnerContractTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.RunnerContractTests/testMissingAndEmptyMappingsFail",
+            "AFITCCoreTests.RunnerContractTests/testManifestDriftAndZeroSelectorsFail",
+            "AFITCCoreTests.RunnerContractTests/testOwnedSimulatorCleanupOnSuccessAndFailure",
+            "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked",
+            "AFITCCoreTests.RunnerContractTests/testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/NavigationTests.swift"
+          ],
+          "selectors": [
+            "UITests.NavigationTests/testRegularNavigationAndFolderSelection",
+            "UITests.NavigationTests/testCompactNavigation"
+          ]
+        }
+      }
+    },
+    "task1.2": {
+      "description": "Initial recursive read-only JPEG catalog and transactional previews",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SourceRecoveryTests.swift",
+            "Tests/AFITCCoreTests/CatalogPersistenceTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SourceRecoveryTests/testIncrementalPreviewBeforeEnumerationAndTruthfulCounts",
+            "AFITCCoreTests.SourceRecoveryTests/testNestedReadOnlySourceDeniedUnavailableAndSymlinkEscape",
+            "AFITCCoreTests.SourceRecoveryTests/testMalformedOversizedOrientationAndDecodeBound",
+            "AFITCCoreTests.SourceRecoveryTests/testCancellationAndSecondScanPreserveCheckpoint",
+            "AFITCCoreTests.SourceRecoveryTests/testMalformedIsSkippedAndDevicePressurePauses",
+            "AFITCCoreTests.SourceRecoveryTests/testNativeVisionZeroFaceIndexIsSuccessfulWithoutIdentityClaim",
+            "AFITCCoreTests.SourceRecoveryTests/testOversizedJPEGHeaderIsSkippedByInitialScan",
+            "AFITCCoreTests.SourceRecoveryTests/testDeniedAndUnavailableScansDoNotPersistEmptyCatalog",
+            "AFITCCoreTests.SourceRecoveryTests/testFailedAnalysisAndDisconnectRemainExplicitAndRetainAcceptedRecords",
+            "AFITCCoreTests.SourceRecoveryTests/testTrustedRevisionSkipsReadDecodeAndInferenceAcrossRestart",
+            "AFITCCoreTests.SourceRecoveryTests/testWeakMetadataHashesAfterCachedPreviewAndChangedBytesInvalidateFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testDisconnectNeverMarksMissingButCompleteEnumerationDoes",
+            "AFITCCoreTests.SourceRecoveryTests/testRegrantDifferentOrUnverifiableRootRequiresExplicitConfirmation",
+            "AFITCCoreTests.SourceRecoveryTests/testStorageAndLockPauseChangedGenerationAndResumeWithoutOldFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testCancellationRequestIsVisibleBeforeBoundedDetectorFinishesAndResumes",
+            "AFITCCoreTests.SourceRecoveryTests/testStaleCoordinatorCannotPublishResultAfterNewLease",
+            "AFITCCoreTests.SourceRecoveryTests/testFolderChangedAfterDiscoveryCannotValidateOldMetadataOrMarkMissing",
+            "AFITCCoreTests.SourceRecoveryTests/testGenericReadFailureInvalidatesSuccessfulContentWithoutInheritingFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testNonnormalizedRootTerminatesAndRejectsEscape",
+            "AFITCCoreTests.SourceRecoveryTests/testThrowingDetectorRetainsValidPreviewAndRestartRetriesUnresolvedAnalysis",
+            "AFITCCoreTests.CatalogPersistenceTests/testUUIDVersionAndAtomicCheckpointSurviveReopen",
+            "AFITCCoreTests.CatalogPersistenceTests/testSnapshotMigrationFailureRestoresSchemaVersionAndData",
+            "AFITCCoreTests.CatalogPersistenceTests/testProtectionSidecarsCacheBudgetAndPressure",
+            "AFITCCoreTests.CatalogPersistenceTests/testTwoRepositoryHandlesRejectStaleLeaseAndPreserveCheckpoint",
+            "AFITCCoreTests.CatalogPersistenceTests/testPreviewOverwriteDoesNotEvictUnrelatedCachedRecord",
+            "AFITCCoreTests.CatalogPersistenceTests/testChangedContentGenerationCannotBeOverwrittenByOlderRecord",
+            "AFITCCoreTests.CatalogPersistenceTests/testVersionOneCatalogMigratesWithoutLosingLegacyPhotoPayload",
+            "AFITCCoreTests.CatalogPersistenceTests/testSQLiteDiskFullIsStoragePressureAndPreservesAcceptedData",
+            "AFITCCoreTests.CatalogPersistenceTests/testProtectedBookmarkPersistsAcrossReopenAndResolvesWithoutScanning",
+            "AFITCCoreTests.CatalogPersistenceTests/testBookmarkMissingCorruptOversizedAndSymlinkFailuresPreserveCatalog",
+            "AFITCCoreTests.CatalogPersistenceTests/testEmptyAndNullSQLPayloadsFailSafelyWithoutDestroyingAcceptedRows",
+            "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryBuildsOnceForHundredWritesAndReconstructsAfterRestart",
+            "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryReplacementEvictionAndOSRemovalStayWithinBudget"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/ScanProgressTests.swift"
+          ],
+          "selectors": [
+            "UITests.ScanProgressTests/testFolderPickerCanBeCancelledWithoutSourceMutation",
+            "UITests.ScanProgressTests/testInitialScanPreviewsBeforeCompletionAndCancellation",
+            "UITests.ScanProgressTests/testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts"
+          ]
+        }
+      }
+    },
+    "task1.5": {
+      "description": "Resumable metadata-first source reconciliation, durable generations and permission renewal",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SourceRecoveryTests.swift",
+            "Tests/AFITCCoreTests/CatalogPersistenceTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SourceRecoveryTests/testIncrementalPreviewBeforeEnumerationAndTruthfulCounts",
+            "AFITCCoreTests.SourceRecoveryTests/testNestedReadOnlySourceDeniedUnavailableAndSymlinkEscape",
+            "AFITCCoreTests.SourceRecoveryTests/testMalformedOversizedOrientationAndDecodeBound",
+            "AFITCCoreTests.SourceRecoveryTests/testCancellationAndSecondScanPreserveCheckpoint",
+            "AFITCCoreTests.SourceRecoveryTests/testMalformedIsSkippedAndDevicePressurePauses",
+            "AFITCCoreTests.SourceRecoveryTests/testNativeVisionZeroFaceIndexIsSuccessfulWithoutIdentityClaim",
+            "AFITCCoreTests.SourceRecoveryTests/testOversizedJPEGHeaderIsSkippedByInitialScan",
+            "AFITCCoreTests.SourceRecoveryTests/testDeniedAndUnavailableScansDoNotPersistEmptyCatalog",
+            "AFITCCoreTests.SourceRecoveryTests/testFailedAnalysisAndDisconnectRemainExplicitAndRetainAcceptedRecords",
+            "AFITCCoreTests.SourceRecoveryTests/testTrustedRevisionSkipsReadDecodeAndInferenceAcrossRestart",
+            "AFITCCoreTests.SourceRecoveryTests/testWeakMetadataHashesAfterCachedPreviewAndChangedBytesInvalidateFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testDisconnectNeverMarksMissingButCompleteEnumerationDoes",
+            "AFITCCoreTests.SourceRecoveryTests/testRegrantDifferentOrUnverifiableRootRequiresExplicitConfirmation",
+            "AFITCCoreTests.SourceRecoveryTests/testStorageAndLockPauseChangedGenerationAndResumeWithoutOldFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testCancellationRequestIsVisibleBeforeBoundedDetectorFinishesAndResumes",
+            "AFITCCoreTests.SourceRecoveryTests/testStaleCoordinatorCannotPublishResultAfterNewLease",
+            "AFITCCoreTests.SourceRecoveryTests/testFolderChangedAfterDiscoveryCannotValidateOldMetadataOrMarkMissing",
+            "AFITCCoreTests.SourceRecoveryTests/testGenericReadFailureInvalidatesSuccessfulContentWithoutInheritingFaces",
+            "AFITCCoreTests.SourceRecoveryTests/testNonnormalizedRootTerminatesAndRejectsEscape",
+            "AFITCCoreTests.SourceRecoveryTests/testThrowingDetectorRetainsValidPreviewAndRestartRetriesUnresolvedAnalysis",
+            "AFITCCoreTests.CatalogPersistenceTests/testUUIDVersionAndAtomicCheckpointSurviveReopen",
+            "AFITCCoreTests.CatalogPersistenceTests/testSnapshotMigrationFailureRestoresSchemaVersionAndData",
+            "AFITCCoreTests.CatalogPersistenceTests/testProtectionSidecarsCacheBudgetAndPressure",
+            "AFITCCoreTests.CatalogPersistenceTests/testTwoRepositoryHandlesRejectStaleLeaseAndPreserveCheckpoint",
+            "AFITCCoreTests.CatalogPersistenceTests/testPreviewOverwriteDoesNotEvictUnrelatedCachedRecord",
+            "AFITCCoreTests.CatalogPersistenceTests/testChangedContentGenerationCannotBeOverwrittenByOlderRecord",
+            "AFITCCoreTests.CatalogPersistenceTests/testVersionOneCatalogMigratesWithoutLosingLegacyPhotoPayload",
+            "AFITCCoreTests.CatalogPersistenceTests/testSQLiteDiskFullIsStoragePressureAndPreservesAcceptedData",
+            "AFITCCoreTests.CatalogPersistenceTests/testProtectedBookmarkPersistsAcrossReopenAndResolvesWithoutScanning",
+            "AFITCCoreTests.CatalogPersistenceTests/testBookmarkMissingCorruptOversizedAndSymlinkFailuresPreserveCatalog",
+            "AFITCCoreTests.CatalogPersistenceTests/testEmptyAndNullSQLPayloadsFailSafelyWithoutDestroyingAcceptedRows",
+            "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryBuildsOnceForHundredWritesAndReconstructsAfterRestart",
+            "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryReplacementEvictionAndOSRemovalStayWithinBudget"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "testFiles": [
+            "UITests/ScanProgressTests.swift"
+          ],
+          "selectors": [
+            "UITests.ScanProgressTests/testFolderPickerCanBeCancelledWithoutSourceMutation",
+            "UITests.ScanProgressTests/testInitialScanPreviewsBeforeCompletionAndCancellation",
+            "UITests.ScanProgressTests/testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts"
+          ],
+          "phaseGateOnly": true
+        }
+      }
+    }
+  },
+  "targets": {
+    "AFITC": {
+      "type": "app",
+      "platform": "iOS",
+      "sources": [
+        "App/AFITCApp.swift",
+        "App/RootView.swift",
+        "App/AppServices.swift",
+        "App/Services/DiagnosticLog.swift",
+        "App/LibraryView.swift",
+        "App/StatusView.swift",
+        "App/Services/FolderSource.swift",
+        "App/Services/PreviewService.swift",
+        "App/Services/FaceDetectionService.swift"
+      ]
+    },
+    "AFITCCore": {
+      "type": "library",
+      "sources": [
+        "Sources/AFITCCore/CatalogTypes.swift",
+        "Sources/AFITCCore/SourceProtocol.swift",
+        "Sources/AFITCCore/CatalogRepository.swift",
+        "Sources/AFITCCore/ScanCoordinator.swift",
+        "Sources/AFITCCore/PhotoIdentity.swift",
+        "Sources/AFITCCore/FaceAnalysisState.swift",
+        "Sources/AFITCCore/DetectionProvider.swift",
+        "Sources/AFITCCore/CatalogSchema.swift"
+      ]
+    },
+    "AFITCCoreTests": {
+      "type": "unit",
+      "sources": [
+        "Tests/AFITCCoreTests/BootstrapTests.swift",
+        "Tests/AFITCCoreTests/RunnerContractTests.swift",
+        "Tests/AFITCCoreTests/SourceRecoveryTests.swift",
+        "Tests/AFITCCoreTests/CatalogPersistenceTests.swift"
+      ]
+    },
+    "UITests": {
+      "type": "ui",
+      "sources": [
+        "UITests/LaunchTests.swift",
+        "UITests/NavigationTests.swift",
+        "UITests/ScanProgressTests.swift"
+      ]
+    }
+  },
+  "phases": {
+    "phase1": [
+      "task1.1",
+      "task1.4",
+      "task1.2",
+      "task1.5"
+    ]
+  }
+}

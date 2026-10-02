@@ -54,3 +54,23 @@ overnight-report.html
 .verifier_prompt.md
 spikes/
 opencode.jsonc
+
+# Model weights, conversion products and local biometric stores
+.build/
+.swiftpm/
+models/
+*.onnx
+*.mlmodel
+*.mlmodelc/
+*.mlpackage/
+*.safetensors
+*.pt
+*.pth
+*.tflite
+*.gguf
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.vectors
+*.embeddings
