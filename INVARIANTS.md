@@ -1,8 +1,8 @@
 # AFITC invariants
 
-Planning charter for the native MVP; rules are required, not claims of existing implementation. iPadOS17 minimum; one chosen drive root; local processing; human-confirmed Together/Any/Only search. Current user scope overrides archived packet examples.
+Native MVP charter and evidence boundary. iPadOS17 minimum; one chosen drive root; local processing; human-confirmed Together/Any/Only search. Current user scope overrides archived packet examples.
 
-Gate mappings identify verification entry points, not passing evidence. INV-4, INV-6 and INV-9 map to planned qualification tests that are not implemented or run yet.
+Gate mappings identify verification entry points, not passing evidence. INV-4 manual identity, correction and merge/undo behavior are implemented. Current phase status is recorded in `.logs/delivery.json`, with run receipts under `.logs/verification/` and canonical past work in `HISTORY.md`. INV-6 search and INV-9 model qualification remain planned and unimplemented. No selector or compile result establishes physical-device or recognition-model qualification.
 
 Area mappings include current and planned paths; mappings do not claim implementation.
 
@@ -59,6 +59,12 @@ area: ["Sources/AFITCCore/ModelManifest.swift", "Sources/AFITCCore/EmbeddingProv
 gate_test: Tests/AFITCCoreTests/ModelContractTests.swift
 threshold: 3
 rationale: Model rights/checksum/alignment/runtime/parity/usefulness are documented before recognition rollout. Simulator/core tests, physical iPad6 compatibility, installed M4 performance and owner usability are separate gates. No model substitution, install, upload or publication without its required authority.
+
+## Manual identity implementation boundary
+
+Task 3.1 implements generation-bound manual naming and correction, stable distinct person IDs even when display names match, explicit unsure/rejected/not-a-person states, and targeted undo. Task 3.3 requires exact per-face choices for confirmed/rejected merge conflicts; cancel writes nothing, and third-person assignments and duplicate-copy confirmations do not propagate. Merge and reopened undo restore links, negatives, deferrals, anchors, covers, names, source archive and counts atomically while advancing exemplar epochs. Legacy schema 3 undo payloads remain readable, and successive undo is covered. Same-generation unavailable affected faces must reconnect before merge; changed-generation history remains inactive.
+
+DEBUG workflow fixtures require explicit synthetic inputs and do not provide recognition. People releases cached face-preview rasters and invalidates in-flight preview work on disappearance or memory warning. Native UI, physical-device and model qualification remain separate acceptance gates. Current phase status is recorded in `.logs/delivery.json`; run evidence is retained under `.logs/verification/` and canonical past work in `HISTORY.md`.
 
 ## Source catalog implementation boundary
 

@@ -1,0 +1,320 @@
+import XCTest
+
+/// Fictional runtime rectangles prove manual workflow only; no real face/model qualification.
+final class PeopleFlowTests: XCTestCase {
+    private func catalog(compact: Bool = false, previewMemoryWarning: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces", "--uitest-catalog-token", UUID().uuidString]
+        app.launchArguments += extraArguments
+        if previewMemoryWarning { app.launchArguments += ["--uitest-face-preview-memory-warning"] }
+        if compact { app.launchArguments += ["--uitest-compact", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
+        app.launch()
+        XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10))
+        app.buttons["choose-folder"].tap()
+        XCTAssertTrue(app.buttons["start-scan"].waitForExistence(timeout: 5))
+        app.buttons["start-scan"].tap(); app.alerts.buttons["Start scan"].tap()
+        let phase = app.staticTexts["scan-phase"]
+        reveal(phase, app: app, passive: true)
+        XCTAssertTrue(phase.exists); XCTAssertTrue(inViewport(phase, app: app))
+        expectation(for: NSPredicate(format: "label == 'Completed'"), evaluatedWith: phase)
+        waitForExpectations(timeout: 15)
+        XCTAssertEqual(phase.label, "Completed")
+        navigate("People", app: app)
+        return app
+    }
+    private func inViewport(_ element: XCUIElement, app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame, viewport = app.windows.firstMatch.frame
+        guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
+              [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy({ $0.isFinite }) else { return false }
+        return !frame.intersection(viewport).isEmpty
+    }
+    private func reveal(_ control: XCUIElement, app: XCUIApplication, passive: Bool = false) {
+        func visible() -> Bool {
+            passive ? inViewport(control, app: app) : (control.exists && control.isHittable)
+        }
+        for _ in 0..<8 {
+            if visible() { return }
+            app.swipeUp()
+        }
+        for _ in 0..<12 {
+            if visible() { return }
+            app.swipeDown()
+        }
+    }
+    private func navigate(_ title: String, app: XCUIApplication) {
+        let navigation = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR label == %@", "navigate-\(title)", title)).firstMatch
+        XCTAssertTrue(navigation.waitForExistence(timeout: 5)); XCTAssertTrue(navigation.isHittable)
+        navigation.tap()
+        XCTAssertTrue(app.scrollViews["screen-\(title)"].waitForExistence(timeout: 5))
+    }
+    private func tap(_ identifier: String, app: XCUIApplication) {
+        let control = app.buttons[identifier].firstMatch
+        reveal(control, app: app)
+        XCTAssertTrue(control.waitForExistence(timeout: 5)); XCTAssertTrue(control.isHittable); control.tap()
+    }
+    private func person(_ name: String, app: XCUIApplication) -> XCUIElement {
+        let record = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS %@", name)).firstMatch
+        reveal(record, app: app)
+        XCTAssertTrue(record.waitForExistence(timeout: 5)); return record
+    }
+    /// Walk the complete fixture-sized People section; lazy rows are not a global count.
+    private func peopleRecords(app: XCUIApplication) -> [String: String] {
+        let scroll = app.scrollViews["screen-People"]
+        let heading = scroll.staticTexts["People"]
+        let boundary = scroll.staticTexts["Unidentified faces"]
+        reveal(heading, app: app, passive: true)
+        XCTAssertTrue(inViewport(heading, app: app), "People traversal must start at its heading")
+        guard inViewport(heading, app: app) else { return [:] }
+        var records: [String: String] = [:]
+        func collect() {
+            for card in scroll.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).allElementsBoundByIndex {
+                XCTAssertNotNil(UUID(uuidString: String(card.identifier.dropFirst("person-".count))))
+                records[card.identifier] = card.label
+            }
+        }
+        collect()
+        for _ in 0..<8 {
+            if inViewport(boundary, app: app) { break }
+            scroll.swipeUp(); collect()
+        }
+        XCTAssertTrue(inViewport(boundary, app: app), "People traversal must reach its following section")
+        return records
+    }
+    private func personID(_ identifier: String, app: XCUIApplication) -> XCUIElement {
+        let card = app.buttons[identifier]
+        reveal(card, app: app)
+        XCTAssertTrue(card.waitForExistence(timeout: 5)); XCTAssertTrue(card.isHittable)
+        return card
+    }
+    private func assertPeople(_ records: [String: String], ids: Set<String>, name: String? = nil, photoCount: Int? = nil) {
+        XCTAssertEqual(Set(records.keys), ids)
+        for id in ids {
+            guard let label = records[id] else { XCTFail("Missing person record \(id)"); continue }
+            if let name { XCTAssertTrue(label.contains(name)) }
+            if let photoCount { XCTAssertTrue(label.contains("\(photoCount) confirmed photos")) }
+        }
+    }
+    private func mergeResultCount(app: XCUIApplication) -> Int {
+        let result = app.staticTexts["merge-result-count"]
+        XCTAssertTrue(result.waitForExistence(timeout: 5))
+        let count = result.label.split(separator: " ").compactMap { Int($0) }.first
+        XCTAssertNotNil(count)
+        XCTAssertTrue((1...2).contains(count ?? -1), "Two one-photo records must merge into one or two distinct photos")
+        return count ?? -1
+    }
+    private func count(_ identifier: String, _ value: Int, app: XCUIApplication) {
+        XCTAssertEqual(identifier, "unidentified-face")
+        let count = app.staticTexts["unidentified-count"]
+        reveal(count, app: app, passive: true)
+        XCTAssertTrue(count.waitForExistence(timeout: 5))
+        expectation(for: NSPredicate(format: "label == %@", "\(value) unidentified faces"), evaluatedWith: count)
+        waitForExpectations(timeout: 5)
+    }
+    private func name(_ value: String, app: XCUIApplication) {
+        let field = app.textFields["new-person-name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText(value)
+        tap("save-selected-face", app: app)
+    }
+    func testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo() {
+        let app = catalog()
+        count("unidentified-face", 6, app: app)
+        tap("unidentified-face", app: app); tap("whole-photo-context", app: app)
+        XCTAssertTrue(app.images["Whole photo context"].waitForExistence(timeout: 5))
+        tap("cancel-face-form", app: app); count("unidentified-face", 6, app: app)
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        count("unidentified-face", 5, app: app)
+        let firstID = person("Fixture A", app: app).identifier
+        tap("unidentified-face", app: app)
+        let field = app.textFields["new-person-name"]; field.tap(); field.typeText("Fixture A")
+        XCTAssertTrue(app.staticTexts["duplicate-name-warning"].exists)
+        tap("save-selected-face", app: app); count("unidentified-face", 4, app: app)
+        let records = peopleRecords(app: app)
+        XCTAssertEqual(records.count, 2); XCTAssertTrue(records.keys.contains(firstID))
+        let secondIDs = Set(records.keys).subtracting([firstID])
+        XCTAssertEqual(secondIDs.count, 1)
+        assertPeople(records, ids: Set([firstID]).union(secondIDs), name: "Fixture A", photoCount: 1)
+        personID(firstID, app: app).tap()
+        XCTAssertTrue(app.staticTexts["person-confirmed-count"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photos")
+        let rename = app.textFields["rename-person-name"]; rename.tap()
+        rename.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Fixture A".count) + "Fixture B")
+        tap("save-person-name", app: app)
+        XCTAssertTrue(app.staticTexts["Fixture B"].waitForExistence(timeout: 5))
+        tap("correct-face", app: app); tap("unassign-face", app: app)
+        expectation(for: NSPredicate(format: "label == '0 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
+        waitForExpectations(timeout: 5)
+        tap("decision-undo", app: app)
+        expectation(for: NSPredicate(format: "label == '1 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+    }
+    func testCompactLargeTextManualUnsureAndFalseDetection() {
+        let app = catalog(compact: true)
+        tap("unidentified-face", app: app); tap("defer-face", app: app)
+        XCTAssertTrue(app.buttons["unidentified-face"].firstMatch.waitForExistence(timeout: 5))
+        count("unidentified-face", 6, app: app)
+        tap("decision-undo", app: app)
+        tap("unidentified-face", app: app); tap("not-a-person", app: app)
+        count("unidentified-face", 5, app: app)
+        tap("decision-undo", app: app); count("unidentified-face", 6, app: app)
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+    }
+    func testMemoryWarningDuringFaceDecodeRejectsStalePublication() {
+        let app = catalog(previewMemoryWarning: true)
+        tap("unidentified-face", app: app)
+        let released = app.descendants(matching: .any)["face-preview-released"].firstMatch
+        XCTAssertTrue(released.waitForExistence(timeout: 5))
+        XCTAssertEqual(released.label, "Preview released to free memory")
+        XCTAssertTrue(inViewport(released, app: app))
+        XCTAssertFalse(app.images["Selected face crop"].exists)
+        tap("whole-photo-context", app: app)
+        XCTAssertTrue(released.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.images["Whole photo context"].exists)
+        XCTAssertTrue(app.buttons["cancel-face-form"].isEnabled)
+        tap("cancel-face-form", app: app)
+        count("unidentified-face", 6, app: app)
+    }
+
+    func testBurstRefreshBoundsOutstandingReadsAndPublishesLatestFaces() {
+        let app = catalog(extraArguments: ["--uitest-refresh-burst"])
+        count("unidentified-face", 6, app: app)
+        let probe = app.staticTexts["people-refresh-probe"]
+        reveal(probe, app: app, passive: true)
+        XCTAssertTrue(probe.waitForExistence(timeout: 5))
+        XCTAssertTrue(probe.label.contains("Peak 1"))
+        XCTAssertTrue(probe.label.contains("Events 36"))
+        let automatic = probe.label.components(separatedBy: "Auto ").last.flatMap(Int.init)
+        XCTAssertNotNil(automatic); XCTAssertLessThanOrEqual(automatic ?? 100, 12)
+        XCTAssertGreaterThan(automatic ?? 0, 0)
+        let reads = Int(probe.label.split(separator: " ")[1])
+        XCTAssertNotNil(reads); XCTAssertLessThanOrEqual(reads ?? 100, 5)
+        XCTAssertGreaterThan(reads ?? 0, 0)
+    }
+    func testCommittedNamingDismissesDespiteRefreshFailureAndPersistsOnce() {
+        let app = catalog(extraArguments: ["--uitest-fail-people-refresh-after-decision"])
+        tap("unidentified-face", app: app)
+        tap("save-selected-face", app: app)
+        XCTAssertTrue(app.staticTexts["decision-error"].waitForExistence(timeout: 5))
+        tap("cancel-face-form", app: app)
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.buttons["cancel-face-form"])
+        waitForExpectations(timeout: 5)
+        let warning = app.staticTexts["people-refresh-warning"]
+        reveal(warning, app: app, passive: true)
+        XCTAssertTrue(warning.waitForExistence(timeout: 5)); XCTAssertTrue(warning.label.hasPrefix("Decision saved."))
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+        app.terminate(); app.launch(); navigate("People", app: app)
+        let savedID = person("Fixture A", app: app).identifier
+        assertPeople(peopleRecords(app: app), ids: [savedID], name: "Fixture A", photoCount: 1)
+        count("unidentified-face", 5, app: app)
+        XCTAssertFalse(app.staticTexts["people-refresh-warning"].exists)
+    }
+    func testInitialPeopleFailurePreservesCachedLibraryCheckpointAndSource() {
+        let app = catalog()
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        app.terminate(); app.launchArguments += ["--uitest-fail-initial-people-read"]; app.launch()
+        let preview = app.images["Photo preview"].firstMatch
+        reveal(preview, app: app, passive: true); XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        let phase = app.staticTexts["scan-phase"]
+        reveal(phase, app: app, passive: true); XCTAssertEqual(phase.label, "Completed")
+        XCTAssertTrue(app.staticTexts["scan-counts"].label.contains("Processed 3"))
+        XCTAssertEqual(app.staticTexts["source-status"].label, "Folder selected · cached last verified previews")
+        XCTAssertFalse(app.staticTexts["setup-error"].exists)
+        navigate("People", app: app)
+        let warning = app.staticTexts["people-refresh-warning"]
+        reveal(warning, app: app, passive: true); XCTAssertTrue(warning.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["people-data-unavailable"].exists)
+        XCTAssertFalse(app.staticTexts["unidentified-count"].exists)
+        tap("refresh-people", app: app)
+        XCTAssertTrue(person("Fixture A", app: app).exists)
+        XCTAssertFalse(warning.exists)
+    }
+    func testUndoRenameSynchronizesEditableNameBeforeNextSave() {
+        let app = catalog()
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        let savedID = person("Fixture A", app: app).identifier
+        personID(savedID, app: app).tap()
+        let field = app.textFields["rename-person-name"]
+        reveal(field, app: app); field.tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Fixture A".count) + "Fixture B")
+        tap("save-person-name", app: app)
+        expectation(for: NSPredicate(format: "value == 'Fixture B'"), evaluatedWith: field); waitForExpectations(timeout: 5)
+        tap("decision-undo", app: app)
+        expectation(for: NSPredicate(format: "value == 'Fixture A'"), evaluatedWith: field); waitForExpectations(timeout: 5)
+        tap("save-person-name", app: app)
+        XCTAssertEqual(field.value as? String, "Fixture A")
+        app.terminate(); app.launch(); navigate("People", app: app)
+        let records = peopleRecords(app: app)
+        assertPeople(records, ids: [savedID], name: "Fixture A", photoCount: 1)
+        XCTAssertFalse(records.values.contains { $0.contains("Fixture B") })
+    }
+    func testCommittedMergeDismissesDespiteRefreshFailureAndPersistsOnce() {
+        let app = catalog(extraArguments: ["--uitest-fail-people-refresh-after-merge"])
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        tap("unidentified-face", app: app); name("Fixture B", app: app)
+        let source = person("Fixture A", app: app), survivor = person("Fixture B", app: app)
+        let sourceID = source.identifier, survivorID = survivor.identifier
+        XCTAssertNotEqual(sourceID, survivorID)
+        assertPeople(peopleRecords(app: app), ids: [sourceID, survivorID], photoCount: 1)
+        personID(sourceID, app: app).tap(); tap("merge-person", app: app)
+        tap("merge-target-" + String(survivorID.dropFirst("person-".count)), app: app)
+        let combinedCount = mergeResultCount(app: app)
+        tap("apply-merge", app: app)
+        expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: app.buttons["cancel-merge"])
+        waitForExpectations(timeout: 5)
+        let warning = app.staticTexts["people-refresh-warning"]
+        reveal(warning, app: app, passive: true); XCTAssertTrue(warning.waitForExistence(timeout: 5))
+        XCTAssertTrue(warning.label.hasPrefix("Merge saved.")); XCTAssertFalse(app.staticTexts["decision-error"].exists)
+        app.terminate(); app.launch(); navigate("People", app: app)
+        let records = peopleRecords(app: app)
+        assertPeople(records, ids: [survivorID], name: "Fixture B", photoCount: combinedCount)
+        XCTAssertFalse(records.keys.contains(sourceID))
+    }
+
+    func testMergeConflictCancelApplyRestartAndUndo() {
+        let app = catalog()
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        tap("unidentified-face", app: app); name("Fixture B", app: app)
+        let sourceID = person("Fixture A", app: app).identifier
+        let survivorID = person("Fixture B", app: app).identifier
+        XCTAssertNotEqual(sourceID, survivorID)
+        assertPeople(peopleRecords(app: app), ids: [sourceID, survivorID], photoCount: 1)
+        let targetID = String(survivorID.dropFirst("person-".count))
+        personID(sourceID, app: app).tap(); tap("correct-face", app: app)
+        tap("existing-person", app: app)
+        let target = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fixture B ·")).firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 5)); target.tap()
+        tap("reject-selected-person", app: app)
+        tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
+        XCTAssertTrue(app.buttons["apply-merge"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["apply-merge"].isEnabled)
+        tap("cancel-merge", app: app)
+        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photos")
+        tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
+        let confirmation = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'merge-confirm-'" )).firstMatch
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()
+        XCTAssertTrue(app.buttons["apply-merge"].isEnabled)
+        let combinedCount = mergeResultCount(app: app)
+        tap("apply-merge", app: app)
+        expectation(for: NSPredicate(format: "label == '0 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
+        waitForExpectations(timeout: 5)
+        app.terminate(); app.launch()
+        navigate("People", app: app)
+        XCTAssertTrue(app.buttons["decision-undo"].waitForExistence(timeout: 10))
+        assertPeople(peopleRecords(app: app), ids: [survivorID], name: "Fixture B", photoCount: combinedCount)
+        tap("decision-undo", app: app)
+        expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: app.buttons[sourceID])
+        // Reveal before waiting: an existing lazy record may be outside the viewport.
+        personID(sourceID, app: app)
+        waitForExpectations(timeout: 5)
+        let restored = peopleRecords(app: app)
+        assertPeople(restored, ids: [sourceID, survivorID], photoCount: 1)
+        XCTAssertTrue(restored[sourceID]?.contains("Fixture A") == true)
+        XCTAssertTrue(restored[survivorID]?.contains("Fixture B") == true)
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+    }
+
+}

@@ -13,9 +13,31 @@ public final class AppServices: ObservableObject {
     @Published public var canStart = false
     @Published public var isOpeningCatalog = true
     @Published public var isRestoringSource = false
+    @Published public var peopleSnapshot = PeopleSnapshot.empty
+    @Published public var decisionError: String?
+    @Published public var peopleRefreshWarning: String?
+    @Published public var isRefreshingPeople = false
+    @Published public var hasLoadedPeopleSnapshot = false
+    @Published public var isSavingDecision = false
+    private var decisionService: DecisionService?
+    private var undoService: UndoService?
+    private var peopleRefreshTask: Task<Void, Never>?
+    private var peopleRefreshPending = false
+    private var scanPhotoCallbacks = 0
+    private var nextAutomaticPeopleRefresh = 1
+    private var decisionErrorGeneration = 0
     private var sourceSelectionGeneration = 0
     #if DEBUG
     private var syntheticAttempts = 0
+    @Published var syntheticRefreshProbe = "Reads 0 · Peak 0"
+    private var syntheticReadCount = 0
+    private var syntheticActiveReads = 0
+    private var syntheticPeakReads = 0
+    private var syntheticReplayEvents = 0
+    private var syntheticAutomaticRequests = 0
+    private var syntheticFailNextRead = false
+    private var syntheticDecisionFaultUsed = false
+    private var syntheticMergeFaultUsed = false
     #endif
     private var repository: CatalogRepository?
     private var coordinator: ScanCoordinator?
@@ -29,7 +51,12 @@ public final class AppServices: ObservableObject {
         #if DEBUG
         let isolated = ProcessInfo.processInfo.arguments.contains("--uitest-fresh-catalog") ||
             ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source")
-        let container = isolated ? "AFITCTest-" + UUID().uuidString : "AFITC"
+        let arguments = ProcessInfo.processInfo.arguments
+        let tokenIndex = arguments.contains("--uitest-synthetic-source") ? arguments.firstIndex(of: "--uitest-catalog-token") : nil
+        let testToken = tokenIndex.flatMap { index in
+            index + 1 < arguments.count ? UUID(uuidString: arguments[index + 1]) : nil
+        }
+        let container = isolated ? "AFITCTest-" + (testToken ?? UUID()).uuidString : "AFITC"
         #else
         let container = "AFITC"
         #endif
@@ -45,6 +72,7 @@ public final class AppServices: ObservableObject {
             do {
                 let repo = try await Task.detached { try CatalogRepository(directory: support, cacheDirectory: cache) }.value
                 repository = repo; coordinator = ScanCoordinator(repository: repo); previewDirectory = cache
+                decisionService = DecisionService(catalog: repo); undoService = UndoService(catalog: repo)
                 photos = try await repo.photos()
                 if var saved = try await repo.checkpoint() {
                     if [.discovering, .processing, .cancelling].contains(saved.phase) {
@@ -53,6 +81,8 @@ public final class AppServices: ObservableObject {
                     progress = saved; canStart = true
                 } else { canStart = true }
                 isOpeningCatalog = false
+                // A people-only read failure must not abort cached Library/checkpoint/source recovery.
+                await refreshPeople()
                 // Cached catalog/checkpoint is published before bookmark resolution or source IO.
                 await restoreSourcePermission(from: repo)
                 await diagnostics.record(.shellOpened, severity: .debug)
@@ -95,6 +125,10 @@ public final class AppServices: ObservableObject {
     public func startScan(confirmedSource: Bool = false) {
         guard canStart, let selectedFolder, let coordinator, repository != nil else { return }
         canStart = false; setupError = nil
+        scanPhotoCallbacks = 0; nextAutomaticPeopleRefresh = 1
+        #if DEBUG
+        syntheticAutomaticRequests = 0
+        #endif
         progress.phase = .discovering
         scanTask = Task {
             let source: FolderSource
@@ -127,6 +161,7 @@ public final class AppServices: ObservableObject {
             }
             progress = result
             canStart = true
+            await refreshPeople()
         }
     }
     private func receive(_ value: ScanProgress, _ photo: PhotoIdentity?) {
@@ -134,6 +169,19 @@ public final class AppServices: ObservableObject {
         if let photo {
             if let index = photos.firstIndex(where: { $0.id == photo.id }) { photos[index] = photo }
             else { photos.append(photo) }
+            // Library still receives every photo. Automatic full People reads grow logarithmically
+            // with scan callbacks; navigation, decisions and the final scan explicitly bypass this.
+            if [.discovering, .processing].contains(value.phase), progress.phase != .cancelling {
+                if scanPhotoCallbacks < Int.max { scanPhotoCallbacks += 1 }
+                if scanPhotoCallbacks >= nextAutomaticPeopleRefresh {
+                    nextAutomaticPeopleRefresh = nextAutomaticPeopleRefresh <= Int.max / 2
+                        ? nextAutomaticPeopleRefresh * 2 : Int.max
+                    #if DEBUG
+                    if usesSyntheticFixture { syntheticAutomaticRequests += 1 }
+                    #endif
+                    requestPeopleRefresh()
+                }
+            }
         }
     }
     public func cancelScan() {
@@ -147,6 +195,132 @@ public final class AppServices: ObservableObject {
         guard let previewDirectory else { return nil }
         let url = previewDirectory.appendingPathComponent(name)
         return url
+    }
+    /// One owned pump bounds outstanding reads; photo callbacks only set a dirty flag.
+    private func requestPeopleRefresh() {
+        guard repository != nil else { return }
+        peopleRefreshPending = true
+        isRefreshingPeople = true
+        guard peopleRefreshTask == nil else { return }
+        peopleRefreshTask = Task {
+            // Coalesce a discovery burst rather than rereading the growing catalog per photo.
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            peopleRefreshPending = false
+            await readPeopleSnapshot()
+            peopleRefreshTask = nil
+            if peopleRefreshPending { requestPeopleRefresh() }
+            else { isRefreshingPeople = false }
+        }
+    }
+    public func refreshPeople() async {
+        guard repository != nil else { return }
+        requestPeopleRefresh()
+        // A request during a held read requires its dirty successor. Await at most these two
+        // shared tasks, never an entire continuously active scan or a per-callback waiter queue.
+        await peopleRefreshTask?.value
+        await peopleRefreshTask?.value
+    }
+    private func readPeopleSnapshot() async {
+        guard let repository else { return }
+        #if DEBUG
+        if usesSyntheticFixture {
+            syntheticReadCount += 1; syntheticActiveReads += 1
+            syntheticPeakReads = max(syntheticPeakReads, syntheticActiveReads)
+            syntheticRefreshProbe = "Reads \(syntheticReadCount) · Peak \(syntheticPeakReads) · Events \(syntheticReplayEvents) · Auto \(syntheticAutomaticRequests)"
+        }
+        defer { if usesSyntheticFixture { syntheticActiveReads -= 1 } }
+        #endif
+        do {
+            #if DEBUG
+            if usesSyntheticFixture {
+                if syntheticFailNextRead || (syntheticReadCount == 1 && ProcessInfo.processInfo.arguments.contains("--uitest-fail-initial-people-read")) {
+                    syntheticFailNextRead = false
+                    throw SyntheticPeopleReadFailure()
+                }
+            }
+            #endif
+            let snapshot = try await repository.peopleSnapshot()
+            #if DEBUG
+            if usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-refresh-burst") {
+                // Finite replay uses a real generated source photo and the production callback path.
+                // It happens while this real snapshot is held, so the next read must absorb the dirty flag.
+                if syntheticReplayEvents == 0, let photo = photos.last {
+                    syntheticReplayEvents = 36
+                    let actualProgress = progress
+                    var processing = actualProgress; processing.phase = .processing
+                    for _ in 0..<syntheticReplayEvents { receive(processing, photo) }
+                    progress = actualProgress
+                    syntheticRefreshProbe = "Reads \(syntheticReadCount) · Peak \(syntheticPeakReads) · Events \(syntheticReplayEvents) · Auto \(syntheticAutomaticRequests)"
+                }
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            #endif
+            if snapshot.revision >= peopleSnapshot.revision { peopleSnapshot = snapshot }
+            hasLoadedPeopleSnapshot = true
+            peopleRefreshWarning = nil
+        } catch {
+            peopleRefreshWarning = "People view could not be refreshed. Cached photos and saved decisions remain available."
+        }
+    }
+    public func clearDecisionError() {
+        decisionErrorGeneration += 1; decisionError = nil
+    }
+    #if DEBUG
+    private struct SyntheticPeopleReadFailure: Error {}
+    private func armCommittedRefreshFault(merge: Bool) {
+        guard usesSyntheticFixture else { return }
+        let flag = merge ? "--uitest-fail-people-refresh-after-merge" : "--uitest-fail-people-refresh-after-decision"
+        guard ProcessInfo.processInfo.arguments.contains(flag) else { return }
+        if merge {
+            guard !syntheticMergeFaultUsed else { return }; syntheticMergeFaultUsed = true
+        } else {
+            guard !syntheticDecisionFaultUsed else { return }; syntheticDecisionFaultUsed = true
+        }
+        syntheticFailNextRead = true
+    }
+    #endif
+    @discardableResult public func decide(_ decision: ManualDecision) async -> Bool {
+        guard !isSavingDecision, let decisionService else { return false }
+        isSavingDecision = true; decisionError = nil
+        defer { isSavingDecision = false }
+        do { _ = try await decisionService.apply(decision) }
+        catch { decisionError = (error as? DecisionError)?.message ?? "The decision was not saved. Try again."; return false }
+        #if DEBUG
+        armCommittedRefreshFault(merge: false)
+        #endif
+        await refreshPeople()
+        if peopleRefreshWarning != nil { peopleRefreshWarning = "Decision saved. People view could not be refreshed; refresh before another decision." }
+        return true
+    }
+    public func previewMerge(source: UUID, survivor: UUID) async -> MergePreview? {
+        guard let decisionService else { return nil }
+        clearDecisionError()
+        let errorGeneration = decisionErrorGeneration
+        do { return try await decisionService.previewMerge(source: source, survivor: survivor) }
+        catch {
+            if decisionErrorGeneration == errorGeneration { decisionError = (error as? DecisionError)?.message ?? "Merge preview unavailable. Refresh and try again." }
+            return nil
+        }
+    }
+    @discardableResult public func merge(_ preview: MergePreview, resolutions: [MergeResolution]) async -> Bool {
+        guard !isSavingDecision, let decisionService else { return false }
+        isSavingDecision = true; decisionError = nil
+        defer { isSavingDecision = false }
+        do { _ = try await decisionService.merge(preview, resolutions: resolutions) }
+        catch { decisionError = (error as? DecisionError)?.message ?? "Merge was not saved. Refresh and try again."; return false }
+        #if DEBUG
+        armCommittedRefreshFault(merge: true)
+        #endif
+        await refreshPeople()
+        if peopleRefreshWarning != nil { peopleRefreshWarning = "Merge saved. People view could not be refreshed; refresh before another decision." }
+        return true
+    }
+    public func undoDecision() async {
+        guard !isSavingDecision, let undoService, let id = peopleSnapshot.undoID else { return }
+        isSavingDecision = true; decisionError = nil
+        defer { isSavingDecision = false }
+        do { try await undoService.undo(id); await refreshPeople() }
+        catch { decisionError = (error as? DecisionError)?.message ?? "Undo was not saved. Try again." }
     }
     var usesSyntheticFixture: Bool {
         #if DEBUG
@@ -185,7 +359,10 @@ public final class AppServices: ObservableObject {
             try Task.checkCancellation()
             let image = try JPEGPreviewDecoder.decode(data)
             return ProcessedPreview(jpeg: try JPEGPreviewDecoder.jpeg(image), analysis: FaceAnalysisState(
-                status: .successful, detectorVersion: "synthetic-ui-preview-only-v1", contentVersion: contentVersion))
+                status: .successful, detectorVersion: "synthetic-ui-preview-only-v1", contentVersion: contentVersion,
+                faces: ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-faces")
+                    ? [FaceGeometry(rectangle: [0.05, 0.1, 0.3, 0.7], landmarks: []),
+                       FaceGeometry(rectangle: [0.6, 0.2, 0.3, 0.6], landmarks: [])] : []))
         }
     }
     private actor SlowSyntheticSource: PhotoSource {

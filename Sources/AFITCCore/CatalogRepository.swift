@@ -29,7 +29,7 @@ public actor CatalogRepository {
         guard sqlite3_open_v2(file.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
               let handle else { if let handle { sqlite3_close(handle) }; throw ScanError.database }
         do {
-            try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000;")
+            try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;")
             try CatalogSchema.migrate(handle)
             db = handle
             try Self.protectArtifacts(directory)
@@ -148,6 +148,8 @@ public actor CatalogRepository {
                     throw ScanError.staleLease
                 }
                 try write("INSERT INTO photos(id,path,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload WHERE photos.path=excluded.path", strings: [photo.id.uuidString, photo.relativePath], payload: JSONEncoder().encode(photo))
+                try PeopleSQL.syncPhoto(db, photo)
+                try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1")
             }
             try write("INSERT OR REPLACE INTO scan_checkpoint(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(progress))
             try CatalogSchema.execute(db, "COMMIT")
@@ -221,9 +223,11 @@ public actor CatalogRepository {
             for var photo in try photos() where !paths.contains(photo.relativePath) {
                 photo.missing = true
                 try write("UPDATE photos SET payload=? WHERE id='\(photo.id.uuidString)'", strings: [], payload: JSONEncoder().encode(photo))
+                try PeopleSQL.syncPhoto(db, photo)
                 changed.append(photo)
             }
             try write("INSERT OR REPLACE INTO scan_checkpoint(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(progress))
+            if !changed.isEmpty { try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1") }
             try CatalogSchema.execute(db, "COMMIT")
             return changed
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
@@ -318,6 +322,27 @@ public actor CatalogRepository {
         if native.domain == NSCocoaErrorDomain, native.code == NSFileWriteOutOfSpaceError { return .storagePressure }
         if native.domain == NSPOSIXErrorDomain, native.code == Int(ENOSPC) { return .storagePressure }
         return .database
+    }
+
+    /// All manual reads/writes use this actor-owned connection without suspension in a transaction.
+    func peopleRead<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        guard let db else { throw ScanError.database }
+        try CatalogSchema.execute(db, "BEGIN")
+        do {
+            let result = try body(db)
+            try CatalogSchema.execute(db, "COMMIT")
+            return result
+        } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
+    }
+    func peopleTransaction<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        guard let db else { throw ScanError.database }
+        try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
+        do {
+            let value = try body(db)
+            try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1")
+            try CatalogSchema.execute(db, "COMMIT")
+            return value
+        } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
 
 }

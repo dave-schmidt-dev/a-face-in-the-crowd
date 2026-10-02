@@ -180,6 +180,96 @@
           "phaseGateOnly": true
         }
       }
+    },
+    "task3.1": {
+      "description": "Durable manual selected-face people decisions and atomic corrections",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+            "Tests/AFITCCoreTests/IdentityCorrectionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
+            "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
+            "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",
+            "AFITCCoreTests.DecisionDurabilityTests/testChangedGenerationCannotInheritDecisionsOrAnchors",
+            "AFITCCoreTests.DecisionDurabilityTests/testDuplicateCopiesIndependentAndRepeatedFacesCountOnce",
+            "AFITCCoreTests.DecisionDurabilityTests/testSchemaTwoBackfillAndTransactionalMigrationFailure",
+            "AFITCCoreTests.IdentityCorrectionTests/testCropLowerLeftCoordinatesClampAndRejectInvalidGeometry",
+            "AFITCCoreTests.IdentityCorrectionTests/testRenameReassignAndUndoRestoreBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnassignUnsureRejectAndNotPersonAreDistinctUndoableStates",
+            "AFITCCoreTests.IdentityCorrectionTests/testDecisionAndUndoEveryInjectedWriteFailurePreservesBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
+            "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
+            "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/PeopleFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.PeopleFlowTests/testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo",
+            "UITests.PeopleFlowTests/testCompactLargeTextManualUnsureAndFalseDetection",
+            "UITests.PeopleFlowTests/testMemoryWarningDuringFaceDecodeRejectsStalePublication",
+            "UITests.PeopleFlowTests/testBurstRefreshBoundsOutstandingReadsAndPublishesLatestFaces",
+            "UITests.PeopleFlowTests/testCommittedNamingDismissesDespiteRefreshFailureAndPersistsOnce",
+            "UITests.PeopleFlowTests/testInitialPeopleFailurePreservesCachedLibraryCheckpointAndSource",
+            "UITests.PeopleFlowTests/testUndoRenameSynchronizesEditableNameBeforeNextSave"
+          ]
+        }
+      }
+    },
+    "task3.3": {
+      "description": "Manual duplicate-person merge with explicit conflicts and durable atomic recovery",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+            "Tests/AFITCCoreTests/IdentityCorrectionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
+            "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
+            "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",
+            "AFITCCoreTests.DecisionDurabilityTests/testChangedGenerationCannotInheritDecisionsOrAnchors",
+            "AFITCCoreTests.DecisionDurabilityTests/testDuplicateCopiesIndependentAndRepeatedFacesCountOnce",
+            "AFITCCoreTests.DecisionDurabilityTests/testSchemaTwoBackfillAndTransactionalMigrationFailure",
+            "AFITCCoreTests.IdentityCorrectionTests/testCropLowerLeftCoordinatesClampAndRejectInvalidGeometry",
+            "AFITCCoreTests.IdentityCorrectionTests/testRenameReassignAndUndoRestoreBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnassignUnsureRejectAndNotPersonAreDistinctUndoableStates",
+            "AFITCCoreTests.IdentityCorrectionTests/testDecisionAndUndoEveryInjectedWriteFailurePreservesBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
+            "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
+            "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeConflictsRequireExactExplicitChoicesAndCancelChangesNothing",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeUndoAfterReopenRestoresDomainAndAdvancesBothEpochs",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeAndUndoFailurePointsRollBackCompleteStateAfterReopen",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeStalePreviewNewTargetedMembershipAndGenerationAreRejected",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergePreservesThirdPersonAndNeverPropagatesDuplicateConfirmation",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnavailableSameGenerationMergeRefusesUntilReconnectResolvesConflict",
+            "AFITCCoreTests.IdentityCorrectionTests/testLegacySchemaThreePayloadUndoAdvancesEpochWithoutRewindingJobs"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/PeopleFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.PeopleFlowTests/testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo",
+            "UITests.PeopleFlowTests/testCompactLargeTextManualUnsureAndFalseDetection",
+            "UITests.PeopleFlowTests/testMergeConflictCancelApplyRestartAndUndo",
+            "UITests.PeopleFlowTests/testCommittedMergeDismissesDespiteRefreshFailureAndPersistsOnce"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -195,7 +285,9 @@
         "App/StatusView.swift",
         "App/Services/FolderSource.swift",
         "App/Services/PreviewService.swift",
-        "App/Services/FaceDetectionService.swift"
+        "App/Services/FaceDetectionService.swift",
+        "App/PeopleView.swift",
+        "App/PersonDetailView.swift"
       ]
     },
     "AFITCCore": {
@@ -208,7 +300,10 @@
         "Sources/AFITCCore/PhotoIdentity.swift",
         "Sources/AFITCCore/FaceAnalysisState.swift",
         "Sources/AFITCCore/DetectionProvider.swift",
-        "Sources/AFITCCore/CatalogSchema.swift"
+        "Sources/AFITCCore/CatalogSchema.swift",
+        "Sources/AFITCCore/PeopleRepository.swift",
+        "Sources/AFITCCore/DecisionService.swift",
+        "Sources/AFITCCore/UndoService.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -217,7 +312,9 @@
         "Tests/AFITCCoreTests/BootstrapTests.swift",
         "Tests/AFITCCoreTests/RunnerContractTests.swift",
         "Tests/AFITCCoreTests/SourceRecoveryTests.swift",
-        "Tests/AFITCCoreTests/CatalogPersistenceTests.swift"
+        "Tests/AFITCCoreTests/CatalogPersistenceTests.swift",
+        "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+        "Tests/AFITCCoreTests/IdentityCorrectionTests.swift"
       ]
     },
     "UITests": {
@@ -225,7 +322,8 @@
       "sources": [
         "UITests/LaunchTests.swift",
         "UITests/NavigationTests.swift",
-        "UITests/ScanProgressTests.swift"
+        "UITests/ScanProgressTests.swift",
+        "UITests/PeopleFlowTests.swift"
       ]
     }
   },
@@ -235,6 +333,14 @@
       "task1.4",
       "task1.2",
       "task1.5"
+    ],
+    "phase3": [
+      "task1.1",
+      "task1.4",
+      "task1.2",
+      "task1.5",
+      "task3.1",
+      "task3.3"
     ]
   }
 }

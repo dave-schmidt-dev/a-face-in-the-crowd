@@ -15,8 +15,14 @@ import time
 import xml.etree.ElementTree as ET
 
 UI_BUDGET_SECONDS = 20 * 60
+UI_PHASE_BUDGET_SECONDS = {'phase3': 30 * 60}
 UI_FINALIZATION_GRACE_SECONDS = 60
 UI_STOP_GRACE_SECONDS = 60
+
+
+def ui_budget_seconds(phase):
+    """Phase 3's accumulated manual workflows have a measured larger native budget."""
+    return UI_PHASE_BUDGET_SECONDS.get(phase, UI_BUDGET_SECONDS)
 
 
 def reject(message):
@@ -157,7 +163,7 @@ def run(command, name, stream=True, watchdog=False, owned_child_receipt=None):
                                    start_new_session=True)
         chunks = []
         launched = time.monotonic()
-        deadline = launched + UI_BUDGET_SECONDS if watchdog else None
+        deadline = launched + ui_budget_seconds(task_id) if watchdog else None
         terminal_failed = False
         tail = ''
         timed_out = False

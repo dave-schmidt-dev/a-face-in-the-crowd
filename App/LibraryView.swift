@@ -103,6 +103,7 @@ private struct PhotoPreview: View {
                     (url == nil ? "Preview not generated" : "Preview unavailable offline"), systemImage: "photo")
             }
         }
+        .frame(height: 200)
         .onDisappear { releaseDecodedPreview() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             releaseDecodedPreview(forMemory: true)
@@ -120,6 +121,7 @@ private struct PhotoPreview: View {
         }
     }
     private func releaseDecodedPreview(forMemory: Bool = false) {
+        guard image != nil || loading else { return }
         decodeToken = UUID()
         image = nil; loading = false; releasedForMemory = forMemory
     }

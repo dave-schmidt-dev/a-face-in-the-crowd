@@ -88,6 +88,8 @@ public struct RootView: View {
                 if section == .library {
                     LibraryView(services: services, surface: surface, secondary: secondary,
                                 primary: primary, onPrimary: onPrimary)
+                } else if section == .people {
+                    PeopleView(services: services, surface: surface, secondary: secondary)
                 } else {
                     Label(section.rawValue, systemImage: section.symbol).font(.largeTitle.bold())
                     Text(emptyMessage(section)).foregroundStyle(secondary)

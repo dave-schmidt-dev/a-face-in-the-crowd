@@ -34,6 +34,14 @@
 		CC000002000000000000000A /* SourceRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC000001000000000000000A; };
 		CC000002000000000000000B /* CatalogPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC000001000000000000000B; };
 		DD000002000000000000000A /* ScanProgressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000001000000000000000A; };
+		AA0000020000000000000020 /* PeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000020; };
+		AA0000020000000000000021 /* PersonDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000021; };
+		BB0000020000000000000020 /* PeopleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000020; };
+		BB0000020000000000000021 /* DecisionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000021; };
+		BB0000020000000000000022 /* UndoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000022; };
+		CC0000020000000000000020 /* DecisionDurabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000020; };
+		CC0000020000000000000021 /* IdentityCorrectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000021; };
+		DD0000020000000000000020 /* PeopleFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000020; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +112,14 @@
 		CC000001000000000000000A /* SourceRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SourceRecoveryTests.swift"; sourceTree = "<group>"; };
 		CC000001000000000000000B /* CatalogPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogPersistenceTests.swift"; sourceTree = "<group>"; };
 		DD000001000000000000000A /* ScanProgressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ScanProgressTests.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000020 /* PeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleView.swift; sourceTree = "<group>"; };
+		AA0000010000000000000021 /* PersonDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonDetailView.swift; sourceTree = "<group>"; };
+		BB0000010000000000000020 /* PeopleRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleRepository.swift; sourceTree = "<group>"; };
+		BB0000010000000000000021 /* DecisionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecisionService.swift; sourceTree = "<group>"; };
+		BB0000010000000000000022 /* UndoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UndoService.swift; sourceTree = "<group>"; };
+		CC0000010000000000000020 /* DecisionDurabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecisionDurabilityTests.swift; sourceTree = "<group>"; };
+		CC0000010000000000000021 /* IdentityCorrectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityCorrectionTests.swift; sourceTree = "<group>"; };
+		DD0000010000000000000020 /* PeopleFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleFlowTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -154,6 +170,8 @@
 		000000000000000000000003 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000010000000000000020 /* PeopleView.swift */,
+				AA0000010000000000000021 /* PersonDetailView.swift */,
 				AA000001000000000000000E /* FaceDetectionService.swift */,
 				AA000001000000000000000D /* PreviewService.swift */,
 				AA000001000000000000000C /* FolderSource.swift */,
@@ -179,6 +197,9 @@
 		BB0000000000000000000001 /* AFITCCore */ = {
 			isa = PBXGroup;
 			children = (
+				BB0000010000000000000020 /* PeopleRepository.swift */,
+				BB0000010000000000000021 /* DecisionService.swift */,
+				BB0000010000000000000022 /* UndoService.swift */,
 				BB0000010000000000000010 /* CatalogSchema.swift */,
 				BB000001000000000000000F /* DetectionProvider.swift */,
 				BB000001000000000000000E /* FaceAnalysisState.swift */,
@@ -202,6 +223,8 @@
 		CC0000000000000000000001 /* AFITCCoreTests */ = {
 			isa = PBXGroup;
 			children = (
+				CC0000010000000000000020 /* DecisionDurabilityTests.swift */,
+				CC0000010000000000000021 /* IdentityCorrectionTests.swift */,
 				CC000001000000000000000B /* CatalogPersistenceTests.swift */,
 				CC000001000000000000000A /* SourceRecoveryTests.swift */,
 				CC0000010000000000000001 /* BootstrapTests.swift */,
@@ -213,6 +236,7 @@
 		000000000000000000000006 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				DD0000010000000000000020 /* PeopleFlowTests.swift */,
 				DD000001000000000000000A /* ScanProgressTests.swift */,
 				DD0000010000000000000001 /* LaunchTests.swift */,
 				DD0000010000000000000002 /* NavigationTests.swift */,
@@ -353,6 +377,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BB0000020000000000000020 /* PeopleRepository.swift in Sources */,
+				BB0000020000000000000021 /* DecisionService.swift in Sources */,
+				BB0000020000000000000022 /* UndoService.swift in Sources */,
 				BB0000020000000000000010 /* CatalogSchema.swift in Sources */,
 				BB000002000000000000000F /* DetectionProvider.swift in Sources */,
 				BB000002000000000000000E /* FaceAnalysisState.swift in Sources */,
@@ -368,6 +395,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000020000000000000020 /* PeopleView.swift in Sources */,
+				AA0000020000000000000021 /* PersonDetailView.swift in Sources */,
 				AA000002000000000000000E /* FaceDetectionService.swift in Sources */,
 				AA000002000000000000000D /* PreviewService.swift in Sources */,
 				AA000002000000000000000C /* FolderSource.swift in Sources */,
@@ -384,6 +413,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0000020000000000000020 /* DecisionDurabilityTests.swift in Sources */,
+				CC0000020000000000000021 /* IdentityCorrectionTests.swift in Sources */,
 				CC000002000000000000000B /* CatalogPersistenceTests.swift in Sources */,
 				CC000002000000000000000A /* SourceRecoveryTests.swift in Sources */,
 				CC0000020000000000000001 /* BootstrapTests.swift in Sources */,
@@ -395,6 +426,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD0000020000000000000020 /* PeopleFlowTests.swift in Sources */,
 				DD000002000000000000000A /* ScanProgressTests.swift in Sources */,
 				DD0000020000000000000001 /* LaunchTests.swift in Sources */,
 				DD0000020000000000000002 /* NavigationTests.swift in Sources */,

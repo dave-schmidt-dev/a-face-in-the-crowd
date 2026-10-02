@@ -218,14 +218,23 @@ final class RunnerContractTests: XCTestCase {
         root, scratch, real_library = map(Path, sys.argv[1:])
         source = (root / 'tools/verify.sh').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
         tree = ast.parse(source)
-        names = {'reject', 'owned_phase_child', 'stop_phase_process', 'run'}
-        namespace = dict(globals(), logs=scratch, UI_BUDGET_SECONDS=2,
+        names = {'ui_budget_seconds', 'reject', 'owned_phase_child', 'stop_phase_process', 'run'}
+        namespace = dict(globals(), logs=scratch, task_id='phase1',
                          UI_FINALIZATION_GRACE_SECONDS=0.15, UI_STOP_GRACE_SECONDS=0.4)
-        # Execute the actual production functions with short isolated test clocks;
-        # production constants and command-line checks remain fixed.
+        # Execute actual production budget declarations and functions, then shorten
+        # only the fixture clocks. The cleanup runs below also exercise run's selection.
+        constants = {'UI_BUDGET_SECONDS', 'UI_PHASE_BUDGET_SECONDS'}
         functions = ast.Module(body=[node for node in tree.body
-                                     if isinstance(node, ast.FunctionDef) and node.name in names], type_ignores=[])
+            if (isinstance(node, ast.FunctionDef) and node.name in names)
+            or (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+                and target.id in constants for target in node.targets))], type_ignores=[])
         exec(compile(functions, str(root / 'tools/verify.sh'), 'exec'), namespace)
+        assert namespace['ui_budget_seconds']('phase3') == 1800
+        for phase in ('phase1', 'phase2', 'phase4', 'phase5', 'phase6', 'phase_unknown'):
+            assert namespace['ui_budget_seconds'](phase) == 1200, phase
+        print('PHASE_BUDGET_SELECTION_PASSED')
+        namespace['UI_BUDGET_SECONDS'] = 2
+        namespace['UI_PHASE_BUDGET_SECONDS'] = {'phase3': 2.4}
         phase_script = next(node.value.value for node in ast.walk(tree)
                             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
                             and isinstance(node.value.value, str)
@@ -256,7 +265,8 @@ final class RunnerContractTests: XCTestCase {
         os.environ.update(REAL_GATE=str(real_library), APPLE_UI_TEST_LOCK=str(lock),
                           GATE_XCTEST_DEVICE_SET=str(scratch / 'absent-clone-set'))
         try:
-            for mode in ('terminal', 'absolute'):
+            for mode in ('terminal', 'absolute', 'phase3'):
+                namespace['task_id'] = 'phase1' if mode == 'absolute' else 'phase3'
                 trace = scratch / (mode + '-trace')
                 receipt = scratch / (mode + '-child.pid')
                 os.environ['TRACE'] = str(trace)
@@ -272,6 +282,8 @@ final class RunnerContractTests: XCTestCase {
                 assert elapsed < 5, 'watchdog did not bound completion'
                 if mode == 'terminal':
                     assert elapsed < 1.5, 'failed-suite marker did not shorten the absolute budget'
+                elif mode == 'phase3':
+                    assert elapsed >= 2.3, 'run did not select the longer phase3 budget'
                 else:
                     assert elapsed >= 1.9, 'absolute watchdog fired before its budget'
                 evidence = (scratch / ('fixture-' + mode + '.log')).read_text()
@@ -300,6 +312,7 @@ final class RunnerContractTests: XCTestCase {
                                watchdogDriver.path, root.path, temporary.path, library])
         XCTAssertEqual(fixture.0, 0, fixture.1)
         XCTAssertTrue(fixture.1.contains("WATCHDOG_OWNED_CLEANUP_PASSED"), fixture.1)
+        XCTAssertTrue(fixture.1.contains("PHASE_BUDGET_SELECTION_PASSED"), fixture.1)
     }
 
     func testPrivateOutputsIgnoredAndPublicChangelogTracked() throws {

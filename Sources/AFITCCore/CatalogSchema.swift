@@ -3,11 +3,14 @@ import SQLite3
 
 /// Central ordered registry. SQLite transactional DDL provides atomic rollback.
 public enum CatalogSchema {
-    public static let currentVersion = 2
+    public static let currentVersion = 3
     public struct Migration {
         public let version: Int
         public let sql: String
-        public init(version: Int, sql: String) { self.version = version; self.sql = sql }
+        public let backfill: ((OpaquePointer) throws -> Void)?
+        public init(version: Int, sql: String, backfill: ((OpaquePointer) throws -> Void)? = nil) {
+            self.version = version; self.sql = sql; self.backfill = backfill
+        }
     }
     public static let migrations = [Migration(version: 1, sql: """
         CREATE TABLE photos(id TEXT PRIMARY KEY, path TEXT NOT NULL UNIQUE, payload BLOB NOT NULL);
@@ -16,7 +19,7 @@ public enum CatalogSchema {
         CREATE TABLE source_binding(singleton INTEGER PRIMARY KEY CHECK(singleton=1), payload BLOB NOT NULL);
         CREATE TABLE scan_lease(singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL);
         INSERT INTO scan_lease VALUES(1,0);
-        """)]
+        """), Migration(version: 3, sql: PeopleSQL.schema, backfill: PeopleSQL.backfill)]
     public static func execute(_ db: OpaquePointer, _ sql: String) throws {
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw failure(db) }
     }
@@ -62,6 +65,7 @@ public enum CatalogSchema {
                     throw ScanError.unsupportedSchema
                 }
                 try execute(db, migration.sql)
+                try migration.backfill?(db)
                 try execute(db, "PRAGMA user_version=\(next)")
             }
             try execute(db, "COMMIT")
