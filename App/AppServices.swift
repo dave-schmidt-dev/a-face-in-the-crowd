@@ -26,8 +26,45 @@ public final class AppServices: ObservableObject {
     private var scanPhotoCallbacks = 0
     private var nextAutomaticPeopleRefresh = 1
     private var decisionErrorGeneration = 0
-    private var sourceSelectionGeneration = 0
+    @Published private var sourceSelectionGeneration = 0
     #if DEBUG
+    private struct ViewerRequestProbe {
+        var released = false
+        var cancelled = false
+        var finished = false
+        var publications = 0
+        var latePublications = 0
+    }
+    private var viewerRequestProbes: [UUID: ViewerRequestProbe] = [:]
+    @Published private(set) var syntheticViewerProbe = "Viewer request none"
+    private func publishViewerProbe(_ id: UUID) {
+        guard let probe = viewerRequestProbes[id] else { return }
+        syntheticViewerProbe = "Request \(id.uuidString) · Cancelled \(probe.cancelled ? 1 : 0) · Finished \(probe.finished ? 1 : 0) · Publications \(probe.publications) · Late \(probe.latePublications)"
+    }
+    func beginViewerProbe(_ id: UUID) {
+        guard usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-hold-read") ||
+            ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") else { return }
+        if viewerRequestProbes.count >= 8 { viewerRequestProbes.removeAll() }
+        viewerRequestProbes[id] = ViewerRequestProbe(); publishViewerProbe(id)
+    }
+    func releaseViewerProbe(_ id: UUID) {
+        guard viewerRequestProbes[id] != nil else { return }
+        viewerRequestProbes[id]?.released = true; publishViewerProbe(id)
+    }
+    func cancelViewerProbe(_ id: UUID) {
+        guard viewerRequestProbes[id] != nil else { return }
+        viewerRequestProbes[id]?.cancelled = true; publishViewerProbe(id)
+    }
+    func finishViewerProbe(_ id: UUID) {
+        guard viewerRequestProbes[id] != nil else { return }
+        viewerRequestProbes[id]?.finished = true; publishViewerProbe(id)
+    }
+    func publicationViewerProbe(_ id: UUID) {
+        guard let probe = viewerRequestProbes[id] else { return }
+        viewerRequestProbes[id]?.publications += 1
+        if probe.released { viewerRequestProbes[id]?.latePublications += 1 }
+        publishViewerProbe(id)
+    }
     private var syntheticAttempts = 0
     @Published var syntheticRefreshProbe = "Reads 0 · Peak 0"
     private var syntheticReadCount = 0
@@ -39,6 +76,15 @@ public final class AppServices: ObservableObject {
     private var syntheticDecisionFaultUsed = false
     private var syntheticMergeFaultUsed = false
     #endif
+    var viewerSourceGeneration: Int { sourceSelectionGeneration }
+    func searchSnapshot(_ query: PeopleQuery) async throws -> SearchSnapshot {
+        guard let repository else { throw ScanError.database }
+        return try await SearchRepository(catalog: repository).snapshot(query: query)
+    }
+    func validateViewerPhoto(_ photo: PhotoIdentity, sourceIdentity: String?, hash: String? = nil) async throws {
+        guard let repository else { throw ScanError.database }
+        try await repository.validateViewerPhoto(photo, sourceIdentity: sourceIdentity, verifiedContentHash: hash)
+    }
     private var repository: CatalogRepository?
     private var coordinator: ScanCoordinator?
     private var scanTask: Task<Void, Never>?

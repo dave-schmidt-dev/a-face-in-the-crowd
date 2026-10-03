@@ -9,7 +9,11 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertTrue(choose.waitForExistence(timeout: 10)); XCTAssertTrue(choose.isEnabled)
         choose.tap()
         let cancel = app.buttons["Cancel"].firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5)); cancel.tap()
+        let ready = NSPredicate { _, _ in cancel.exists && cancel.isHittable }
+        let presentation = XCTNSPredicateExpectation(predicate: ready, object: cancel)
+        XCTAssertEqual(XCTWaiter.wait(for: [presentation], timeout: 15), .completed)
+        XCTAssertTrue(cancel.isHittable)
+        cancel.tap()
         XCTAssertTrue(app.staticTexts["No folder selected"].exists)
         XCTAssertFalse(app.buttons["start-scan"].exists)
     }

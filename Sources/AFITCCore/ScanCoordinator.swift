@@ -97,6 +97,9 @@ public actor ScanCoordinator {
                                 generation: "\(photo.contentVersion)-\(generation)", lease: generation)
                             photo.analysis = result.analysis
                         }
+                        // Processing validated these bytes, or their exact hash identifies the prior validated generation.
+                        // Weak metadata reads can backfill legacy records; trusted no-read reuse preserves nil too.
+                        photo.captureDate = CaptureDateMetadata.extract(fromValidatedJPEG: bytes)
                         photo.metadata = entry.metadata; photo.contentHash = hash
                         photo.missing = false; photo.verifiedAt = Date()
                     }
@@ -107,6 +110,7 @@ public actor ScanCoordinator {
                         photo = PhotoIdentity(id: photo.id, relativePath: photo.relativePath, dateAdded: photo.dateAdded,
                             contentVersion: photo.contentVersion + 1)
                     }
+                    photo.captureDate = nil
                     photo.analysis = FaceAnalysisState(status: .skipped, contentVersion: photo.contentVersion, reason: error.message)
                     progress.skipped += 1
                 } catch let error as ScanError where error == .paused || error == .storagePressure || error == .unavailable || error == .denied || error == .staleLease {
@@ -129,6 +133,7 @@ public actor ScanCoordinator {
                             try await repository.checkStorage()
                             photo.previewPath = try await repository.storePreview(preview, id: photo.id,
                                 generation: "\(photo.contentVersion)-\(generation)", lease: generation)
+                            photo.captureDate = CaptureDateMetadata.extract(fromValidatedJPEG: bytes)
                         }
                     }
                     photo.analysis = FaceAnalysisState(status: .failed, contentVersion: photo.contentVersion, reason: "Photo analysis failed.")

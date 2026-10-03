@@ -270,6 +270,93 @@
           ]
         }
       }
+    },
+    "task4.capture-date": {
+      "description": "Original JPEG EXIF capture wall-clock metadata, conservative app validation and durable generation semantics",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/CaptureDateTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.CaptureDateTests/testOriginalJPEGMetadataAndSourceOffsetSurviveReencodingAndReopen",
+            "AFITCCoreTests.CaptureDateTests/testSourceOffsetConservativeAppSubsetPreservesDateAndNegativeZero",
+            "AFITCCoreTests.CaptureDateTests/testMissingMalformedCalendarInvalidAndDigitizedOnlyRemainUnknown",
+            "AFITCCoreTests.CaptureDateTests/testOrientationSixRetainsOriginalMetadataAndBoundedUprightDimensions",
+            "AFITCCoreTests.CaptureDateTests/testChangedContentReplacesThenClearsCaptureDateWithNewGeneration",
+            "AFITCCoreTests.CaptureDateTests/testWeakExactHashBackfillsLegacyCaptureDateWithoutDetectionOrVersionChange",
+            "AFITCCoreTests.CaptureDateTests/testTrustedNoReadReusePreservesKnownAndUnknownCaptureDate",
+            "AFITCCoreTests.CaptureDateTests/testDetectionFailureFallbackUsesOriginalMetadataAndMalformedBytesStayUnknown",
+            "AFITCCoreTests.CaptureDateTests/testLegacyMissingCaptureDateDecodesNilAndRoundTripPreservesOptionalValue",
+            "AFITCCoreTests.CaptureDateTests/testPersistedMetadataRejectsInvalidSortKeysOffsetsAndProvenance"
+          ]
+        }
+      }
+    },
+    "task4.1": {
+      "description": "Immutable indexed confirmed-person search snapshots",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/PeopleQueryTests.swift",
+            "Tests/AFITCCoreTests/SearchSnapshotTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.PeopleQueryTests/testTogetherAnyOnlyFormalTruthTable",
+            "AFITCCoreTests.PeopleQueryTests/testEmptySelectionsAndUnrelatedFailedPhotoDoNotGateSearch",
+            "AFITCCoreTests.PeopleQueryTests/testAllRawFacesBlockOnlyUntilExplicitValidFalseDetection",
+            "AFITCCoreTests.PeopleQueryTests/testContradictionsRejectOnlyTheirFaceAndUnrelatedNegativesPreserveConfirmation",
+            "AFITCCoreTests.PeopleQueryTests/testAliasesCanonicalizeChainsAndRejectUnknownCyclesAndDanglingTargets",
+            "AFITCCoreTests.PeopleQueryTests/testSelectionSizesReflectionsAndCopiesRemainIndependent",
+            "AFITCCoreTests.PeopleQueryTests/testMissingChangedAndStaleAnalysisCannotResurrectConfirmations",
+            "AFITCCoreTests.SearchSnapshotTests/testDuplicatePersonPayloadUUIDThrowsInsteadOfTrapping",
+            "AFITCCoreTests.SearchSnapshotTests/testCaptureWallClockUnknownTailAndUUIDTiesWithoutOffsetConversion",
+            "AFITCCoreTests.SearchSnapshotTests/testImmutablePagesNamesCountsAndRevisionSurviveSecondHandleChangesAndReopen",
+            "AFITCCoreTests.SearchSnapshotTests/testReadTransactionPinsRevisionBeforeConcurrentWriterAndRollsBackOnFailure",
+            "AFITCCoreTests.SearchSnapshotTests/testCandidateSQLUsesExistingIndexesAndMalformedRelationFailsClosed"
+          ]
+        }
+      }
+    },
+    "task4.2": {
+      "description": "Confirmed-person search UI and bounded read-only original viewer",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/ViewerReadTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.ViewerReadTests/testMatchingOriginalValidationPreservesLeaseRevisionAndCheckpoint",
+            "AFITCCoreTests.ViewerReadTests/testDifferentRootMissingBindingAndExplicitUnknownBinding",
+            "AFITCCoreTests.ViewerReadTests/testCapturedUUIDVersionPathAndHashMustMatchCurrentGeneration",
+            "AFITCCoreTests.ViewerReadTests/testStoredPayloadUUIDMustAgreeWithPhysicalRecord",
+            "AFITCCoreTests.ViewerReadTests/testMissingAndUnhashedPhotosNeverClaimOriginal"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/SearchFlowTests.swift",
+            "UITests/AccessibilityFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.SearchFlowTests/testManualConfirmationThreeModesUnknownOnlyAndOriginalView",
+            "UITests.SearchFlowTests/testEqualNamesKeepDistinctUUIDChipsAndImmutableResultCount",
+            "UITests.SearchFlowTests/testExplicitMergeLeavesOneActiveCanonicalSearchChipAndDeduplicatedPhoto",
+            "UITests.SearchFlowTests/testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful",
+            "UITests.SearchFlowTests/testMemoryWarningDuringOriginalDecodeReleasesBeforePublication",
+            "UITests.SearchFlowTests/testFallbackDecodeErrorAfterMemoryReleasePreservesReleasedStatus",
+            "UITests.SearchFlowTests/testCancelHeldOriginalReadNeverPublishesAfterDismiss",
+            "UITests.SearchFlowTests/testDisconnectedSourceUsesCachedPreview",
+            "UITests.AccessibilityFlowTests/testCompactLargeTextSearchLabelsAndControlSizes",
+            "UITests.SearchFlowTests/testCompactSwitchFromNonmergedPersonReachesCanonicalSearchRoot"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -287,7 +374,12 @@
         "App/Services/PreviewService.swift",
         "App/Services/FaceDetectionService.swift",
         "App/PeopleView.swift",
-        "App/PersonDetailView.swift"
+        "App/PersonDetailView.swift",
+        "App/SearchView.swift",
+        "App/PhotoViewer.swift",
+        "App/DesignTokens.swift",
+        "App/Components/PersonChips.swift",
+        "App/Services/SearchService.swift"
       ]
     },
     "AFITCCore": {
@@ -303,7 +395,10 @@
         "Sources/AFITCCore/CatalogSchema.swift",
         "Sources/AFITCCore/PeopleRepository.swift",
         "Sources/AFITCCore/DecisionService.swift",
-        "Sources/AFITCCore/UndoService.swift"
+        "Sources/AFITCCore/UndoService.swift",
+        "Sources/AFITCCore/CaptureDateMetadata.swift",
+        "Sources/AFITCCore/PeopleQuery.swift",
+        "Sources/AFITCCore/SearchRepository.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -314,7 +409,11 @@
         "Tests/AFITCCoreTests/SourceRecoveryTests.swift",
         "Tests/AFITCCoreTests/CatalogPersistenceTests.swift",
         "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
-        "Tests/AFITCCoreTests/IdentityCorrectionTests.swift"
+        "Tests/AFITCCoreTests/IdentityCorrectionTests.swift",
+        "Tests/AFITCCoreTests/CaptureDateTests.swift",
+        "Tests/AFITCCoreTests/PeopleQueryTests.swift",
+        "Tests/AFITCCoreTests/SearchSnapshotTests.swift",
+        "Tests/AFITCCoreTests/ViewerReadTests.swift"
       ]
     },
     "UITests": {
@@ -323,7 +422,9 @@
         "UITests/LaunchTests.swift",
         "UITests/NavigationTests.swift",
         "UITests/ScanProgressTests.swift",
-        "UITests/PeopleFlowTests.swift"
+        "UITests/PeopleFlowTests.swift",
+        "UITests/SearchFlowTests.swift",
+        "UITests/AccessibilityFlowTests.swift"
       ]
     }
   },
@@ -341,6 +442,17 @@
       "task1.5",
       "task3.1",
       "task3.3"
+    ],
+    "phase4": [
+      "task1.1",
+      "task1.4",
+      "task1.2",
+      "task1.5",
+      "task3.1",
+      "task3.3",
+      "task4.capture-date",
+      "task4.1",
+      "task4.2"
     ]
   }
 }

@@ -156,6 +156,24 @@ public actor CatalogRepository {
             try Self.protectArtifacts(directory)
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
+    /// Read-only original eligibility. A present, explicitly bound nil identity is distinct from no binding.
+    /// Call again with the actual byte hash after coordinated source IO.
+    public func validateViewerPhoto(_ captured: PhotoIdentity, sourceIdentity: String?,
+                                    verifiedContentHash: String? = nil) throws {
+        try peopleRead { db in
+            guard let hash = captured.contentHash, !hash.isEmpty,
+                  let current = try storedPhoto(captured.id), current.id == captured.id, current.missing != true,
+                  current.contentVersion == captured.contentVersion,
+                  current.relativePath == captured.relativePath, current.contentHash == hash,
+                  verifiedContentHash == nil || verifiedContentHash == hash else { throw ScanError.unavailable }
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "SELECT payload FROM source_binding WHERE singleton=1", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
+            defer { sqlite3_finalize(statement) }
+            guard sqlite3_step(statement) == SQLITE_ROW else { throw ScanError.unavailable }
+            let bound = try JSONDecoder().decode(String?.self, from: Self.blob(statement!, column: 0))
+            guard bound == sourceIdentity else { throw ScanError.unavailable }
+        }
+    }
     private func storedPhoto(_ id: UUID) throws -> PhotoIdentity? {
         guard let db else { throw ScanError.database }
         var statement: OpaquePointer?

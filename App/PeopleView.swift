@@ -26,9 +26,7 @@ struct PeopleView: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(services.peopleSnapshot.people.filter { $0.person.mergedInto == nil }) { summary in
-                        NavigationLink {
-                            PersonDetailView(services: services, personID: summary.id, surface: surface, secondary: secondary)
-                        } label: {
+                        NavigationLink(value: summary.id) {
                             VStack(alignment: .leading, spacing: 8) {
                                 if let key = summary.person.cover, let cover = coverFaces[key] {
                                     FacePreview(services: services, face: cover, wholePhoto: false)

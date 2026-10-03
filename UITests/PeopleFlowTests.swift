@@ -31,7 +31,7 @@ final class PeopleFlowTests: XCTestCase {
     }
     private func reveal(_ control: XCUIElement, app: XCUIApplication, passive: Bool = false) {
         func visible() -> Bool {
-            passive ? inViewport(control, app: app) : (control.exists && control.isHittable)
+            passive ? inViewport(control, app: app) : (inViewport(control, app: app) && control.isHittable)
         }
         for _ in 0..<8 {
             if visible() { return }
@@ -116,6 +116,7 @@ final class PeopleFlowTests: XCTestCase {
         let field = app.textFields["new-person-name"]
         XCTAssertTrue(field.waitForExistence(timeout: 5)); field.tap(); field.typeText(value)
         tap("save-selected-face", app: app)
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Naming must finish dismissing its form before another face is selected")
     }
     func testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo() {
         let app = catalog()

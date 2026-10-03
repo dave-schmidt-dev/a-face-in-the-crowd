@@ -2,7 +2,7 @@
 
 A planned, local-first iPad app for naming people in personal photo collections and finding photos containing selected combinations of them.
 
-**Status:** buildable iPadOS 17 source slice with folder selection, recursive JPEG previews, local face detection and resumable incremental reconciliation. People supports manual naming, correction, deliberate merge and undo with stable person IDs. Recognition, Verify suggestions, Search, backup/restore and model qualification remain unavailable or planned. Physical iPad compatibility, qualified recognition and full MVP acceptance require separate device and model evaluation.
+**Status:** buildable iPadOS 17 source slice with folder selection, recursive JPEG previews, local face detection and resumable incremental reconciliation. People supports manual naming, correction, deliberate merge and undo with stable person IDs; confirmed-person Search supports Together, Any and Only. Recognition/Verify suggestions, backup/restore and model qualification remain unavailable or planned. Physical iPad compatibility, qualified recognition and full MVP acceptance require separate device and model evaluation.
 
 ## Product direction
 
@@ -17,7 +17,7 @@ The planned compatibility floor is iPadOS 17. Older test iPads establish compati
 ## Delivery sequence
 
 1. Prove external-drive access, reconnect, durable decisions, and a licensed local face model on target iPads.
-2. Build the read-only catalog, naming and verification, deterministic people search, and recovery workflow.
+2. Complete verification of the read-only catalog, naming, confirmed-person search, and recovery workflow.
 3. Add optional local scene understanding and query assistance after the core people workflow is reliable.
 4. Complete local testing before a limited TestFlight with the intended testers.
 
@@ -35,11 +35,15 @@ Manual decisions attach to the selected current face generation. Distinct people
 
 People releases cached face-preview rasters and invalidates in-flight preview work when the view disappears or memory pressure is reported. DEBUG fixtures use explicit synthetic inputs and do not establish recognition. Native UI, physical-device and model qualification remain separate acceptance gates.
 
+## Search and viewer boundary
+
+Search uses human-confirmed identities and Together, Any, or Only selection rules. Results are immutable pages from a captured catalog revision. The read-only viewer validates the selected original and falls back to a bounded cached preview when the original is unavailable or changed. Capture ordering uses validated original JPEG wall-clock metadata. These capabilities do not qualify recognition suggestions, backup/restore, physical-device behavior, or a production model.
+
 ## Verification and diagnostics
 
-Run `tools/verify.sh task3.3 --headless` for the merge/undo headless check and `tools/verify.sh phase3` for the accumulated core and native UI gate. Task and phase selector mappings live in `tools/test-manifest.json`; the runner checks exact Xcode and SwiftPM membership, mapped selectors, and iPadOS 17 app/test compilation, and fails on missing or drifting mappings. Each run writes receipts and logs under `.logs/verification/`; these logs and `HISTORY.md` are local ignored evidence, not files distributed with the public repository. No command result here is a claim that either command was run.
+Use `tools/verify.sh task3.3 --headless`, `task4.1 --headless`, `task4.capture-date --headless`, and `task4.2 --headless` for focused checks; `tools/verify.sh phase3` and `phase4` run accumulated gates. Task and phase selector mappings live in `tools/test-manifest.json`; the runner checks exact Xcode and SwiftPM membership, mapped selectors, and iPadOS 17 app/test compilation, and fails on missing or drifting mappings. Each run writes receipts and logs under `.logs/verification/`; these logs and `HISTORY.md` are local ignored evidence, not files distributed with the public repository. This command list is reproducible guidance, not a claim that every command was run.
 
-The accumulated native phase gate is configured for all four source-slice tasks; native UI checks run at that gate. It compiles the app/test bundles and executes synthetic UI checks on a disposable iPad simulator. The gate requires the installed shared `simctl_gate_lib.sh` at `~/Documents/Projects/apple_developer/release_tools/templates/` (override with `AFITC_SIMCTL_GATE_LIB`). The helper owns device cleanup, clone cleanup and the shared Apple UI lock. Headless checks never boot devices. Simulator evidence does not establish physical source/device acceptance.
+The accumulated native phase gate uses the task set configured for that phase in `tools/test-manifest.json`; native UI checks run at that gate. It compiles the app/test bundles and executes synthetic UI checks on a disposable iPad simulator. The gate requires the installed shared `simctl_gate_lib.sh` at `~/Documents/Projects/apple_developer/release_tools/templates/` (override with `AFITC_SIMCTL_GATE_LIB`). The helper owns device cleanup, clone cleanup and the shared Apple UI lock. Headless checks never boot devices. Simulator evidence does not establish physical source/device acceptance.
 
 Diagnostics accepts fixed event categories and aggregate nonnegative counts only. Warnings always write; debug events require `--debug`. Protected, backup-excluded diagnostics rotate at 64 KiB into at most three archives, in the app container. Names, paths, images, vectors and free-form errors have no logging API. Model weights, conversion products, private catalogs/vectors, SwiftPM caches and diagnostics are excluded from Git; the changelog remains public.
 

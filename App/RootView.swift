@@ -5,9 +5,10 @@ public struct RootView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.colorScheme) private var colorScheme
     @State private var selection: Section = .library
+    @State private var navigationPaths: [Section: [UUID]] = [:]
     @State private var settingsPresented = false
 
-    enum Section: String, CaseIterable, Identifiable {
+    enum Section: String, CaseIterable, Identifiable, Hashable {
         case library = "Library", people = "People", verify = "Verify", search = "Search"
         var id: String { rawValue }
         var symbol: String {
@@ -34,7 +35,7 @@ public struct RootView: View {
             if sizeClass == .regular && !ProcessInfo.processInfo.arguments.contains("--uitest-compact") {
                 NavigationSplitView {
                     List(Section.allCases) { section in
-                        Button { selection = section } label: {
+                        Button { select(section) } label: {
                             Label(section.rawValue, systemImage: section.symbol)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }
@@ -46,11 +47,13 @@ public struct RootView: View {
                     .background(surface)
                     .navigationTitle("AFITC")
                     .safeAreaInset(edge: .bottom) { settingsButton.padding(16) }
-                } detail: { NavigationStack { content(selection) } }
+                } detail: {
+                    navigationStack(for: selection)
+                }
             } else {
-                TabView(selection: $selection) {
+                TabView(selection: sectionSelection) {
                     ForEach(Section.allCases) { section in
-                        NavigationStack { content(section) }
+                        navigationStack(for: section)
                             .tabItem { Label(section.rawValue, systemImage: section.symbol) }
                             .tag(section)
                     }
@@ -75,6 +78,29 @@ public struct RootView: View {
         }
     }
 
+    private var sectionSelection: Binding<Section> {
+        Binding(get: { selection }, set: { select($0) })
+    }
+
+    /// Section controls always show that section's root, including after a person is archived.
+    private func select(_ section: Section) {
+        navigationPaths[selection] = []
+        navigationPaths[section] = []
+        selection = section
+    }
+
+    private func navigationStack(for section: Section) -> some View {
+        let path = Binding<[UUID]>(get: { navigationPaths[section, default: []] },
+                                   set: { navigationPaths[section] = $0 })
+        return NavigationStack(path: path) {
+            content(section)
+                .navigationDestination(for: UUID.self) { personID in
+                    PersonDetailView(services: services, personID: personID,
+                                     surface: surface, secondary: secondary)
+                }
+        }
+    }
+
     private var settingsButton: some View {
         Button { settingsPresented = true } label: {
             Label("Settings", systemImage: "gearshape").frame(minHeight: 44)
@@ -90,6 +116,8 @@ public struct RootView: View {
                                 primary: primary, onPrimary: onPrimary)
                 } else if section == .people {
                     PeopleView(services: services, surface: surface, secondary: secondary)
+                } else if section == .search {
+                    SearchView(services: services)
                 } else {
                     Label(section.rawValue, systemImage: section.symbol).font(.largeTitle.bold())
                     Text(emptyMessage(section)).foregroundStyle(secondary)

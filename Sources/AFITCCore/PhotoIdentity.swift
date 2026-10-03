@@ -11,13 +11,16 @@ public struct PhotoIdentity: Codable, Sendable, Identifiable, Equatable {
     public var contentHash: String?
     public var missing: Bool?
     public var verifiedAt: Date?
+    public var captureDate: CaptureDateMetadata?
     public var analysis: FaceAnalysisState
     public init(id: UUID = UUID(), relativePath: String, dateAdded: Date = Date(),
                 contentVersion: Int = 1, previewPath: String? = nil,
                 analysis: FaceAnalysisState = .pending, metadata: SourceMetadata? = nil,
-                contentHash: String? = nil, missing: Bool? = nil, verifiedAt: Date? = nil) {
+                contentHash: String? = nil, missing: Bool? = nil, verifiedAt: Date? = nil,
+                captureDate: CaptureDateMetadata? = nil) {
         self.id = id; self.relativePath = relativePath; self.dateAdded = dateAdded
         self.contentVersion = contentVersion; self.previewPath = previewPath; self.analysis = analysis
         self.metadata = metadata; self.contentHash = contentHash; self.missing = missing; self.verifiedAt = verifiedAt
+        self.captureDate = captureDate
     }
 }
