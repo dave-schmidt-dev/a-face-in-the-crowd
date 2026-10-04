@@ -56,6 +56,108 @@
 		CC0000020000000000000040 /* ViewerReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000040; };
 		DD0000020000000000000040 /* SearchFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000040; };
 		DD0000020000000000000041 /* AccessibilityFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000041; };
+		AA0000020000000000000045 /* CatalogSessionLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000045; };
+		DD0000020000000000000042 /* BackupFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000042; };
+		BB00000200000000000000F6 /* CatalogBackupRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F6; };
+		CC00000200000000000000FA /* RestoreRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000FA; };
+		CC00000200000000000000F9 /* CatalogCounterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000F9; };
+		CC00000200000000000000F5 /* CatalogAdmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000F5; };
+		BB00000200000000000000FE /* CatalogRestoreTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000FE; };
+		BB00000200000000000000FA /* CatalogRestoreRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000FA; };
+		BB00000200000000000000F9 /* CatalogCounters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F9; };
+		BB00000200000000000000F5 /* CatalogRootRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F5; };
+		CC00000200000000000000FD /* RestoreCrashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000FD; };
+		CC00000200000000000000F8 /* RestoreDurabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000F8; };
+		CC00000200000000000000F4 /* RestoreValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000F4; };
+		BB00000200000000000000F8 /* CatalogRestoreFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F8; };
+		BB00000200000000000000F4 /* RestoreValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F4; };
+		CC00000200000000000000FC /* RestoreCommitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000FC; };
+		CC00000200000000000000F3 /* BackupRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000F3; };
+		BB00000200000000000000FC /* CatalogRestorePreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000FC; };
+		BB00000200000000000000F3 /* BackupManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000F3; };
+		BB00000200000000000000FF /* SourceRestoreReadDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000FF; };
+		BB00000200000000000000FB /* RestoreInspection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000FB; };
+		AA0000020000000000000046 /* CatalogStartupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000046; };
+		AA0000020000000000000047 /* CatalogBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000047; };
+		AA0000020000000000000048 /* CatalogPackagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000048; };
+		AA0000020000000000000049 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000049; };
+		AA000002000000000000004A /* CatalogBackupExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000004A; };
+		AA000002000000000000004B /* CatalogOperationProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000004B; };
+		AA000002000000000000004C /* CatalogBackupTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001000000000000004C; };
+		BB0000020000000000000109 /* RestoreMarkerProtection.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000109; };
+		CC0000020000000000000109 /* MarkerMetadataExperimentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000109; };
+		BB00000200000000000000D0 /* DeletionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000D0 /* DeletionService.swift */; };
+		CC00000200000000000000D1 /* DeletionOwnershipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000D1 /* DeletionOwnershipTests.swift */; };
+		BB00000200000000000000D1 /* DeletionFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000100000000000000D1 /* DeletionFiles.swift */; };
+		CC00000200000000000000D0 /* DeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC00000100000000000000D0 /* DeletionTests.swift */; };
+		AA0000020000000000000050 /* AppPresentationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000050; };
+		BB0000020000000000000050 /* PresentationPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000050; };
+		BB0000020000000000000051 /* PresentationPreferenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000051; };
+		CC0000020000000000000050 /* PresentationPreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000050; };
+		DD0000020000000000000050 /* AcceptanceFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000050; };
+		AB2100020000000000000001 /* ModelContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2100010000000000000001 /* ModelContractTests.swift */; };
+		AB2100020000000000000002 /* onnxruntime in Frameworks */ = {isa = PBXBuildFile; productRef = AB2100040000000000000001 /* onnxruntime */; };
+		BB0000020000000000000100 /* CachePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000100 /* CachePolicy.swift */; };
+		AB2200020000000000000001 /* ModelManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2200010000000000000001 /* ModelManifest.swift */; };
+		AB2200020000000000000002 /* EmbeddingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2200010000000000000002 /* EmbeddingProvider.swift */; };
+		CC0000020000000000000100 /* CachePressureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000100 /* CachePressureTests.swift */; };
+		CC0000020000000000000101 /* PreviewRecoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000101 /* PreviewRecoveryTests.swift */; };
+		CC0000020000000000000110 /* MarkerDomainComparisonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000110; };
+		F0A37ECF3221A0A954BAE2AF /* DiagnosticFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E48B92BB59D49CAA69ECF66; };
+		B4CA8DE5240BBD6EA341E018 /* CatalogPrivacyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F34A42044E5BF8DE67184FAC; };
+		093FC255B10269D29D4E0FB1 /* PrivacyProtection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14FD12695D171D1A1CD92A9E; };
+		9749025ECF7563484FBDDF90 /* CatalogSuspensionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12F28FB78D83502A451859C; };
+		28FAE5964BD6E03B6EFF4C18 /* SFacePreprocessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA1CA3BFF43844733F5EA6A6; };
+		1DFA4BF0919EA7DD05BA2806 /* CatalogSuspensionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FFEC6BFA6ADA4EF9D80ADC3; };
+		9ADC5B24B58ED216857B34CC /* RestoreProtectedDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AADCA9825C03191DFD59C038; };
+		7B4FBF860EE88BD5578DD6A1 /* DeletionProtectedDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB77832FC89A85F929BCB4C; };
+		06E70D71868A2CFE68779596 /* DiagnosticDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720F46C208925BC266D82ECE; };
+		6DC6CCF4C7BBE9BB004ACEB2 /* RestoreStageOwnershipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2A88DABBFB26285BB09EED; };
+		FAD7E54CB991969042C8A8BE /* SFacePreprocessingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B143C2634B2766944A5B004; };
+		B8ED0C800CF8C2EDCA4DD6F7 /* DeviceDeliveryContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17F6D40441E4D956CDD91CAD; };
+		44B0AF63412E0A94A2F8E17E /* PrivacyFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6D3BB465126317BB1C1601; };
+		433BD979FC39ACA1A3DE0457 /* ProtectedDataFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56B9187FEADB55F856792846; };
+		7EA32C3624E7EFF947D83882 /* PreparedBackupOwnership.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE99A2DB5B67EB062DE56044; };
+		0AFE6F0B09B58147A0C940EC /* FaceAlignmentAssociation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02DC1158ADD62D11C368586C; };
+		63175B2BDF44D3F08A84A101 /* FaceAlignmentAssociationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9D6267C0933F6F1E840F046; };
+		E2A7C4D98F5B4C189E3A0002 /* YuNetRasterPreprocessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A7C4D98F5B4C189E3A0001; };
+		E2A7C4D98F5B4C189E3A0004 /* FacePipelinePixelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A7C4D98F5B4C189E3A0003; };
+		E2A7C4D98F5B4C189E3A0006 /* YuNetPixelReferenceParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A7C4D98F5B4C189E3A0005; };
+				FA7100000000000000000016 /* AFITCRuntime.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000002 /* AFITCRuntime.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+				FA7100000000000000000013 /* FaceEmbeddingRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA710000000000000000000D /* FaceEmbeddingRuntimeTests.swift */; };
+				FA7100000000000000000010 /* FaceEmbeddingRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA710000000000000000000A /* FaceEmbeddingRuntime.swift */; };
+				FA7100000000000000000017 /* AFITCRuntime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000002 /* AFITCRuntime.framework */; };
+				FA7100000000000000000014 /* SFaceParityEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA710000000000000000000E /* SFaceParityEvidence.swift */; };
+				FA7100000000000000000011 /* SFaceCPUBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA710000000000000000000B /* SFaceCPUBackend.swift */; };
+				FA7100000000000000000018 /* AFITCCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 000000000000000000000012 /* AFITCCore.framework */; };
+				FA7100000000000000000015 /* AFITCRuntime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000002 /* AFITCRuntime.framework */; };
+				FA7100000000000000000012 /* ModelPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA710000000000000000000C /* ModelPreparation.swift */; };
+				FA710000000000000000000F /* EmbeddingRuntimeTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA7100000000000000000009 /* EmbeddingRuntimeTypes.swift */; };
+				FA7100000000000000000019 /* onnxruntime in AFITCRuntime Frameworks */ = {isa = PBXBuildFile; productRef = AB2100040000000000000001 /* onnxruntime */; };
+		217B77798D32640A867BF24C /* YuNetTensorDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1146C0A86D4970E8AB3076; };
+		7882F7BD839C736A518A2DA6 /* YuNetGeometryTransform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 586F7AAD2BA6695AC84D3EA0; };
+		DC9C0EAECAAF70F9F116618F /* YuNetTensorDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31303D19CFAEC757C19F2B60; };
+		4F0AFECFCC72356840A7D977 /* YuNetReferenceParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F629519FA7A7E7FFA235F61; };
+		AD2300020000000000000001 /* SFaceOutputParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2300010000000000000001; };
+		0BB4F17AB53AA3411E2350A7 /* YuNetModelPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4230520EF3D1543147519C50; };
+		2DB13551E2DFA9F6248FE15B /* YuNetCPUBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0F7EDD4558567B95EEAB8E; };
+		60C703A497E3894ADCA3EAC6 /* YuNetRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B38FBF3E273313F3258FB5; };
+		582D29B11C6A2C0B79975B8B /* YuNetRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F8103049AE0A0D0CCC22799; };
+		B8D4356E9B3CF8912D4086EA /* YuNetORTParityEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBD60D8FFB62E940F6861624; };
+		B5EFAEC131E459D7FE4C2E68 /* CatalogFacePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326C73B4528BD91AF9F74232; };
+		56EAF0BDD6E3BA832BC3B860 /* CatalogFacePipelineFenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6197EFEF4E9478CBAE8BF9; };
+		1A95A5285666EE81E4DEE432 /* FaceEmbeddingRuntimeTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081161AF30686C43C680728F; };
+		EF0000020000000000000001 /* face_detection_yunet_2023mar.onnx in Resources */ = {isa = PBXBuildFile; fileRef = EF0000010000000000000001 /* face_detection_yunet_2023mar.onnx */; };
+		EF0000020000000000000002 /* face_recognition_sface_2021dec.onnx in Resources */ = {isa = PBXBuildFile; fileRef = EF0000010000000000000002 /* face_recognition_sface_2021dec.onnx */; };
+		EF0000020000000000000003 /* OpenCV-Zoo-YuNet-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = EF0000010000000000000003 /* OpenCV-Zoo-YuNet-LICENSE.txt */; };
+		EF0000020000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = EF0000010000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt */; };
+		BB0000020000000000000130 /* BundledModelResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000130 /* BundledModelResources.swift */; };
+		CC0000020000000000000130 /* BundledModelResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000130 /* BundledModelResourceTests.swift */; };
+		A23D00020000000000000001 /* TransientFaceEmbeddingProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */; };
+		A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */; };
+		A23D00020000000000000003 /* ScanEmbeddingEnrichmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */; };
+		A23D00020000000000000004 /* TransientFaceEmbeddingProducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */; };
+		A23D00020000000000000005 /* FacePipelineLifecycleAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -80,6 +182,27 @@
 			remoteGlobalIDString = 100000000000000000000002;
 			remoteInfo = AFITC;
 		};
+				FA710000000000000000001A /* AFITCRuntime target proxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA7100000000000000000001;
+			remoteInfo = AFITCRuntime;
+		};
+				FA710000000000000000001E /* AFITCCore target proxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000001;
+			remoteInfo = AFITCCore;
+		};
+				FA710000000000000000001C /* AFITCRuntime target proxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FA7100000000000000000001;
+			remoteInfo = AFITCRuntime;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -90,6 +213,7 @@
 			dstSubfolderSpec = 10;
 			files = (
 				EE0000020000000000000002 /* AFITCCore.framework in Embed Frameworks */,
+				FA7100000000000000000016,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -148,6 +272,103 @@
 		CC0000010000000000000040 /* ViewerReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerReadTests.swift"; sourceTree = "<group>"; };
 		DD0000010000000000000040 /* SearchFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SearchFlowTests.swift"; sourceTree = "<group>"; };
 		DD0000010000000000000041 /* AccessibilityFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AccessibilityFlowTests.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000045 /* CatalogSessionLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogSessionLifecycle.swift"; sourceTree = "<group>"; };
+		DD0000010000000000000042 /* BackupFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackupFlowTests.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000F5 /* CatalogRootRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogRootRegistry.swift"; sourceTree = "<group>"; };
+		CC00000100000000000000F3 /* BackupRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackupRecoveryTests.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000F8 /* CatalogRestoreFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogRestoreFiles.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000F4 /* RestoreValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RestoreValidator.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000FC /* CatalogRestorePreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogRestorePreparation.swift; sourceTree = "<group>"; };
+		CC00000100000000000000FA /* RestoreRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreRecoveryTests.swift; sourceTree = "<group>"; };
+		CC00000100000000000000F9 /* CatalogCounterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogCounterTests.swift; sourceTree = "<group>"; };
+		CC00000100000000000000F5 /* CatalogAdmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogAdmissionTests.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000F3 /* BackupManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "BackupManifest.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000FF /* SourceRestoreReadDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceRestoreReadDiagnostics.swift; sourceTree = "<group>"; };
+		CC00000100000000000000FD /* RestoreCrashTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreCrashTests.swift; sourceTree = "<group>"; };
+		BB00000100000000000000FB /* RestoreInspection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreInspection.swift; sourceTree = "<group>"; };
+		CC00000100000000000000F8 /* RestoreDurabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RestoreDurabilityTests.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000F6 /* CatalogBackupRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CatalogBackupRepository.swift"; sourceTree = "<group>"; };
+		CC00000100000000000000F4 /* RestoreValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RestoreValidationTests.swift"; sourceTree = "<group>"; };
+		BB00000100000000000000FE /* CatalogRestoreTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogRestoreTypes.swift; sourceTree = "<group>"; };
+		CC00000100000000000000FC /* RestoreCommitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreCommitTests.swift; sourceTree = "<group>"; };
+		BB00000100000000000000FA /* CatalogRestoreRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogRestoreRepository.swift; sourceTree = "<group>"; };
+		BB00000100000000000000F9 /* CatalogCounters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogCounters.swift; sourceTree = "<group>"; };
+		AA0000010000000000000046 /* CatalogStartupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogStartupService.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000047 /* CatalogBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogBackupService.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000048 /* CatalogPackagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogPackagePicker.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000049 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SettingsView.swift"; sourceTree = "<group>"; };
+		AA000001000000000000004A /* CatalogBackupExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogBackupExport.swift"; sourceTree = "<group>"; };
+		AA000001000000000000004B /* CatalogOperationProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogOperationProgress.swift"; sourceTree = "<group>"; };
+		AA000001000000000000004C /* CatalogBackupTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/CatalogBackupTestSupport.swift"; sourceTree = "<group>"; };
+		BB0000010000000000000109 /* RestoreMarkerProtection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreMarkerProtection.swift; sourceTree = "<group>"; };
+		CC0000010000000000000109 /* MarkerMetadataExperimentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerMetadataExperimentTests.swift; sourceTree = "<group>"; };
+		CC00000100000000000000D1 /* DeletionOwnershipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionOwnershipTests.swift; sourceTree = "<group>"; };
+		CC00000100000000000000D0 /* DeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionTests.swift; sourceTree = "<group>"; };
+		BB00000100000000000000D1 /* DeletionFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionFiles.swift; sourceTree = "<group>"; };
+		BB00000100000000000000D0 /* DeletionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionService.swift; sourceTree = "<group>"; };
+		AA0000010000000000000050 /* AppPresentationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/AppPresentationState.swift"; sourceTree = "<group>"; };
+		BB0000010000000000000050 /* PresentationPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PresentationPreferences.swift"; sourceTree = "<group>"; };
+		BB0000010000000000000051 /* PresentationPreferenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PresentationPreferenceStore.swift"; sourceTree = "<group>"; };
+		CC0000010000000000000050 /* PresentationPreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PresentationPreferenceTests.swift"; sourceTree = "<group>"; };
+		DD0000010000000000000050 /* AcceptanceFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AcceptanceFlowTests.swift"; sourceTree = "<group>"; };
+		AB2100010000000000000001 /* ModelContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContractTests.swift; sourceTree = "<group>"; };
+		BB0000010000000000000100 /* CachePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachePolicy.swift; sourceTree = "<group>"; };
+		AB2200010000000000000001 /* ModelManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelManifest.swift; sourceTree = "<group>"; };
+		AB2200010000000000000002 /* EmbeddingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingProvider.swift; sourceTree = "<group>"; };
+		CC0000010000000000000100 /* CachePressureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachePressureTests.swift; sourceTree = "<group>"; };
+		CC0000010000000000000101 /* PreviewRecoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewRecoveryTests.swift; sourceTree = "<group>"; };
+		CC0000010000000000000110 /* MarkerDomainComparisonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkerDomainComparisonTests.swift; sourceTree = "<group>"; };
+		6E48B92BB59D49CAA69ECF66 /* DiagnosticFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/DiagnosticFiles.swift; sourceTree = "<group>"; };
+		F34A42044E5BF8DE67184FAC /* CatalogPrivacyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/CatalogPrivacyService.swift; sourceTree = "<group>"; };
+		14FD12695D171D1A1CD92A9E /* PrivacyProtection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/PrivacyProtection.swift; sourceTree = "<group>"; };
+		A12F28FB78D83502A451859C /* CatalogSuspensionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogSuspensionRepository.swift; sourceTree = "<group>"; };
+		BA1CA3BFF43844733F5EA6A6 /* SFacePreprocessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFacePreprocessing.swift; sourceTree = "<group>"; };
+		9FFEC6BFA6ADA4EF9D80ADC3 /* CatalogSuspensionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogSuspensionTests.swift; sourceTree = "<group>"; };
+		AADCA9825C03191DFD59C038 /* RestoreProtectedDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreProtectedDataTests.swift; sourceTree = "<group>"; };
+		0BB77832FC89A85F929BCB4C /* DeletionProtectedDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeletionProtectedDataTests.swift; sourceTree = "<group>"; };
+		720F46C208925BC266D82ECE /* DiagnosticDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticDeletionTests.swift; sourceTree = "<group>"; };
+		AA2A88DABBFB26285BB09EED /* RestoreStageOwnershipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestoreStageOwnershipTests.swift; sourceTree = "<group>"; };
+		3B143C2634B2766944A5B004 /* SFacePreprocessingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFacePreprocessingTests.swift; sourceTree = "<group>"; };
+		17F6D40441E4D956CDD91CAD /* DeviceDeliveryContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDeliveryContractTests.swift; sourceTree = "<group>"; };
+		CE6D3BB465126317BB1C1601 /* PrivacyFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyFlowTests.swift; sourceTree = "<group>"; };
+		56B9187FEADB55F856792846 /* ProtectedDataFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectedDataFlowTests.swift; sourceTree = "<group>"; };
+		CE99A2DB5B67EB062DE56044 /* PreparedBackupOwnership.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedBackupOwnership.swift; sourceTree = "<group>"; };
+		02DC1158ADD62D11C368586C /* FaceAlignmentAssociation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAlignmentAssociation.swift; sourceTree = "<group>"; };
+		B9D6267C0933F6F1E840F046 /* FaceAlignmentAssociationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAlignmentAssociationTests.swift; sourceTree = "<group>"; };
+		E2A7C4D98F5B4C189E3A0001 /* YuNetRasterPreprocessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetRasterPreprocessing.swift; sourceTree = "<group>"; };
+		E2A7C4D98F5B4C189E3A0003 /* FacePipelinePixelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacePipelinePixelTests.swift; sourceTree = "<group>"; };
+		E2A7C4D98F5B4C189E3A0005 /* YuNetPixelReferenceParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetPixelReferenceParity.swift; sourceTree = "<group>"; };
+				FA710000000000000000000D /* FaceEmbeddingRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceEmbeddingRuntimeTests.swift; sourceTree = "<group>"; };
+				FA710000000000000000000A /* FaceEmbeddingRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceEmbeddingRuntime.swift; sourceTree = "<group>"; };
+				FA710000000000000000000E /* SFaceParityEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFaceParityEvidence.swift; sourceTree = "<group>"; };
+				FA710000000000000000000B /* SFaceCPUBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFaceCPUBackend.swift; sourceTree = "<group>"; };
+				FA7100000000000000000002 /* AFITCRuntime.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AFITCRuntime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+				FA710000000000000000000C /* ModelPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPreparation.swift; sourceTree = "<group>"; };
+				FA7100000000000000000009 /* EmbeddingRuntimeTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingRuntimeTypes.swift; sourceTree = "<group>"; };
+		4A1146C0A86D4970E8AB3076 /* YuNetTensorDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetTensorDecoder.swift; sourceTree = "<group>"; };
+		586F7AAD2BA6695AC84D3EA0 /* YuNetGeometryTransform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetGeometryTransform.swift; sourceTree = "<group>"; };
+		31303D19CFAEC757C19F2B60 /* YuNetTensorDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetTensorDecoderTests.swift; sourceTree = "<group>"; };
+		0F629519FA7A7E7FFA235F61 /* YuNetReferenceParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetReferenceParity.swift; sourceTree = "<group>"; };
+		AD2300010000000000000001 /* SFaceOutputParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFaceOutputParity.swift; sourceTree = "<group>"; };
+		4230520EF3D1543147519C50 /* YuNetModelPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetModelPreparation.swift; sourceTree = "<group>"; };
+		CF0F7EDD4558567B95EEAB8E /* YuNetCPUBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetCPUBackend.swift; sourceTree = "<group>"; };
+		C6B38FBF3E273313F3258FB5 /* YuNetRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetRuntime.swift; sourceTree = "<group>"; };
+		1F8103049AE0A0D0CCC22799 /* YuNetRuntimeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetRuntimeTests.swift; sourceTree = "<group>"; };
+		DBD60D8FFB62E940F6861624 /* YuNetORTParityEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YuNetORTParityEvidence.swift; sourceTree = "<group>"; };
+		326C73B4528BD91AF9F74232 /* CatalogFacePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogFacePipeline.swift; sourceTree = "<group>"; };
+		9F6197EFEF4E9478CBAE8BF9 /* CatalogFacePipelineFenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogFacePipelineFenceTests.swift; sourceTree = "<group>"; };
+		081161AF30686C43C680728F /* FaceEmbeddingRuntimeTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceEmbeddingRuntimeTestSupport.swift; sourceTree = "<group>"; };
+		BB0000010000000000000130 /* BundledModelResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledModelResources.swift; sourceTree = "<group>"; };
+		CC0000010000000000000130 /* BundledModelResourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledModelResourceTests.swift; sourceTree = "<group>"; };
+		EF0000010000000000000001 /* face_detection_yunet_2023mar.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = models/face_detection_yunet_2023mar.onnx; sourceTree = "<group>"; };
+		EF0000010000000000000002 /* face_recognition_sface_2021dec.onnx */ = {isa = PBXFileReference; lastKnownFileType = file; path = models/face_recognition_sface_2021dec.onnx; sourceTree = "<group>"; };
+		EF0000010000000000000003 /* OpenCV-Zoo-YuNet-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tools/third-party-notices/OpenCV-Zoo-YuNet-LICENSE.txt; sourceTree = "<group>"; };
+		EF0000010000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tools/third-party-notices/OpenCV-Zoo-SFace-LICENSE.txt; sourceTree = "<group>"; };
+		A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducer.swift; sourceTree = "<group>"; };
+		A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/FaceEmbeddingCoordinator.swift; sourceTree = "<group>"; };
+		A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanEmbeddingEnrichmentTests.swift; sourceTree = "<group>"; };
+		A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducerTests.swift; sourceTree = "<group>"; };
+		A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacePipelineLifecycleAdapterTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -163,6 +384,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EE0000020000000000000001 /* AFITCCore.framework in Frameworks */,
+				FA7100000000000000000015,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -171,6 +393,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EE0000020000000000000003 /* AFITCCore.framework in Frameworks */,
+				FA7100000000000000000017,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -181,7 +404,48 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+				FA7100000000000000000004 /* AFITCRuntime Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA7100000000000000000018 /* AFITCCore.framework in Frameworks */,
+				FA7100000000000000000019 /* onnxruntime in AFITCRuntime Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EF0000030000000000000001 /* Verify Local Model Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Verify Local Model Resources";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\ncd \"$SRCROOT\"\npython3 tools/acquire-model-resources.py --verify-only\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EF0000040000000000000001 /* Bundle Model Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EF0000020000000000000001 /* face_detection_yunet_2023mar.onnx in Resources */,
+				EF0000020000000000000002 /* face_recognition_sface_2021dec.onnx in Resources */,
+				EF0000020000000000000003 /* OpenCV-Zoo-YuNet-LICENSE.txt in Resources */,
+				EF0000020000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXGroup section */
 		000000000000000000000002 = {
@@ -192,12 +456,25 @@
 				000000000000000000000005 /* Tests */,
 				000000000000000000000006 /* UITests */,
 				000000000000000000000007 /* Products */,
+				EF0000010000000000000001,
+				EF0000010000000000000002,
+				EF0000010000000000000003,
+				EF0000010000000000000004,
 			);
 			sourceTree = "<group>";
 		};
 		000000000000000000000003 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000010000000000000050 /* AppPresentationState.swift */,
+				AA0000010000000000000045 /* CatalogSessionLifecycle.swift */,
+				AA000001000000000000004C /* CatalogBackupTestSupport.swift */,
+				AA000001000000000000004B /* CatalogOperationProgress.swift */,
+				AA000001000000000000004A /* CatalogBackupExport.swift */,
+				AA0000010000000000000049 /* SettingsView.swift */,
+				AA0000010000000000000048 /* CatalogPackagePicker.swift */,
+				AA0000010000000000000047 /* CatalogBackupService.swift */,
+				AA0000010000000000000046 /* CatalogStartupService.swift */,
 				AA0000010000000000000040 /* SearchView.swift */,
 				AA0000010000000000000041 /* PhotoViewer.swift */,
 				AA0000010000000000000042 /* DesignTokens.swift */,
@@ -215,7 +492,11 @@
 				AA0000010000000000000003 /* AppServices.swift */,
 				AA0000010000000000000005 /* DiagnosticLog.swift */,
 				AA0000010000000000000004 /* Info.plist */,
-			);
+
+				6E48B92BB59D49CAA69ECF66 /* DiagnosticFiles.swift */,
+				F34A42044E5BF8DE67184FAC /* CatalogPrivacyService.swift */,
+				14FD12695D171D1A1CD92A9E /* PrivacyProtection.swift */,
+				A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */,);
 			path = App;
 			sourceTree = "<group>";
 		};
@@ -223,6 +504,7 @@
 			isa = PBXGroup;
 			children = (
 				BB0000000000000000000001 /* AFITCCore */,
+				FA7100000000000000000008,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -230,6 +512,9 @@
 		BB0000000000000000000001 /* AFITCCore */ = {
 			isa = PBXGroup;
 			children = (
+				BB0000010000000000000051 /* PresentationPreferenceStore.swift */,
+				BB0000010000000000000050 /* PresentationPreferences.swift */,
+				BB0000010000000000000109 /* RestoreMarkerProtection.swift */,
 				BB0000010000000000000020 /* PeopleRepository.swift */,
 				BB0000010000000000000021 /* DecisionService.swift */,
 				BB0000010000000000000022 /* UndoService.swift */,
@@ -244,6 +529,32 @@
 				BB000001000000000000000B /* CatalogRepository.swift */,
 				BB000001000000000000000A /* SourceProtocol.swift */,
 				BB0000010000000000000001 /* CatalogTypes.swift */,
+				BB00000100000000000000F3,
+				BB00000100000000000000F4,
+				BB00000100000000000000F6,
+				BB00000100000000000000F5,
+				BB00000100000000000000F8,
+				BB00000100000000000000F9,
+				BB00000100000000000000FA,
+				BB00000100000000000000FB,
+				BB00000100000000000000FC,
+				BB00000100000000000000FE,
+				BB00000100000000000000FF,
+				BB00000100000000000000D0,
+				BB00000100000000000000D1,
+				BB0000010000000000000100 /* CachePolicy.swift */,
+				AB2200010000000000000001 /* ModelManifest.swift */,
+				AB2200010000000000000002 /* EmbeddingProvider.swift */,
+
+				A12F28FB78D83502A451859C /* CatalogSuspensionRepository.swift */,
+				BA1CA3BFF43844733F5EA6A6 /* SFacePreprocessing.swift */,
+				E2A7C4D98F5B4C189E3A0001 /* YuNetRasterPreprocessing.swift */,
+				CE99A2DB5B67EB062DE56044 /* PreparedBackupOwnership.swift */,
+				02DC1158ADD62D11C368586C /* FaceAlignmentAssociation.swift */,
+				4A1146C0A86D4970E8AB3076,
+				586F7AAD2BA6695AC84D3EA0,
+				326C73B4528BD91AF9F74232,
+				BB0000010000000000000130,
 			);
 			path = AFITCCore;
 			sourceTree = "<group>";
@@ -259,6 +570,9 @@
 		CC0000000000000000000001 /* AFITCCoreTests */ = {
 			isa = PBXGroup;
 			children = (
+				CC0000010000000000000110 /* MarkerDomainComparisonTests.swift */,
+				CC0000010000000000000050 /* PresentationPreferenceTests.swift */,
+				CC0000010000000000000109 /* MarkerMetadataExperimentTests.swift */,
 				CC0000010000000000000020 /* DecisionDurabilityTests.swift */,
 				CC0000010000000000000021 /* IdentityCorrectionTests.swift */,
 				CC0000010000000000000040 /* ViewerReadTests.swift */,
@@ -269,6 +583,43 @@
 				CC000001000000000000000A /* SourceRecoveryTests.swift */,
 				CC0000010000000000000001 /* BootstrapTests.swift */,
 				CC0000010000000000000002 /* RunnerContractTests.swift */,
+				AB2100010000000000000001 /* ModelContractTests.swift */,
+				CC00000100000000000000F3,
+				CC00000100000000000000F4,
+				CC00000100000000000000F5,
+				CC00000100000000000000F8,
+				CC00000100000000000000F9,
+				CC00000100000000000000FA,
+				CC00000100000000000000FC,
+				CC00000100000000000000FD,
+				CC00000100000000000000D0,
+				CC00000100000000000000D1,
+				CC0000010000000000000100 /* CachePressureTests.swift */,
+				CC0000010000000000000101 /* PreviewRecoveryTests.swift */,
+
+				9FFEC6BFA6ADA4EF9D80ADC3 /* CatalogSuspensionTests.swift */,
+				AADCA9825C03191DFD59C038 /* RestoreProtectedDataTests.swift */,
+				0BB77832FC89A85F929BCB4C /* DeletionProtectedDataTests.swift */,
+				720F46C208925BC266D82ECE /* DiagnosticDeletionTests.swift */,
+				AA2A88DABBFB26285BB09EED /* RestoreStageOwnershipTests.swift */,
+				3B143C2634B2766944A5B004 /* SFacePreprocessingTests.swift */,
+				E2A7C4D98F5B4C189E3A0003 /* FacePipelinePixelTests.swift */,
+				E2A7C4D98F5B4C189E3A0005 /* YuNetPixelReferenceParity.swift */,
+				17F6D40441E4D956CDD91CAD /* DeviceDeliveryContractTests.swift */,
+				B9D6267C0933F6F1E840F046 /* FaceAlignmentAssociationTests.swift */,
+				FA710000000000000000000D,
+				FA710000000000000000000E,
+				31303D19CFAEC757C19F2B60,
+				0F629519FA7A7E7FFA235F61,
+				AD2300010000000000000001,
+				1F8103049AE0A0D0CCC22799,
+				DBD60D8FFB62E940F6861624,
+				9F6197EFEF4E9478CBAE8BF9,
+				081161AF30686C43C680728F,
+				CC0000010000000000000130,
+				A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */,
+				A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */,
+				A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */,
 			);
 			path = AFITCCoreTests;
 			sourceTree = "<group>";
@@ -276,13 +627,17 @@
 		000000000000000000000006 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				DD0000010000000000000050 /* AcceptanceFlowTests.swift */,
+				DD0000010000000000000042 /* BackupFlowTests.swift */,
 				DD0000010000000000000040 /* SearchFlowTests.swift */,
 				DD0000010000000000000041 /* AccessibilityFlowTests.swift */,
 				DD0000010000000000000020 /* PeopleFlowTests.swift */,
 				DD000001000000000000000A /* ScanProgressTests.swift */,
 				DD0000010000000000000001 /* LaunchTests.swift */,
 				DD0000010000000000000002 /* NavigationTests.swift */,
-			);
+
+				CE6D3BB465126317BB1C1601 /* PrivacyFlowTests.swift */,
+				56B9187FEADB55F856792846 /* ProtectedDataFlowTests.swift */,);
 			path = UITests;
 			sourceTree = "<group>";
 		};
@@ -293,8 +648,24 @@
 				000000000000000000000011 /* AFITC.app */,
 				000000000000000000000013 /* AFITCCoreTests.xctest */,
 				000000000000000000000014 /* UITests.xctest */,
+				FA7100000000000000000002,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+				FA7100000000000000000008 /* AFITCRuntime */ = {
+			isa = PBXGroup;
+			children = (
+				FA7100000000000000000009 /* EmbeddingRuntimeTypes.swift */,
+				FA710000000000000000000A /* FaceEmbeddingRuntime.swift */,
+				FA710000000000000000000B /* SFaceCPUBackend.swift */,
+				FA710000000000000000000C /* ModelPreparation.swift */,
+				4230520EF3D1543147519C50,
+				CF0F7EDD4558567B95EEAB8E,
+				C6B38FBF3E273313F3258FB5,
+				A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */,
+			);
+			path = AFITCRuntime;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -320,14 +691,17 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 200000000000000000000002 /* Build configuration list for PBXNativeTarget "AFITC" */;
 			buildPhases = (
+				EF0000030000000000000001,
 				770000000000000000000002 /* Sources */,
 				880000000000000000000002 /* Frameworks */,
 				990000000000000000000001 /* Embed Frameworks */,
+				EF0000040000000000000001,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				FF0000020000000000000001 /* PBXTargetDependency */,
+				FA710000000000000000001B,
 			);
 			name = AFITC;
 			productName = AFITC;
@@ -345,7 +719,9 @@
 			);
 			dependencies = (
 				FF0000020000000000000002 /* PBXTargetDependency */,
+				FA710000000000000000001D,
 			);
+			packageProductDependencies = ();
 			name = AFITCCoreTests;
 			productName = AFITCCoreTests;
 			productReference = 000000000000000000000013 /* AFITCCoreTests.xctest */;
@@ -367,6 +743,23 @@
 			productName = UITests;
 			productReference = 000000000000000000000014 /* UITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+				FA7100000000000000000001 /* AFITCRuntime */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FA7100000000000000000005 /* Build configuration list for PBXNativeTarget "AFITCRuntime" */;
+			buildPhases = (
+				FA7100000000000000000003 /* Sources */,
+				FA7100000000000000000004 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = (
+				FA710000000000000000001F /* AFITCCore */,
+			);
+			name = AFITCRuntime;
+			packageProductDependencies = (AB2100040000000000000001 /* onnxruntime */);
+			productName = AFITCRuntime;
+			productReference = FA7100000000000000000002 /* AFITCRuntime.framework */;
+			productType = "com.apple.product-type.framework";
 		};
 /* End PBXNativeTarget section */
 
@@ -401,6 +794,7 @@
 				en,
 				Base,
 			);
+			packageReferences = (AB2100030000000000000001);
 			mainGroup = 000000000000000000000002;
 			productRefGroup = 000000000000000000000007 /* Products */;
 			projectDirPath = "";
@@ -410,6 +804,7 @@
 				100000000000000000000002 /* AFITC */,
 				100000000000000000000003 /* AFITCCoreTests */,
 				100000000000000000000004 /* UITests */,
+				FA7100000000000000000001,
 			);
 		};
 /* End PBXProject section */
@@ -419,6 +814,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BB0000020000000000000051 /* PresentationPreferenceStore.swift in Sources */,
+				BB0000020000000000000050 /* PresentationPreferences.swift in Sources */,
+				BB0000020000000000000109 /* RestoreMarkerProtection.swift in Sources */,
 				BB0000020000000000000020 /* PeopleRepository.swift in Sources */,
 				BB0000020000000000000021 /* DecisionService.swift in Sources */,
 				BB0000020000000000000022 /* UndoService.swift in Sources */,
@@ -433,6 +831,32 @@
 				BB000002000000000000000B /* CatalogRepository.swift in Sources */,
 				BB000002000000000000000A /* SourceProtocol.swift in Sources */,
 				BB0000020000000000000001 /* CatalogTypes.swift in Sources */,
+				BB00000200000000000000F3,
+				BB00000200000000000000F4,
+				BB00000200000000000000F6,
+				BB00000200000000000000F5,
+				BB00000200000000000000F8,
+				BB00000200000000000000F9,
+				BB00000200000000000000FA,
+				BB00000200000000000000FB,
+				BB00000200000000000000FC,
+				BB00000200000000000000FE,
+				BB00000200000000000000FF,
+				BB00000200000000000000D0,
+				BB00000200000000000000D1,
+				BB0000020000000000000100 /* CachePolicy.swift in Sources */,
+				AB2200020000000000000001 /* ModelManifest.swift in Sources */,
+				AB2200020000000000000002 /* EmbeddingProvider.swift in Sources */,
+
+				9749025ECF7563484FBDDF90 /* CatalogSuspensionRepository.swift in Sources */,
+				28FAE5964BD6E03B6EFF4C18 /* SFacePreprocessing.swift in Sources */,
+				E2A7C4D98F5B4C189E3A0002 /* YuNetRasterPreprocessing.swift in Sources */,
+				7EA32C3624E7EFF947D83882 /* PreparedBackupOwnership.swift in Sources */,
+				0AFE6F0B09B58147A0C940EC /* FaceAlignmentAssociation.swift in Sources */,
+				217B77798D32640A867BF24C,
+				7882F7BD839C736A518A2DA6,
+				B5EFAEC131E459D7FE4C2E68,
+				BB0000020000000000000130,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -440,6 +864,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000020000000000000050 /* AppPresentationState.swift in Sources */,
+				AA0000020000000000000045 /* CatalogSessionLifecycle.swift */,
+				AA000002000000000000004C /* CatalogBackupTestSupport.swift */,
+				AA000002000000000000004B /* CatalogOperationProgress.swift */,
+				AA000002000000000000004A /* CatalogBackupExport.swift */,
+				AA0000020000000000000049 /* SettingsView.swift */,
+				AA0000020000000000000048 /* CatalogPackagePicker.swift */,
+				AA0000020000000000000047 /* CatalogBackupService.swift */,
+				AA0000020000000000000046 /* CatalogStartupService.swift */,
 				AA0000020000000000000040 /* SearchView.swift in Sources */,
 				AA0000020000000000000041 /* PhotoViewer.swift in Sources */,
 				AA0000020000000000000042 /* DesignTokens.swift in Sources */,
@@ -456,13 +889,20 @@
 				AA0000020000000000000002 /* RootView.swift in Sources */,
 				AA0000020000000000000003 /* AppServices.swift in Sources */,
 				AA0000020000000000000005 /* DiagnosticLog.swift in Sources */,
-			);
+
+				F0A37ECF3221A0A954BAE2AF /* DiagnosticFiles.swift in Sources */,
+				B4CA8DE5240BBD6EA341E018 /* CatalogPrivacyService.swift in Sources */,
+				093FC255B10269D29D4E0FB1 /* PrivacyProtection.swift in Sources */,
+				A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		770000000000000000000003 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC0000020000000000000110 /* MarkerDomainComparisonTests.swift in Sources */,
+				CC0000020000000000000050 /* PresentationPreferenceTests.swift in Sources */,
+				CC0000020000000000000109 /* MarkerMetadataExperimentTests.swift in Sources */,
 				CC0000020000000000000020 /* DecisionDurabilityTests.swift in Sources */,
 				CC0000020000000000000021 /* IdentityCorrectionTests.swift in Sources */,
 				CC0000020000000000000040 /* ViewerReadTests.swift in Sources */,
@@ -473,6 +913,43 @@
 				CC000002000000000000000A /* SourceRecoveryTests.swift in Sources */,
 				CC0000020000000000000001 /* BootstrapTests.swift in Sources */,
 				CC0000020000000000000002 /* RunnerContractTests.swift in Sources */,
+				AB2100020000000000000001 /* ModelContractTests.swift in Sources */,
+				CC00000200000000000000F3,
+				CC00000200000000000000F4,
+				CC00000200000000000000F5,
+				CC00000200000000000000F8,
+				CC00000200000000000000F9,
+				CC00000200000000000000FA,
+				CC00000200000000000000FC,
+				CC00000200000000000000FD,
+				CC00000200000000000000D0,
+				CC00000200000000000000D1,
+				CC0000020000000000000100 /* CachePressureTests.swift in Sources */,
+				CC0000020000000000000101 /* PreviewRecoveryTests.swift in Sources */,
+
+				1DFA4BF0919EA7DD05BA2806 /* CatalogSuspensionTests.swift in Sources */,
+				9ADC5B24B58ED216857B34CC /* RestoreProtectedDataTests.swift in Sources */,
+				7B4FBF860EE88BD5578DD6A1 /* DeletionProtectedDataTests.swift in Sources */,
+				06E70D71868A2CFE68779596 /* DiagnosticDeletionTests.swift in Sources */,
+				6DC6CCF4C7BBE9BB004ACEB2 /* RestoreStageOwnershipTests.swift in Sources */,
+				FAD7E54CB991969042C8A8BE /* SFacePreprocessingTests.swift in Sources */,
+				E2A7C4D98F5B4C189E3A0004 /* FacePipelinePixelTests.swift in Sources */,
+				E2A7C4D98F5B4C189E3A0006 /* YuNetPixelReferenceParity.swift in Sources */,
+				B8ED0C800CF8C2EDCA4DD6F7 /* DeviceDeliveryContractTests.swift in Sources */,
+				63175B2BDF44D3F08A84A101 /* FaceAlignmentAssociationTests.swift in Sources */,
+				FA7100000000000000000013,
+				FA7100000000000000000014,
+				DC9C0EAECAAF70F9F116618F,
+				4F0AFECFCC72356840A7D977,
+				AD2300020000000000000001,
+				582D29B11C6A2C0B79975B8B,
+				B8D4356E9B3CF8912D4086EA,
+				56EAF0BDD6E3BA832BC3B860,
+				1A95A5285666EE81E4DEE432,
+				CC0000020000000000000130,
+				A23D00020000000000000003 /* ScanEmbeddingEnrichmentTests.swift in Sources */,
+				A23D00020000000000000004 /* TransientFaceEmbeddingProducerTests.swift in Sources */,
+				A23D00020000000000000005 /* FacePipelineLifecycleAdapterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,12 +957,31 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD0000020000000000000050 /* AcceptanceFlowTests.swift in Sources */,
+				DD0000020000000000000042 /* BackupFlowTests.swift */,
 				DD0000020000000000000040 /* SearchFlowTests.swift in Sources */,
 				DD0000020000000000000041 /* AccessibilityFlowTests.swift in Sources */,
 				DD0000020000000000000020 /* PeopleFlowTests.swift in Sources */,
 				DD000002000000000000000A /* ScanProgressTests.swift in Sources */,
 				DD0000020000000000000001 /* LaunchTests.swift in Sources */,
 				DD0000020000000000000002 /* NavigationTests.swift in Sources */,
+
+				44B0AF63412E0A94A2F8E17E /* PrivacyFlowTests.swift in Sources */,
+				433BD979FC39ACA1A3DE0457 /* ProtectedDataFlowTests.swift in Sources */,);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+				FA7100000000000000000003 /* AFITCRuntime Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA710000000000000000000F /* EmbeddingRuntimeTypes.swift in Sources */,
+				FA7100000000000000000010 /* FaceEmbeddingRuntime.swift in Sources */,
+				FA7100000000000000000011 /* SFaceCPUBackend.swift in Sources */,
+				FA7100000000000000000012 /* ModelPreparation.swift in Sources */,
+				0BB4F17AB53AA3411E2350A7,
+				2DB13551E2DFA9F6248FE15B,
+				60C703A497E3894ADCA3EAC6,
+				A23D00020000000000000001 /* TransientFaceEmbeddingProducer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -507,7 +1003,29 @@
 			target = 100000000000000000000002 /* AFITC */;
 			targetProxy = FF0000010000000000000003 /* PBXContainerItemProxy */;
 		};
+				FA710000000000000000001D /* AFITCRuntime */ = {
+			isa = PBXTargetDependency;
+			target = FA7100000000000000000001;
+			targetProxy = FA710000000000000000001C /* AFITCRuntime target proxy */;
+		};
+				FA710000000000000000001B /* AFITCRuntime */ = {
+			isa = PBXTargetDependency;
+			target = FA7100000000000000000001;
+			targetProxy = FA710000000000000000001A /* AFITCRuntime target proxy */;
+		};
+				FA710000000000000000001F /* AFITCCore */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000001;
+			targetProxy = FA710000000000000000001E /* AFITCCore target proxy */;
+		};
 /* End PBXTargetDependency section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AB2100030000000000000001 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/microsoft/onnxruntime-swift-package-manager"; requirement = {kind = exactVersion; version = 1.24.2; }; };
+/* End XCRemoteSwiftPackageReference section */
+/* Begin XCSwiftPackageProductDependency section */
+		AB2100040000000000000001 /* onnxruntime */ = {isa = XCSwiftPackageProductDependency; package = AB2100030000000000000001 /* XCRemoteSwiftPackageReference "onnxruntime-swift-package-manager" */; productName = onnxruntime; };
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		000000000000000000000021 /* Debug */ = {
@@ -699,6 +1217,38 @@
 			};
 			name = Release;
 		};
+				FA7100000000000000000006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCRuntime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+				FA7100000000000000000007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.zerodelta.AFITCRuntime;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -743,6 +1293,15 @@
 			buildConfigurations = (
 				200000000000000000000041 /* Debug */,
 				200000000000000000000042 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+				FA7100000000000000000005 /* Build configuration list for PBXNativeTarget "AFITCRuntime" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA7100000000000000000006 /* Debug */,
+				FA7100000000000000000007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

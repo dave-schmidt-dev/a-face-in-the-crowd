@@ -62,10 +62,10 @@ final class PeopleFlowTests: XCTestCase {
     /// Walk the complete fixture-sized People section; lazy rows are not a global count.
     private func peopleRecords(app: XCUIApplication) -> [String: String] {
         let scroll = app.scrollViews["screen-People"]
-        let heading = scroll.staticTexts["People"]
+        let heading = scroll.staticTexts["people-records-start"]
         let boundary = scroll.staticTexts["Unidentified faces"]
         reveal(heading, app: app, passive: true)
-        XCTAssertTrue(inViewport(heading, app: app), "People traversal must start at its heading")
+        XCTAssertTrue(inViewport(heading, app: app), "People traversal must start at its confirmed records subsection")
         guard inViewport(heading, app: app) else { return [:] }
         var records: [String: String] = [:]
         func collect() {

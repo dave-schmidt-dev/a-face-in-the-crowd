@@ -150,7 +150,9 @@ enum PeopleSQL {
     static func scalar(_ db: OpaquePointer, _ sql: String, strings: [String] = []) throws -> Int {
         let statement = try statement(db, sql, strings: strings); defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW else { throw CatalogSchema.failure(db) }
-        return Int(sqlite3_column_int64(statement, 0))
+        let value = try CatalogCounters.integer(statement)
+        guard value >= 0 else { throw CounterError.invalidStoredValue }
+        return value
     }
     static func syncPhoto(_ db: OpaquePointer, _ photo: PhotoIdentity) throws {
         let previous: [FaceKey] = try rows(db, "SELECT payload FROM current_faces WHERE photo_id=?", strings: [photo.id.uuidString])
@@ -158,7 +160,7 @@ enum PeopleSQL {
             ? photo.analysis.faces.filter { validGeometry($0.rectangle) }.map { FaceKey(photo: photo, face: $0) } : []
         if Set(previous) != Set(incoming) {
             let affected: [PersonRecord] = try rows(db, "SELECT DISTINCT p.payload FROM people p JOIN manual_faces m ON m.person_id=p.id JOIN current_faces c ON c.key=m.key WHERE c.photo_id=? AND m.anchor=1", strings: [photo.id.uuidString])
-            for var person in affected { person.exemplarRevision += 1; try writePerson(db, person) }
+            for var person in affected { person.exemplarRevision = try CatalogCounters.successor(person.exemplarRevision, minimum: 1); try writePerson(db, person) }
         }
         try run(db, "DELETE FROM current_faces WHERE photo_id=?", strings: [photo.id.uuidString])
         guard photo.missing != true, photo.analysis.status == .successful,

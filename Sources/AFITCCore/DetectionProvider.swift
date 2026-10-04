@@ -10,6 +10,7 @@ public protocol DetectionProvider: Sendable {
     func process(_ data: Data, contentVersion: Int) async throws -> ProcessedPreview
 }
 
+import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -32,6 +33,57 @@ public enum JPEGPreviewDecoder {
         guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
               CGImageSourceGetStatusAtIndex(source, 0) == .statusComplete else { throw ScanError.malformed }
         return image
+    }
+
+    /// Produces owned upright sRGB bytes from the exact bounded ImageIO decode
+    /// used by Vision. Call from a worker task; packing reports completed rows
+    /// and checks cancellation between them.
+    public static func canonicalRGB(
+        _ data: Data,
+        progress: (@Sendable (YuNetPixelPreparationProgress) -> Void)? = nil
+    ) throws -> RGB8Raster {
+        let image = try decode(data)
+        let width = image.width
+        let height = image.height
+        guard width > 0, height > 0,
+              width <= RGB8Raster.maximumDimension, height <= RGB8Raster.maximumDimension else {
+            throw SFacePreprocessingError.invalidDimensions
+        }
+        let (rowBytes, rowOverflow) = width.multipliedReportingOverflow(by: 4)
+        let (storageBytes, storageOverflow) = rowBytes.multipliedReportingOverflow(by: height)
+        guard !rowOverflow, !storageOverflow, storageBytes <= RGB8Raster.maximumStorageBytes,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else {
+            throw SFacePreprocessingError.invalidDimensions
+        }
+        var rgba = [UInt8](repeating: 0, count: storageBytes)
+        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.noneSkipLast.rawValue
+        let rendered = rgba.withUnsafeMutableBytes { storage -> Bool in
+            guard let context = CGContext(data: storage.baseAddress, width: width, height: height,
+                                          bitsPerComponent: 8, bytesPerRow: rowBytes,
+                                          space: colorSpace, bitmapInfo: bitmapInfo) else { return false }
+            context.interpolationQuality = .none
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard rendered else { throw ScanError.malformed }
+        let rgbRowBytes = width * 3
+        var rgb = [UInt8](repeating: 0, count: rgbRowBytes * height)
+        for y in 0..<height {
+            try Task.checkCancellation()
+            let source = y * rowBytes
+            let destination = y * rgbRowBytes
+            for x in 0..<width {
+                let input = source + x * 4
+                let output = destination + x * 3
+                rgb[output] = rgba[input]
+                rgb[output + 1] = rgba[input + 1]
+                rgb[output + 2] = rgba[input + 2]
+            }
+            progress?(YuNetPixelPreparationProgress(phase: .canonicalRGB, completedRows: y + 1,
+                                                     totalRows: height))
+        }
+        try Task.checkCancellation()
+        return try RGB8Raster(width: width, height: height, bytes: rgb)
     }
     /// Reject enormous declared dimensions before ImageIO attempts metadata/codec work.
     private static func validateJPEGHeader(_ data: Data) throws {

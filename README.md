@@ -39,9 +39,13 @@ People releases cached face-preview rasters and invalidates in-flight preview wo
 
 Search uses human-confirmed identities and Together, Any, or Only selection rules. Results are immutable pages from a captured catalog revision. The read-only viewer validates the selected original and falls back to a bounded cached preview when the original is unavailable or changed. Capture ordering uses validated original JPEG wall-clock metadata. These capabilities do not qualify recognition suggestions, backup/restore, physical-device behavior, or a production model.
 
+## Transient face details boundary
+
+During a scan, photos whose bytes were actually read may get transient face details: the scan reuses those exact bytes, runs the pinned local YuNet and SFace models on the CPU, and attaches raw vectors only to existing Vision face IDs that match one detection uniquely. Results stay in memory for the latest photo only and are dropped on clear, source change, catalog quiescence or memory pressure. Nothing is saved, matched or labeled, and no UI is added. Failures leave accepted analysis and manual decisions unchanged. Synthetic DEBUG fixtures bypass the trained models. This does not establish recognition usefulness or physical-device qualification.
+
 ## Verification and diagnostics
 
-Use `tools/verify.sh task3.3 --headless`, `task4.1 --headless`, `task4.capture-date --headless`, and `task4.2 --headless` for focused checks; `tools/verify.sh phase3` and `phase4` run accumulated gates. Task and phase selector mappings live in `tools/test-manifest.json`; the runner checks exact Xcode and SwiftPM membership, mapped selectors, and iPadOS 17 app/test compilation, and fails on missing or drifting mappings. Each run writes receipts and logs under `.logs/verification/`; these logs and `HISTORY.md` are local ignored evidence, not files distributed with the public repository. This command list is reproducible guidance, not a claim that every command was run.
+Use `tools/verify.sh task3.3 --headless`, `task4.1 --headless`, `task4.capture-date --headless`, `task4.2 --headless`, and `task2.3-producer --headless` for focused checks; `tools/verify.sh phase3` and `phase4` run accumulated gates. `tools/verify.sh phase6` runs the accumulated gate and requires `AFITC_RUN_SFACE_MODEL_TESTS=1` with `AFITC_SFACE_MODEL_PATH` set to the verified local SFace artifact, since skipped selectors fail the gate. Task and phase selector mappings live in `tools/test-manifest.json`; the runner checks exact Xcode and SwiftPM membership, mapped selectors, and iPadOS 17 app/test compilation, and fails on missing or drifting mappings. Each run writes receipts and logs under `.logs/verification/`; these logs and `HISTORY.md` are local ignored evidence, not files distributed with the public repository. This command list is reproducible guidance, not a claim that every command was run.
 
 The accumulated native phase gate uses the task set configured for that phase in `tools/test-manifest.json`; native UI checks run at that gate. It compiles the app/test bundles and executes synthetic UI checks on a disposable iPad simulator. The gate requires the installed shared `simctl_gate_lib.sh` at `~/Documents/Projects/apple_developer/release_tools/templates/` (override with `AFITC_SIMCTL_GATE_LIB`). The helper owns device cleanup, clone cleanup and the shared Apple UI lock. Headless checks never boot devices. Simulator evidence does not establish physical source/device acceptance.
 
@@ -54,3 +58,7 @@ The first functional milestone will start at 0.1.0, with SemVer for documented w
 ## License
 
 Original project work in this repository is available under the [MIT License](LICENSE). Third-party materials require their own rights review.
+
+## Pinned local model resources
+
+`tools/model-resources.json` pins YuNet and SFace bytes and their upstream notices. Run `python3 tools/acquire-model-resources.py` to acquire missing ignored weights; `--model` selects one model. Existing invalid files are preserved, promotion never overwrites a destination, and per-model locks serialize acquisition. `--verify-only` performs offline checks (also run before Xcode builds). Models and notices are bundled as read-only resources; no App download is enabled. Software mechanics and bundled-byte checks do not establish recognition usefulness or physical-device qualification.

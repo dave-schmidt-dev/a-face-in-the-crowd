@@ -12,24 +12,30 @@ private final class ViewerController: ObservableObject {
     private var request: Task<Void, Never>?
     #if DEBUG
     private weak var probeServices: AppServices?
+    private var probeSession: UInt64?
     #endif
     func release() {
         #if DEBUG
-        probeServices?.releaseViewerProbe(token)
+        if let probeSession, probeServices?.sessionIsCurrent(probeSession) == true {
+            probeServices?.releaseViewerProbe(token)
+        }
         #endif
         token = UUID(); request?.cancel(); worker?.cancel(); request = nil; worker = nil
         image = nil; status = "Image released. Reopen to load it again."
     }
     func load(photo: PhotoIdentity, services: AppServices) {
-        release(); status = "Opening photo"
+        release()
+        guard let operation = services.catalogSession.begin("viewer") else { return }
+        status = "Opening photo"
         let current = token, generation = services.viewerSourceGeneration
         let root = services.selectedFolder, cache = services.previewURL(photo), synthetic = services.usesSyntheticFixture
         #if DEBUG
-        probeServices = services; services.beginViewerProbe(current)
+        probeServices = services; probeSession = operation.session; services.beginViewerProbe(current)
         #endif
-        request = Task {
+        let job = Task {
+            defer { services.catalogSession.finish(operation) }
             #if DEBUG
-            defer { services.finishViewerProbe(current) }
+            defer { if services.sessionIsCurrent(operation.session) { services.finishViewerProbe(current) } }
             #endif
             var original = false
             do {
@@ -63,8 +69,10 @@ private final class ViewerController: ObservableObject {
                 #endif
                 do {
                     try await source.open()
+                    try Task.checkCancellation()
+                    guard services.sessionIsCurrent(operation.session) else { await source.close(); return }
                     let identity = try await source.identity()
-                    try await services.validateViewerPhoto(photo, sourceIdentity: identity)
+                    try await services.validateViewerPhoto(photo, sourceIdentity: identity, session: operation.session)
                     let bytes = try await source.read(SourceEntry(relativePath: photo.relativePath))
                     try Task.checkCancellation()
                     let work = Task.detached {
@@ -74,15 +82,19 @@ private final class ViewerController: ObservableObject {
                         return (try PreviewService.decode(bytes), digest)
                     }
                     let decoded = try await withTaskCancellationHandler { try await work.value } onCancel: { work.cancel() }
-                    try await services.validateViewerPhoto(photo, sourceIdentity: try await source.identity(), hash: decoded.1)
+                    try await services.validateViewerPhoto(photo, sourceIdentity: try await source.identity(), hash: decoded.1, session: operation.session)
                     await source.close()
+                    #if DEBUG
+                    await services.holdSessionWork(operation)
+                    #endif
+                    guard services.sessionIsCurrent(operation.session) else { return }
                     #if DEBUG
                     if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-memory-warning") {
                         NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
                     }
                     #endif
                     try Task.checkCancellation()
-                    guard token == current, services.viewerSourceGeneration == generation,
+                    guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation,
                           services.selectedFolder == root else { return }
                     #if DEBUG
                     services.publicationViewerProbe(current)
@@ -91,12 +103,12 @@ private final class ViewerController: ObservableObject {
                 } catch { await source.close(); throw error }
             } catch is CancellationError {
                 #if DEBUG
-                services.cancelViewerProbe(current)
+                if services.sessionIsCurrent(operation.session) { services.cancelViewerProbe(current) }
                 #endif
                 return
             }
             catch {
-                guard token == current, services.viewerSourceGeneration == generation else { return }
+                guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation else { return }
                 do {
                     guard let cache else { throw ScanError.unavailable }
                     #if DEBUG
@@ -125,25 +137,27 @@ private final class ViewerController: ObservableObject {
                     worker = work
                     let decoded = try await withTaskCancellationHandler { try await work.value } onCancel: { work.cancel() }
                     try Task.checkCancellation()
-                    guard token == current, services.viewerSourceGeneration == generation else { return }
+                    guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation else { return }
                     #if DEBUG
                     services.publicationViewerProbe(current)
                     #endif
                     image = UIImage(cgImage: decoded)
                 } catch is CancellationError {
                     #if DEBUG
-                    services.cancelViewerProbe(current)
+                    if services.sessionIsCurrent(operation.session) { services.cancelViewerProbe(current) }
                     #endif
                     return
                 } catch {
-                    guard token == current, services.viewerSourceGeneration == generation else { return }
+                    guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation else { return }
                     status = "Preview unavailable. Connect the selected source and refresh search."
                 }
             }
-            guard token == current, services.viewerSourceGeneration == generation else { return }
+            guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation else { return }
             if image != nil { status = original ? "Original · up to 1024px" : "Preview only · original unavailable or changed" }
             request = nil; worker = nil
         }
+        request = job
+        services.catalogSession.bind(operation) { [weak self] in job.cancel(); self?.release() }
     }
 }
 
@@ -170,6 +184,11 @@ struct PhotoViewer: View {
                         Text(services.syntheticViewerProbe).font(.caption).accessibilityIdentifier("viewer-request-detail-probe")
                     }
                     #endif
+                    #if DEBUG
+                    if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+                        Text(services.sessionProbe).font(.caption).accessibilityIdentifier("viewer-session-probe")
+                    }
+                    #endif
                     Text(photo.relativePath).font(.caption).textSelection(.enabled)
                     if let date = photo.captureDate {
                         Text("Captured \(date.localWallClock)\(date.sourceOffset.map { " · source offset " + $0 } ?? "")")
@@ -179,9 +198,17 @@ struct PhotoViewer: View {
                 }.padding(24)
             }
             .navigationTitle("Photo")
-            .toolbar { Button("Done") { controller.release(); dismiss() }.frame(minHeight: 44).accessibilityIdentifier("close-viewer") }
+            .toolbar {
+                Button("Done") { controller.release(); dismiss() }.frame(minHeight: 44).accessibilityIdentifier("close-viewer")
+                #if DEBUG
+                if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+                    Button("Pause session") { Task { await services.quiesceCatalogSession() } }
+                        .accessibilityIdentifier("quiesce-viewer-session")
+                }
+                #endif
+            }
         }
-        .task(id: "\(services.viewerSourceGeneration):\(services.selectedFolder?.absoluteString ?? "")") { controller.load(photo: photo, services: services) }
+        .task(id: "\(services.catalogSessionID):\(services.viewerSourceGeneration):\(services.selectedFolder?.absoluteString ?? "")") { controller.load(photo: photo, services: services) }
         .onDisappear { controller.release() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in controller.release() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataWillBecomeUnavailableNotification)) { _ in controller.release() }

@@ -2,40 +2,134 @@ import Foundation
 import SQLite3
 import Darwin
 
+/// Opaque, in-process proof that this exact actor completed its physical SQLite close.
+/// It grants stage-only cleanup and carries no live database or reservation authority.
+final class CatalogRetiredCloseProof: @unchecked Sendable {
+    let ownerID: UUID
+    let backupOwner: UUID
+    let rootIdentity: PreparedBackupNodeIdentity
+    fileprivate init(ownerID: UUID, backupOwner: UUID, rootIdentity: PreparedBackupNodeIdentity) {
+        self.ownerID = ownerID; self.backupOwner = backupOwner; self.rootIdentity = rootIdentity
+    }
+}
+
 /// Protected local SQLite catalog. Each record and its progress share one transaction.
 public actor CatalogRepository {
-    private struct CacheEntry { var size: Int; var previous: String?; var next: String? }
-    private var cacheInventory: [String: CacheEntry]?
-    private var cacheHead: String?
-    private var cacheTail: String?
-    private var cacheBytes = 0
-    private(set) var cacheInventoryBuilds = 0
+    private var cachePolicy = CachePolicy()
+    private let beforePreviewPublish: (@Sendable () throws -> Void)?
+    var cacheInventoryBuilds: Int { cachePolicy.inventoryBuilds }
     private var db: OpaquePointer?
+    let backupOwner = UUID()
+    var preparedBackups: [UUID: URL] = [:]
+    var preparedBackupOwnership: [UUID: PreparedBackupOwnership] = [:]
+    #if DEBUG
+    var preparedBackupCleanupGates: [UUID: PreparedBackupCleanupGate] = [:]
+    #endif
+    let owner: CatalogRootRegistry.Owner
+    private var retired = false
     public let directory: URL
     public let cacheDirectory: URL
     public init(directory: URL, cacheDirectory: URL) throws {
-        self.directory = directory; self.cacheDirectory = cacheDirectory
-        try Self.protect(directory, directory: true)
-        try Self.protect(cacheDirectory, directory: true)
-        let file = directory.appendingPathComponent("catalog.sqlite")
+        try self.init(directory: directory, cacheDirectory: cacheDirectory, reservation: nil)
+    }
+    /// Fresh replacement construction remains fenced until the explicit capability is released.
+    init(directory: URL, cacheDirectory: URL, reservation: CatalogExclusiveReservation?, requireExisting: Bool = false,
+         afterReservation: (@Sendable () throws -> Void)? = nil,
+         beforePublication: ((OpaquePointer) throws -> Void)? = nil,
+         beforePreviewPublish: (@Sendable () throws -> Void)? = nil) throws {
+        self.beforePreviewPublish = beforePreviewPublish
+        owner = try CatalogRootRegistry.shared.reserve(directory: directory, cache: cacheDirectory, capability: reservation)
+        self.directory = URL(fileURLWithPath: owner.root, isDirectory: true)
+        self.cacheDirectory = URL(fileURLWithPath: owner.cache, isDirectory: true)
+        var opening: OpaquePointer?
+        var succeeded = false
+        defer {
+            if !succeeded {
+                if let opening {
+                    if sqlite3_close(opening) == SQLITE_OK { CatalogRootRegistry.shared.closed(owner) }
+                    else { CatalogRootRegistry.shared.closeFailed(owner) }
+                } else { CatalogRootRegistry.shared.closed(owner) }
+            }
+        }
+        try afterReservation?()
+        try CatalogRestoreRepository.requireNoMarker(self.directory)
+        if requireExisting {
+            var info = stat()
+            guard lstat(self.directory.appendingPathComponent("catalog.sqlite").path, &info) == 0,
+                  info.st_mode & S_IFMT == S_IFREG, info.st_nlink == 1, info.st_size > 0 else { throw CatalogRecoveryError.recoveryRequired }
+        }
+        try Self.protect(self.directory, directory: true)
+        try Self.protect(self.cacheDirectory, directory: true)
+        let file = self.directory.appendingPathComponent("catalog.sqlite")
         // Create the file with protection before SQLite writes any sensitive bytes.
-        if !FileManager.default.fileExists(atPath: file.path) {
+        if !requireExisting && !FileManager.default.fileExists(atPath: file.path) {
             guard FileManager.default.createFile(atPath: file.path, contents: Data()) else {
                 throw ScanError.database
             }
         }
-        try Self.protect(file)
-        var handle: OpaquePointer?
-        guard sqlite3_open_v2(file.path, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
-              let handle else { if let handle { sqlite3_close(handle) }; throw ScanError.database }
+        try Self.protectLiveArtifacts(self.directory)
+        guard sqlite3_open_v2(file.path, &opening, SQLITE_OPEN_READWRITE | (requireExisting ? 0 : SQLITE_OPEN_CREATE) | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+              let handle = opening else { throw ScanError.database }
         do {
             try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;")
-            try CatalogSchema.migrate(handle)
+            if requireExisting {
+                guard try CatalogSchema.version(handle) == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+            } else { try CatalogSchema.migrate(handle) }
+            try Self.protectLiveArtifacts(self.directory)
+            try beforePublication?(handle)
             db = handle
-            try Self.protectArtifacts(directory)
-        } catch { sqlite3_close(handle); throw error }
+            CatalogRootRegistry.shared.opened(owner)
+            succeeded = true
+        } catch { throw error }
     }
-    deinit { if let db { sqlite3_close(db) } }
+    deinit {
+        // SQLITE_BUSY leaves registration behind, blocking unsafe reuse of the root.
+        if let db {
+            if sqlite3_close(db) == SQLITE_OK { CatalogRootRegistry.shared.closed(owner) }
+            else { CatalogRootRegistry.shared.closeFailed(owner) }
+        }
+    }
+    func operationTicket() throws -> CatalogOperationTicket {
+        guard !retired else { throw CatalogLifetimeError.retired }
+        return try CatalogRootRegistry.shared.begin(owner)
+    }
+    func validatesRetiredCloseProof(_ proof: CatalogRetiredCloseProof) -> Bool {
+        retired && db == nil && proof.ownerID == owner.id && proof.backupOwner == backupOwner
+    }
+    func reserveExclusive() throws -> CatalogExclusiveReservation {
+        guard !retired else { throw CatalogLifetimeError.retired }
+        return try CatalogRootRegistry.shared.exclusive(owner)
+    }
+    /// Terminal before attempting physical closure. A busy handle retains the root fence.
+    @discardableResult
+    func retire(using reservation: CatalogExclusiveReservation) throws -> CatalogRetiredCloseProof {
+        try CatalogRootRegistry.shared.validate(reservation, owner: owner, retire: true)
+        retired = true
+        // Bind proof to the existing root before close so a later path substitution is never adopted.
+        let rootIdentity = try PreparedBackupOwnership.captureDirectory(directory)
+        if let db {
+            guard sqlite3_close(db) == SQLITE_OK else { throw CatalogLifetimeError.closeBusy }
+            self.db = nil
+        }
+        CatalogRootRegistry.shared.closed(owner)
+        return CatalogRetiredCloseProof(ownerID: owner.id, backupOwner: backupOwner, rootIdentity: rootIdentity)
+    }
+    /// Synchronous C2/test seam; never makes ordinary admissions privileged.
+    func withExclusiveDatabase<T>(_ reservation: CatalogExclusiveReservation,
+                                  _ body: (OpaquePointer) throws -> T) throws -> T {
+        guard !retired else { throw CatalogLifetimeError.retired }
+        let ticket = try CatalogRootRegistry.shared.beginPrivileged(reservation, owner: owner)
+        defer { withExtendedLifetime(ticket) {} }
+        guard let db else { throw ScanError.database }
+        return try body(db)
+    }
+    func exclusiveRead<T>(_ reservation: CatalogExclusiveReservation, _ body: (OpaquePointer) throws -> T) throws -> T {
+        try withExclusiveDatabase(reservation) { db in
+            try CatalogSchema.execute(db, "BEGIN")
+            do { let result = try body(db); try CatalogSchema.execute(db, "COMMIT"); return result }
+            catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
+        }
+    }
     public static func protect(_ url: URL, directory: Bool = false) throws {
         if directory { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
         var value = url
@@ -46,6 +140,17 @@ public actor CatalogRepository {
         try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
         #endif
         guard try excludedFromBackup(url) else { throw ScanError.database }
+    }
+    /// Only callers owning newly created restore/backup outputs may select this internal policy.
+    static func protect(_ url: URL, directory: Bool = false, ownedProtection: OwnedRestoreProtection,
+                        descriptor: Int32? = nil) throws {
+        if ownedProtection == .foundation { try protect(url, directory: directory); return }
+        #if os(macOS)
+        if directory { try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true) }
+        try ownedProtection.apply(url, directory: directory, descriptor: descriptor)
+        #else
+        try protect(url, directory: directory)
+        #endif
     }
     /// macOS temp fixtures expose the actual backup exclusion xattr; iPad uses its URL contract.
     public static func excludedFromBackup(_ url: URL) throws -> Bool {
@@ -65,6 +170,18 @@ public actor CatalogRepository {
             try protect(url, directory: (try url.resourceValues(forKeys: [.isDirectoryKey])).isDirectory == true)
         }
     }
+    /// Ordinary catalog operations protect only live files, never immutable owned packages.
+    private static func protectLiveArtifacts(_ directory: URL) throws {
+        for name in ["catalog.sqlite", "catalog.sqlite-journal", "catalog.sqlite-wal", "catalog.sqlite-shm", "source.bookmark"] {
+            let url = directory.appendingPathComponent(name)
+            var info = stat()
+            if lstat(url.path, &info) != 0 {
+                if errno == ENOENT { continue }; throw ScanError.database
+            }
+            guard info.st_mode & S_IFMT == S_IFREG, info.st_nlink == 1 else { throw ScanError.database }
+            try protect(url)
+        }
+    }
     public static let maximumGrantBytes = 1024 * 1024
     public struct ResolvedGrant: Sendable {
         public let url: URL
@@ -82,6 +199,7 @@ public actor CatalogRepository {
         } catch { throw ScanError.denied }
     }
     public func loadGrant() throws -> Data? {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         let file = directory.appendingPathComponent("source.bookmark")
         guard FileManager.default.fileExists(atPath: file.path) else { return nil }
         let values = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
@@ -95,6 +213,7 @@ public actor CatalogRepository {
         return data
     }
     public func storeGrant(_ data: Data, lease: Int? = nil) throws {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard !data.isEmpty, data.count <= Self.maximumGrantBytes else { throw ScanError.denied }
         if let lease { try requireLease(lease) }
         let file = directory.appendingPathComponent("source.bookmark")
@@ -106,11 +225,13 @@ public actor CatalogRepository {
         try Self.protect(file)
     }
     public func checkStorage(minimumFree: Int = 64 * 1024 * 1024) throws {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         let attributes = try FileManager.default.attributesOfFileSystem(forPath: cacheDirectory.path)
         guard let free = attributes[.systemFreeSize] as? NSNumber,
               free.int64Value >= minimumFree else { throw ScanError.storagePressure }
     }
     public func checkpoint() throws -> ScanProgress? {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, "SELECT payload FROM scan_checkpoint WHERE singleton=1", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
@@ -119,6 +240,7 @@ public actor CatalogRepository {
         return try JSONDecoder().decode(ScanProgress.self, from: try Self.blob(statement!, column: 0))
     }
     public func photos() throws -> [PhotoIdentity] {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, "SELECT payload FROM photos ORDER BY rowid", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
@@ -139,6 +261,7 @@ public actor CatalogRepository {
         return Data(bytes: bytes, count: count)
     }
     public func save(_ photo: PhotoIdentity? = nil, progress: ScanProgress, lease: Int? = nil) throws {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
@@ -149,11 +272,11 @@ public actor CatalogRepository {
                 }
                 try write("INSERT INTO photos(id,path,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload WHERE photos.path=excluded.path", strings: [photo.id.uuidString, photo.relativePath], payload: JSONEncoder().encode(photo))
                 try PeopleSQL.syncPhoto(db, photo)
-                try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1")
+                try CatalogCounters.advance(db, .revision)
             }
             try write("INSERT OR REPLACE INTO scan_checkpoint(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(progress))
             try CatalogSchema.execute(db, "COMMIT")
-            try Self.protectArtifacts(directory)
+            try Self.protectLiveArtifacts(directory)
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
     /// Read-only original eligibility. A present, explicitly bound nil identity is distinct from no binding.
@@ -188,33 +311,30 @@ public actor CatalogRepository {
     }
     /// Every scan claims a new durable generation; stale coordinators cannot commit.
     public func claimLease() throws -> Int {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
-            try CatalogSchema.execute(db, "UPDATE scan_lease SET generation=generation+1 WHERE singleton=1")
-            let generation = try leaseGeneration()
+            let generation = try CatalogCounters.advance(db, .lease)
             try CatalogSchema.execute(db, "COMMIT")
             return generation
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
     private func leaseGeneration() throws -> Int {
         guard let db else { throw ScanError.database }
-        var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, "SELECT generation FROM scan_lease WHERE singleton=1", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
-        defer { sqlite3_finalize(statement) }
-        guard sqlite3_step(statement) == SQLITE_ROW else { throw ScanError.database }
-        return Int(sqlite3_column_int(statement, 0))
+        return try CatalogCounters.read(db, .lease)
     }
     public func requireLease(_ lease: Int) throws {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard try leaseGeneration() == lease else { throw ScanError.staleLease }
     }
     public func acquireSource(identity: String?, confirmed: Bool) throws -> Int {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
             try bindSource(identity: identity, confirmed: confirmed)
-            try CatalogSchema.execute(db, "UPDATE scan_lease SET generation=generation+1 WHERE singleton=1")
-            let generation = try leaseGeneration()
+            let generation = try CatalogCounters.advance(db, .lease)
             try CatalogSchema.execute(db, "COMMIT")
             return generation
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
@@ -233,6 +353,7 @@ public actor CatalogRepository {
         try write("INSERT OR REPLACE INTO source_binding(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(identity))
     }
     public func markMissing(except paths: Set<String>, progress: ScanProgress, lease: Int) throws -> [PhotoIdentity] {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
@@ -245,7 +366,7 @@ public actor CatalogRepository {
                 changed.append(photo)
             }
             try write("INSERT OR REPLACE INTO scan_checkpoint(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(progress))
-            if !changed.isEmpty { try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1") }
+            if !changed.isEmpty { try CatalogCounters.advance(db, .revision) }
             try CatalogSchema.execute(db, "COMMIT")
             return changed
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
@@ -261,81 +382,50 @@ public actor CatalogRepository {
         let bound = payload.withUnsafeBytes { sqlite3_bind_blob(statement, Int32(strings.count + 1), $0.baseAddress, Int32(payload.count), transient) }
         guard bound == SQLITE_OK, sqlite3_step(statement) == SQLITE_DONE else { throw CatalogSchema.failure(db!) }
     }
-    /// Shared derived-data budget; evicted previews are explicitly unavailable offline.
-    public func storePreview(_ jpeg: Data, id: UUID, generation: String? = nil, lease: Int? = nil, budget: Int = DecodeLimits.cacheBudget) throws -> String {
-        if let lease { try requireLease(lease) }
-        guard jpeg.count <= budget else { throw ScanError.storagePressure }
-        let name = id.uuidString + (generation.map { "-" + $0 } ?? "") + ".jpg"
-        let file = cacheDirectory.appendingPathComponent(name)
-        try buildCacheInventoryIfNeeded()
-        let replacedBytes = cacheInventory?[name]?.size ?? 0
-        while cacheBytes - replacedBytes + jpeg.count > budget, let oldest = oldestOtherThan(name) {
-            let url = cacheDirectory.appendingPathComponent(oldest)
-            do { try FileManager.default.removeItem(at: url) }
-            catch {
-                let native = error as NSError
-                guard (native.domain == NSCocoaErrorDomain && native.code == NSFileNoSuchFileError) ||
-                      (native.domain == NSPOSIXErrorDomain && native.code == Int(ENOENT)) else { throw error }
-            }
-            removeCacheEntry(oldest)
-        }
+    /// Test whether a catalog reference points to one bounded, canonical owned preview.
+    public func previewIsAvailable(_ name: String?, for id: UUID) throws -> Bool {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
+        return try cachePolicy.previewIsAvailable(name, for: id, in: cacheDirectory)
+    }
+    /// Remove only canonical, app-owned preview files. Catalog rows and source grants are untouched.
+    @discardableResult
+    public func clearDerivedCache() throws -> Int {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
+        guard let db else { throw ScanError.database }
+        try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
-            #if os(iOS)
-            try jpeg.write(to: file, options: [.atomic, .completeFileProtection])
-            #else
-            try jpeg.write(to: file, options: .atomic)
-            #endif
-            try Self.protect(file)
+            let removed = try cachePolicy.clearOwnedPreviews(in: cacheDirectory)
+            try CatalogSchema.execute(db, "COMMIT")
+            return removed
         } catch {
-            // A failed atomic write/protection step may change derived disk state.
-            // Reconstruct lazily next time rather than trusting stale replacement sizes.
-            cacheInventory = nil
-            if let error = error as? ScanError { throw error }
+            cachePolicy.invalidate()
+            try? CatalogSchema.execute(db, "ROLLBACK")
+            throw error
+        }
+    }
+    /// Reserve physical old + staged-new bytes under the shared derived-preview limit.
+    public func storePreview(_ jpeg: Data, id: UUID, generation: String? = nil, lease: Int? = nil,
+                             budget: Int = DecodeLimits.cacheBudget) throws -> String {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
+        guard let db else { throw ScanError.database }
+        try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
+        do {
+            if let lease { try requireLease(lease) }
+            let name = try cachePolicy.store(jpeg, id: id, generation: generation, in: cacheDirectory,
+                budget: budget, beforePublish: beforePreviewPublish,
+                validateLease: { if let lease { try self.requireLease(lease) } },
+                protect: { try Self.protect($0) })
+            try CatalogSchema.execute(db, "COMMIT")
+            return name
+        } catch {
+            cachePolicy.invalidate()
+            try? CatalogSchema.execute(db, "ROLLBACK")
+            if error is CancellationError || error is CatalogLifetimeError { throw error }
+            if let scanError = error as? ScanError { throw scanError }
             throw Self.writeFailure(error)
         }
-        removeCacheEntry(name)
-        appendCacheEntry(name, size: jpeg.count)
-        return name
     }
-    /// One sorted reconstruction per repository lifetime; subsequent writes update linked FIFO state.
-    private func buildCacheInventoryIfNeeded() throws {
-        guard cacheInventory == nil else { return }
-        let files = try FileManager.default.contentsOfDirectory(at: cacheDirectory,
-            includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey])
-        var entries: [(String, Int, Date)] = []
-        for file in files {
-            do {
-                let values = try file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey, .isSymbolicLinkKey])
-                guard values.isRegularFile == true, values.isSymbolicLink != true else { continue }
-                entries.append((file.lastPathComponent, values.fileSize ?? 0, values.contentModificationDate ?? .distantPast))
-            } catch {
-                let native = error as NSError
-                guard native.domain == NSCocoaErrorDomain, native.code == NSFileReadNoSuchFileError else { throw error }
-            }
-        }
-        cacheInventory = [:]; cacheHead = nil; cacheTail = nil; cacheBytes = 0
-        for entry in entries.sorted(by: { $0.2 < $1.2 }) { appendCacheEntry(entry.0, size: entry.1) }
-        cacheInventoryBuilds += 1
-    }
-    private func oldestOtherThan(_ replacement: String) -> String? {
-        guard let first = cacheHead else { return nil }
-        return first == replacement ? cacheInventory?[first]?.next : first
-    }
-    private func removeCacheEntry(_ name: String) {
-        guard let entry = cacheInventory?.removeValue(forKey: name) else { return }
-        if let previous = entry.previous { cacheInventory?[previous]?.next = entry.next }
-        else { cacheHead = entry.next }
-        if let next = entry.next { cacheInventory?[next]?.previous = entry.previous }
-        else { cacheTail = entry.previous }
-        cacheBytes -= entry.size
-    }
-    private func appendCacheEntry(_ name: String, size: Int) {
-        cacheInventory?[name] = CacheEntry(size: size, previous: cacheTail, next: nil)
-        if let previous = cacheTail { cacheInventory?[previous]?.next = name }
-        else { cacheHead = name }
-        cacheTail = name; cacheBytes += size
-    }
-    private static func writeFailure(_ error: Error) -> ScanError {
+    static func writeFailure(_ error: Error) -> ScanError {
         let native = error as NSError
         if native.domain == NSCocoaErrorDomain, native.code == NSFileWriteOutOfSpaceError { return .storagePressure }
         if native.domain == NSPOSIXErrorDomain, native.code == Int(ENOSPC) { return .storagePressure }
@@ -344,6 +434,7 @@ public actor CatalogRepository {
 
     /// All manual reads/writes use this actor-owned connection without suspension in a transaction.
     func peopleRead<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN")
         do {
@@ -353,11 +444,13 @@ public actor CatalogRepository {
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
     func peopleTransaction<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
+            let nextRevision = try CatalogCounters.successor(CatalogCounters.read(db, .revision))
             let value = try body(db)
-            try CatalogSchema.execute(db, "UPDATE catalog_revision SET revision=revision+1")
+            try CatalogCounters.set(db, .revision, nextRevision)
             try CatalogSchema.execute(db, "COMMIT")
             return value
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }

@@ -12,6 +12,21 @@ extension CatalogRepository {
             let records: [DecisionRecord] = try PeopleSQL.rows(db, "SELECT payload FROM decisions WHERE id=? AND undo_of IS NULL", strings: [id.uuidString])
             guard let record = records.first else { throw DecisionError.nothingToUndo }
             guard try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM decisions WHERE undo_of=?", strings: [id.uuidString]) == 0 else { throw DecisionError.conflict }
+            // Historical effects can reference scoped UUIDs absent from their people arrays.
+            // Check the entire inverse before any state, epoch, revision or ledger write.
+            var referenced = Set<UUID>()
+            for effect in [record.before, record.after] {
+                for person in effect.people {
+                    referenced.insert(person.id)
+                    if let alias = person.mergedInto { referenced.insert(alias) }
+                }
+                for face in effect.allFaces {
+                    if let assigned = face.personID { referenced.insert(assigned) }
+                    referenced.formUnion(face.rejectedPeople); referenced.formUnion(face.deferredPeople)
+                }
+            }
+            if let created = record.createdPersonID { referenced.insert(created) }
+            for person in referenced { _ = try PeopleSQL.person(db, person) }
             for face in record.after.allFaces { _ = try PeopleSQL.currentPhoto(db, face.key) }
             for face in record.after.allFaces {
                 guard try PeopleSQL.faceState(db, face.key) == face else { throw DecisionError.conflict }
@@ -47,7 +62,10 @@ extension CatalogRepository {
                     _ = try PeopleSQL.currentPhoto(db, cover)
                 }
                 let current = try PeopleSQL.person(db, restoredPeople[index].id)
-                restoredPeople[index].exemplarRevision = max(current.exemplarRevision, restoredPeople[index].exemplarRevision) + 1
+                guard current.exemplarRevision >= 1, restoredPeople[index].exemplarRevision >= 1 else {
+                    throw CounterError.invalidStoredValue
+                }
+                restoredPeople[index].exemplarRevision = try CatalogCounters.successor(max(current.exemplarRevision, restoredPeople[index].exemplarRevision), minimum: 1)
                 try PeopleSQL.writePerson(db, restoredPeople[index])
             }
             if failure == .afterPersonWrite { throw DecisionError.injectedFailure }
@@ -56,7 +74,7 @@ extension CatalogRepository {
             if failure == .afterFaceWrite { throw DecisionError.injectedFailure }
             var restored = record.before; restored.people = restoredPeople
             let inverse = DecisionRecord(id: UUID(), kind: "undo", before: actualAfter, after: restored,
-                createdPersonID: nil, date: Date(), revision: try PeopleSQL.scalar(db, "SELECT revision FROM catalog_revision") + 1, undoOf: id)
+                createdPersonID: nil, date: Date(), revision: try CatalogCounters.successor(CatalogCounters.read(db, .revision)), undoOf: id)
             try PeopleSQL.run(db, "INSERT INTO decisions(id,undo_of,payload) VALUES(?,?,?)", strings: [inverse.id.uuidString, id.uuidString], data: JSONEncoder().encode(inverse))
             if failure == .afterLedgerWrite { throw DecisionError.injectedFailure }
         }

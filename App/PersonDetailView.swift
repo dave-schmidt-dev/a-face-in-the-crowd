@@ -6,10 +6,17 @@ struct PersonDetailView: View {
     let personID: UUID
     let surface: Color
     let secondary: Color
-    @State private var editingName = ""
+    @ObservedObject private var privacy: CatalogPrivacyService
+    @ObservedObject private var presentation: AppPresentationState
+    init(services: AppServices, personID: UUID, surface: Color, secondary: Color) {
+        self.services = services; self.personID = personID; self.surface = surface; self.secondary = secondary
+        presentation = services.presentation; privacy = services.privacy
+    }
+    private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
     @State private var selectedFace: FaceItem?
     @State private var merging = false
     var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 if let summary = services.peopleSnapshot.people.first(where: { $0.id == personID }) {
@@ -27,11 +34,11 @@ struct PersonDetailView: View {
                             .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
                             .accessibilityIdentifier("merge-person")
                     }
-                    if summary.person.mergedInto == nil {
-                    TextField("Person name", text: $editingName).textFieldStyle(.roundedBorder).accessibilityIdentifier("rename-person-name")
-                    Button("Save name") { Task { await services.decide(.rename(personID: personID, displayName: editingName)) } }
-                        .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("save-person-name")
-                    }
+                    if summary.person.mergedInto == nil || presentation.drafts[personID]?.dirty == true { draftEditor(summary.person) }
+                    Button("Delete person", role: .destructive) { privacy.request(.person(personID)) }
+                        .frame(minHeight: 48).disabled(!privacy.canRequest).accessibilityIdentifier("delete-person")
+                    if privacy.busy { ProgressView("Checking privacy action") }
+                    if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("person-privacy-message") }
                     DecisionStatus(services: services)
                     Text("Confirmed faces").font(.title2.bold())
                     ForEach(services.peopleSnapshot.faces.filter { $0.state.personID == personID }) { face in
@@ -43,14 +50,28 @@ struct PersonDetailView: View {
                             }.padding(16).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                                 .background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
                         }.buttonStyle(.plain).accessibilityIdentifier("correct-face")
+                        .optionalPresentationAnchor(services.peopleSnapshot.faces.first(where: { $0.state.personID == personID && $0.photo.id == face.photo.id })?.key == face.key ? face.photo.id : nil, section: "Person-" + personID.uuidString)
                     }
-                } else { Text("This person is no longer available.") }
-            }.padding(24).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+                } else {
+                    Text("This person is no longer available.")
+                    if presentation.drafts[personID]?.dirty == true { draftEditor(nil) }
+                }
+            }.id("person-top").padding(24).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .coordinateSpace(name: "catalog-scroll-Person-" + personID.uuidString)
+        .onPreferenceChange(PresentationAnchorKey.self) { positions in
+            presentation.recordVisible("Person-" + personID.uuidString, positions: positions["Person-" + personID.uuidString] ?? [:])
+        }
+        .onAppear {
+            let available = Set(services.peopleSnapshot.faces.filter { $0.state.personID == personID }.map { $0.photo.id })
+            if let id = presentation.anchor("Person-" + personID.uuidString, available: available) { proxy.scrollTo(id, anchor: .top) } else { proxy.scrollTo("person-top", anchor: .top) }
+        }
         }
         .modifier(PeoplePalette())
         .navigationTitle("Person")
-        .onChange(of: services.peopleSnapshot.people.first { $0.id == personID }?.person.displayName, initial: true) { _, canonicalName in
-            editingName = canonicalName ?? ""
+        .modifier(PrivacyConfirmation(privacy: privacy, person: true))
+        .onAppear {
+            if let person = services.peopleSnapshot.people.first(where: { $0.id == personID })?.person { presentation.ensureDraft(person) }
         }
         .sheet(isPresented: $merging) {
             NavigationStack { MergePersonView(services: services, sourceID: personID) }
@@ -59,6 +80,36 @@ struct PersonDetailView: View {
             NavigationStack { ManualFaceView(services: services, face: face, initialPerson: personID) }
         }
     }
+    @ViewBuilder private func draftEditor(_ person: PersonRecord?) -> some View {
+        TextField("Person name", text: editingName).textFieldStyle(.roundedBorder).accessibilityIdentifier("rename-person-name")
+        if let conflict = presentation.drafts[personID]?.conflict {
+            Text(conflict == .changed ? "This record changed. Review your draft against its current name before saving." : "This record is unavailable. Your draft is retained.")
+                .accessibilityIdentifier("name-draft-conflict")
+            if let person, person.mergedInto == nil {
+                Button("Review draft with current record") { presentation.review(person) }.frame(minHeight: 48).accessibilityIdentifier("review-name-draft")
+                Button("Use current name") { presentation.useCurrent(person) }.frame(minHeight: 48).accessibilityIdentifier("use-current-name")
+            }
+            Button("Discard draft") { presentation.discardDraft(personID); if let person { presentation.ensureDraft(person) } }
+                .frame(minHeight: 48).accessibilityIdentifier("discard-name-draft")
+        }
+        #if DEBUG
+        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls"), let person {
+            Button("Refresh canonical fixture") { Task { await services.decide(.rename(personID: person.id, displayName: "Changed fictional name")) } }
+                .accessibilityIdentifier("change-canonical-fixture")
+        }
+        #endif
+        Button("Save name") {
+            let text = editingName.wrappedValue, session = services.catalogSessionID
+            Task {
+                if await services.decide(.rename(personID: personID, displayName: text)), services.sessionIsCurrent(session) {
+                    presentation.acceptedCommit(personID, text: text)
+                }
+            }
+        }.frame(minHeight: 48)
+            .disabled(person == nil || person?.mergedInto != nil || presentation.drafts[personID]?.conflict != nil || services.isSavingDecision || services.peopleRefreshWarning != nil)
+            .accessibilityIdentifier("save-person-name")
+    }
+
 }
 
 struct ManualFaceView: View {

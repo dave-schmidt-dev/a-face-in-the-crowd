@@ -77,6 +77,42 @@ public enum CatalogSchema {
             throw error
         }
     }
+    /// Export copy is incremental and always finalizes its SQLite backup handle.
+    static func incrementalCopy(from source: OpaquePointer, to destination: OpaquePointer,
+                                options: BackupOptions, progress: @Sendable (BackupProgress) -> Void) throws {
+        guard options.pagesPerStep > 0, options.pagesPerStep <= 128,
+              let backup = sqlite3_backup_init(destination, "main", source, "main") else { throw ScanError.database }
+        var finished = false
+        defer { if !finished { sqlite3_backup_finish(backup) } }
+        var retries = 0; var injected = false
+        while true {
+            try Task.checkCancellation()
+            var status: Int32
+            if injected, options.failure == .busy { status = SQLITE_BUSY }
+            else {
+                status = sqlite3_backup_step(backup, Int32(options.pagesPerStep))
+                if status == SQLITE_OK || status == SQLITE_DONE {
+                    let total = Int(sqlite3_backup_pagecount(backup))
+                    progress(BackupProgress(operation: .copying, completed: total - Int(sqlite3_backup_remaining(backup)), total: total))
+                    if options.failure == .busy { status = SQLITE_BUSY; injected = true }
+                    if options.failure == .full { status = SQLITE_FULL }
+                }
+            }
+            try Task.checkCancellation()
+            if status == SQLITE_BUSY || status == SQLITE_LOCKED {
+                guard retries < options.busyRetries else { throw BackupError.busy }
+                retries += 1
+                progress(BackupProgress(operation: .waiting, completed: retries, total: options.busyRetries))
+                sqlite3_sleep(10); continue
+            }
+            if status == SQLITE_FULL { throw ScanError.storagePressure }
+            guard status == SQLITE_OK || status == SQLITE_DONE else { throw failure(destination) }
+            retries = 0
+            if status == SQLITE_DONE { break }
+        }
+        let result = sqlite3_backup_finish(backup); finished = true
+        guard result == SQLITE_OK, options.failure != .finish else { throw failure(destination) }
+    }
     private static func copy(from source: OpaquePointer, to destination: OpaquePointer) throws {
         guard let backup = sqlite3_backup_init(destination, "main", source, "main") else { throw ScanError.database }
         let status = sqlite3_backup_step(backup, -1)

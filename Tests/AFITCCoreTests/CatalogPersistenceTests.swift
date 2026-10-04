@@ -91,7 +91,7 @@ final class CatalogPersistenceTests: XCTestCase {
         let id = UUID(), other = UUID()
         let first = try await repo.storePreview(Data(repeating: 1, count: 4), id: id, budget: 10)
         let second = try await repo.storePreview(Data(repeating: 2, count: 4), id: other, budget: 10)
-        _ = try await repo.storePreview(Data(repeating: 3, count: 4), id: id, budget: 10)
+        _ = try await repo.storePreview(Data(repeating: 3, count: 4), id: id, budget: 12)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cache.appendingPathComponent(second).path))
         XCTAssertEqual(try Data(contentsOf: cache.appendingPathComponent(first)), Data(repeating: 3, count: 4))
     }
@@ -249,7 +249,7 @@ final class CatalogPersistenceTests: XCTestCase {
         let first = try await repo.storePreview(Data(repeating: 1, count: 4), id: id, budget: 12)
         let removed = try await repo.storePreview(Data(repeating: 2, count: 4), id: UUID(), budget: 12)
         let last = try await repo.storePreview(Data(repeating: 3, count: 4), id: UUID(), budget: 12)
-        _ = try await repo.storePreview(Data(repeating: 4, count: 4), id: id, budget: 12)
+        _ = try await repo.storePreview(Data(repeating: 4, count: 4), id: id, budget: 16)
         XCTAssertTrue(FileManager.default.fileExists(atPath: cache.appendingPathComponent(last).path))
         try FileManager.default.removeItem(at: cache.appendingPathComponent(removed))
         _ = try await repo.storePreview(Data(repeating: 5, count: 8), id: UUID(), budget: 12)

@@ -1,11 +1,64 @@
 import Foundation
 import UIKit
 import AFITCCore
-
 @MainActor
 public final class AppServices: ObservableObject {
     public let databaseInfo: CatalogDatabaseInfo
     public let diagnostics: DiagnosticLog
+    let presentation: AppPresentationState
+    let catalogSession = CatalogSessionLifecycle()
+    let faceEmbedding = FaceEmbeddingCoordinator()
+    @Published private(set) var catalogSessionID: UInt64 = 1
+    @Published private(set) var isQuiescingCatalog = false
+    #if DEBUG
+    @Published private(set) var sessionProbe = "Active 0 · Held 0 · Drained 0"
+    private var sessionProbeDrained = false
+    #endif
+    func quiesceCatalogSession(seconds: Double = 15) async -> Bool {
+        canStart = false; sourceSelectionGeneration += 1; faceEmbedding.invalidate()
+        let drained = await catalogSession.quiesce(seconds: seconds)
+        #if DEBUG
+        sessionProbeDrained = drained; updateSessionState()
+        #endif
+        return drained
+    }
+    func publishFreshCatalogSession(repository: CatalogRepository, cache: URL,
+                                    photos: [PhotoIdentity], people: PeopleSnapshot,
+                                    progress: ScanProgress, preservedSource: URL? = nil) -> Bool {
+        catalogSession.adopt {
+            self.repository = repository; startupService = nil; coordinator = ScanCoordinator(repository: repository)
+            decisionService = DecisionService(catalog: repository); undoService = UndoService(catalog: repository)
+            previewDirectory = cache; self.photos = photos; peopleSnapshot = people; self.progress = progress
+            presentation.reconcile(people.people.map(\.person))
+            selectedFolder = preservedSource; setupError = nil; decisionError = nil; peopleRefreshWarning = nil
+            peopleRefreshTask = nil; peopleRefreshPending = false; scanTask = nil
+            isOpeningCatalog = false; isRestoringSource = false; isRefreshingPeople = false
+            isSavingDecision = false; hasLoadedPeopleSnapshot = true; canStart = true
+        }
+    }
+    func publishDeletedCatalogSession() -> Bool {
+        catalogSession.adopt {
+            repository = nil; coordinator = nil; decisionService = nil; undoService = nil; startupService = nil
+            previewDirectory = nil; photos = []; peopleSnapshot = .empty; progress = ScanProgress(); selectedFolder = nil
+            scanTask = nil; peopleRefreshTask = nil; peopleRefreshPending = false
+            setupError = nil; decisionError = nil; peopleRefreshWarning = nil
+            isOpeningCatalog = false; isRestoringSource = false; isRefreshingPeople = false; isSavingDecision = false
+            hasLoadedPeopleSnapshot = true; canStart = false
+        }
+    }
+    #if DEBUG
+    var deletionFixtureRoots: (URL, URL)? { startupPaths }
+    #endif
+    private func updateSessionState() {
+        let reopened = isQuiescingCatalog && !catalogSession.quiescing
+        let retiring = !isQuiescingCatalog && catalogSession.quiescing
+        catalogSessionID = catalogSession.session; isQuiescingCatalog = catalogSession.quiescing
+        if retiring { presentation.search.invalidate() }
+        if reopened, protection.admitsWork, !privacy.catalogDeleted { presentation.catalogAdopted() }
+        #if DEBUG
+        sessionProbe = "Session \(catalogSessionID) · Active \(catalogSession.activeCount) · Held \(catalogSession.heldCount) · Drained \(sessionProbeDrained ? 1 : 0) · TimedOut \(catalogSession.timedOut ? 1 : 0) · \(catalogSession.activeKinds.joined(separator: ","))"
+        #endif
+    }
     @Published public var photos: [PhotoIdentity] = []
     @Published public var progress = ScanProgress()
     @Published public var selectedFolder: URL?
@@ -77,106 +130,112 @@ public final class AppServices: ObservableObject {
     private var syntheticMergeFaultUsed = false
     #endif
     var viewerSourceGeneration: Int { sourceSelectionGeneration }
-    func searchSnapshot(_ query: PeopleQuery) async throws -> SearchSnapshot {
-        guard let repository else { throw ScanError.database }
+    func searchSnapshot(_ query: PeopleQuery, session: UInt64) async throws -> SearchSnapshot {
+        guard sessionIsCurrent(session), let repository else { throw ScanError.database }
         return try await SearchRepository(catalog: repository).snapshot(query: query)
     }
-    func validateViewerPhoto(_ photo: PhotoIdentity, sourceIdentity: String?, hash: String? = nil) async throws {
-        guard let repository else { throw ScanError.database }
+    func validateViewerPhoto(_ photo: PhotoIdentity, sourceIdentity: String?, hash: String? = nil, session: UInt64) async throws {
+        guard sessionIsCurrent(session), let repository else { throw ScanError.database }
         try await repository.validateViewerPhoto(photo, sourceIdentity: sourceIdentity, verifiedContentHash: hash)
     }
+    var protectedPaths: (URL, URL)? { startupPaths }
+    lazy var protection = PrivacyProtection(services: self)
+    func clearProtectedSnapshots() {
+        canStart = false; sourceSelectionGeneration += 1; faceEmbedding.invalidate()
+        photos = []; peopleSnapshot = .empty; peopleRefreshWarning = nil; decisionError = nil; presentation.releaseProtectedSnapshots()
+    }
+    func protectedAuthority() -> ProtectedCatalogAuthority {
+        if let value = privacy.protectedAuthority ?? backup.protectedAuthority ?? startupService?.protectedAuthority { return value }
+        return repository.map(ProtectedCatalogAuthority.live) ?? .absent
+    }
+    func releaseProtectedGraph() {
+        repository = nil; coordinator = nil; decisionService = nil; undoService = nil; scanTask = nil; peopleRefreshTask = nil; previewDirectory = nil
+    }
+    lazy var backup = CatalogBackupService(services: self)
+    lazy var privacy = CatalogPrivacyService(services: self)
+    func privacyContext() -> (CatalogRepository, URL)? {
+        guard let repository, let previewDirectory else { return nil }; return (repository, previewDirectory)
+    }
+    private var startupService: CatalogStartupService?
+    private var startupPaths: (URL, URL)?
     private var repository: CatalogRepository?
     private var coordinator: ScanCoordinator?
     private var scanTask: Task<Void, Never>?
     private var previewDirectory: URL?
     private var observers: [NSObjectProtocol] = []
-
     public init(databaseInfo: CatalogDatabaseInfo = CatalogDatabaseInfo()) {
         self.databaseInfo = databaseInfo
-        let manager = FileManager.default
-        #if DEBUG
-        let isolated = ProcessInfo.processInfo.arguments.contains("--uitest-fresh-catalog") ||
-            ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source")
-        let arguments = ProcessInfo.processInfo.arguments
-        let tokenIndex = arguments.contains("--uitest-synthetic-source") ? arguments.firstIndex(of: "--uitest-catalog-token") : nil
-        let testToken = tokenIndex.flatMap { index in
-            index + 1 < arguments.count ? UUID(uuidString: arguments[index + 1]) : nil
-        }
-        let container = isolated ? "AFITCTest-" + (testToken ?? UUID()).uuidString : "AFITC"
-        #else
-        let container = "AFITC"
-        #endif
-        let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(container, isDirectory: true)
-        let cache = manager.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent(container, isDirectory: true)
+        let (support, cache, container) = AppOwnedPaths.current()
         diagnostics = DiagnosticLog(directory: support.appendingPathComponent("Diagnostics", isDirectory: true),
                                     debugEnabled: ProcessInfo.processInfo.arguments.contains("--debug"))
-        // Container preparation/SQLite migration are off the UI executor.
-        Task {
-            defer { isOpeningCatalog = false }
-            do {
-                let repo = try await Task.detached { try CatalogRepository(directory: support, cacheDirectory: cache) }.value
-                repository = repo; coordinator = ScanCoordinator(repository: repo); previewDirectory = cache
-                decisionService = DecisionService(catalog: repo); undoService = UndoService(catalog: repo)
-                photos = try await repo.photos()
-                if var saved = try await repo.checkpoint() {
-                    if [.discovering, .processing, .cancelling].contains(saved.phase) {
-                        saved.phase = .interrupted; saved.message = "Scan interrupted. Accepted previews remain; choose the source folder to resume."
-                    }
-                    progress = saved; canStart = true
-                } else { canStart = true }
-                isOpeningCatalog = false
-                // A people-only read failure must not abort cached Library/checkpoint/source recovery.
-                await refreshPeople()
-                // Cached catalog/checkpoint is published before bookmark resolution or source IO.
-                await restoreSourcePermission(from: repo)
-                await diagnostics.record(.shellOpened, severity: .debug)
-            } catch { setupError = "Catalog unavailable. Existing data has been preserved." }
-        }
-        for name in [UIApplication.didReceiveMemoryWarningNotification, UIApplication.protectedDataWillBecomeUnavailableNotification] {
+        presentation = AppPresentationState(directory: support.deletingLastPathComponent()
+            .appendingPathComponent(container + "-Presentation", isDirectory: true))
+        catalogSession.changed = { [weak self] in self?.updateSessionState() }
+        startupPaths = (support, cache)
+        ProtectedDataDelegate.protection = protection
+        #if DEBUG
+        ProtectedFixtureGate.protection = protection
+        #endif
+        if protection.admitsWork { retryCatalogStartup(); presentation.attach(self) }
+        for name in [UIApplication.didReceiveMemoryWarningNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in await self?.coordinator?.pause() }
+                Task { @MainActor in
+                    guard let self, let coordinator = self.coordinator,
+                          let operation = self.catalogSession.begin("pause") else { return }
+                    defer { self.catalogSession.finish(operation) }
+                    await coordinator.pause()
+                }
             })
         }
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
-    public var isScanning: Bool { [.discovering, .processing, .cancelling].contains(progress.phase) }
-    private func restoreSourcePermission(from repo: CatalogRepository) async {
-        isRestoringSource = true
-        let selectionGeneration = sourceSelectionGeneration
-        defer { isRestoringSource = false }
-        await Task.yield()
+    func retryCatalogStartup() {
+        guard protection.admitsWork, !isQuiescingCatalog, !privacy.catalogDeleted, let (support, cache) = startupPaths else { return }
         do {
-            guard let grant = try await repo.loadGrant() else {
-                if sourceSelectionGeneration == selectionGeneration, !photos.isEmpty {
-                    setupError = "Choose the original source folder to resume."
-                }
-                return
+            if startupService == nil { startupService = try CatalogStartupService(directory: support, cache: cache) }
+            startupService?.start(self)
+        } catch { setupError = "Catalog unavailable. Existing data has been preserved. Retry opening the catalog." }
+    }
+    func installStartupCatalog(_ value: CatalogStartupService.Snapshot, session: UInt64) {
+        guard sessionIsCurrent(session) else { return }
+        repository = value.repository; coordinator = ScanCoordinator(repository: value.repository)
+        decisionService = DecisionService(catalog: value.repository); undoService = UndoService(catalog: value.repository)
+        previewDirectory = value.cache; photos = value.photos
+        if var saved = value.checkpoint {
+            if [.discovering, .processing, .cancelling].contains(saved.phase) {
+                saved.phase = .interrupted; saved.message = "Scan interrupted. Accepted previews remain; choose the source folder to resume."
             }
-            let resolved = try await Task.detached(priority: .utility) { try CatalogRepository.resolveGrant(grant) }.value
-            guard sourceSelectionGeneration == selectionGeneration else { return }
-            selectedFolder = resolved.url
-            if resolved.stale {
-                setupError = "Source permission needs renewal. Start a scan to validate it, or choose the original folder again."
-            }
-        } catch {
-            guard sourceSelectionGeneration == selectionGeneration else { return }
-            setupError = "Saved source permission could not be restored. Choose the original folder again. Cached photos remain available."
+            progress = saved
         }
+        canStart = true; isOpeningCatalog = false; setupError = nil
+    }
+    func applyStartupSource(_ resolved: CatalogRepository.ResolvedGrant?, session: UInt64, generation: Int) {
+        guard sessionIsCurrent(session), sourceSelectionGeneration == generation else { return }
+        selectedFolder = resolved?.url
+        if resolved?.stale == true { setupError = "Source permission needs renewal. Choose the original folder again." }
+        else if resolved == nil, !photos.isEmpty { setupError = "Choose the original source folder to resume." }
+    }
+    func beginBackupAdmission(_ kind: String) -> (CatalogRepository, URL, CatalogSessionLifecycle.Operation)? {
+        guard let repository, let previewDirectory, let operation = catalogSession.begin(kind) else { return nil }
+        return (repository, previewDirectory, operation)
     }
     public func choose(_ url: URL) {
-        sourceSelectionGeneration += 1; selectedFolder = url; setupError = nil
+        guard !isQuiescingCatalog, !privacy.catalogDeleted else { return }
+        sourceSelectionGeneration += 1; selectedFolder = url; setupError = nil; faceEmbedding.invalidate()
     }
     public func startScan(confirmedSource: Bool = false) {
-        guard canStart, let selectedFolder, let coordinator, repository != nil else { return }
+        guard canStart, let selectedFolder, let coordinator, let repository,
+              let operation = catalogSession.begin("scan") else { return }
+        let enrichment = faceEmbedding.beginScan(repository: repository, operation: operation,
+                                                 syntheticFixture: usesSyntheticFixture)
         canStart = false; setupError = nil
         scanPhotoCallbacks = 0; nextAutomaticPeopleRefresh = 1
         #if DEBUG
         syntheticAutomaticRequests = 0
         #endif
         progress.phase = .discovering
-        scanTask = Task {
+        let task = Task {
+            defer { catalogSession.finish(operation) }
             let source: FolderSource
             #if DEBUG
             if usesSyntheticFixture { source = FolderSource.syntheticFixture(root: selectedFolder) }
@@ -189,7 +248,7 @@ public final class AppServices: ObservableObject {
             if usesSyntheticFixture {
                 let hold = ProcessInfo.processInfo.arguments.contains("--uitest-hold-after-first") && syntheticAttempts == 0
                 syntheticAttempts += 1
-                scanSource = SlowSyntheticSource(source: source, holdAfterFirst: hold)
+                scanSource = AppSessionSlowSyntheticSource(source: source, holdAfterFirst: hold)
             } else { scanSource = source }
             #else
             scanSource = source
@@ -197,26 +256,34 @@ public final class AppServices: ObservableObject {
             let detector: any DetectionProvider
             #if DEBUG
             if usesSyntheticFixture && ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-detector") {
-                detector = SyntheticUIDetector()
+                detector = AppSessionSyntheticDetector()
             } else { detector = FaceDetectionService() }
             #else
             detector = FaceDetectionService()
             #endif
-            let result = await coordinator.scan(source: scanSource, detector: detector, confirmedSource: confirmedSource) { [weak self] progress, photo in
-                await self?.receive(progress, photo)
+            let result = await coordinator.scan(source: scanSource, detector: detector, confirmedSource: confirmedSource,
+                                                enrichment: enrichment) { [weak self] progress, photo in
+                await self?.receive(progress, photo, session: operation.session)
             }
+            await faceEmbedding.finishScan(enrichment)
+            #if DEBUG
+            await holdSessionWork(operation)
+            #endif
+            guard sessionIsCurrent(operation.session) else { return }
             progress = result
             canStart = true
             await refreshPeople()
         }
+        scanTask = task
+        catalogSession.bind(operation) { task.cancel() }
     }
-    private func receive(_ value: ScanProgress, _ photo: PhotoIdentity?) {
+    private func receive(_ value: ScanProgress, _ photo: PhotoIdentity?, session: UInt64? = nil) {
+        if let session, !sessionIsCurrent(session) { return }
         if !(progress.phase == .cancelling && [.processing, .discovering].contains(value.phase)) { progress = value }
         if let photo {
             if let index = photos.firstIndex(where: { $0.id == photo.id }) { photos[index] = photo }
             else { photos.append(photo) }
-            // Library still receives every photo. Automatic full People reads grow logarithmically
-            // with scan callbacks; navigation, decisions and the final scan explicitly bypass this.
+            // Full People reads grow logarithmically; navigation, decisions and the final scan bypass this.
             if [.discovering, .processing].contains(value.phase), progress.phase != .cancelling {
                 if scanPhotoCallbacks < Int.max { scanPhotoCallbacks += 1 }
                 if scanPhotoCallbacks >= nextAutomaticPeopleRefresh {
@@ -231,12 +298,16 @@ public final class AppServices: ObservableObject {
         }
     }
     public func cancelScan() {
+        guard !isQuiescingCatalog else { return }
         progress.phase = .cancelling
         progress.message = "Cancellation requested. Finishing the bounded current operation."
         scanTask?.cancel()
-        Task { await coordinator?.cancel() }
+        guard let coordinator, let operation = catalogSession.begin("scan-control") else { return }
+        let task = Task { await coordinator.cancel(); catalogSession.finish(operation) }
+        catalogSession.bind(operation) { task.cancel() }
     }
     public func previewURL(_ photo: PhotoIdentity) -> URL? {
+        guard !isQuiescingCatalog else { return nil }
         guard let name = photo.previewPath else { return nil }
         guard let previewDirectory else { return nil }
         let url = previewDirectory.appendingPathComponent(name)
@@ -244,29 +315,34 @@ public final class AppServices: ObservableObject {
     }
     /// One owned pump bounds outstanding reads; photo callbacks only set a dirty flag.
     private func requestPeopleRefresh() {
-        guard repository != nil else { return }
+        guard repository != nil, !isQuiescingCatalog else { return }
         peopleRefreshPending = true
         isRefreshingPeople = true
-        guard peopleRefreshTask == nil else { return }
-        peopleRefreshTask = Task {
+        guard peopleRefreshTask == nil, let operation = catalogSession.begin("people") else { return }
+        let task = Task {
+            defer { catalogSession.finish(operation) }
             // Coalesce a discovery burst rather than rereading the growing catalog per photo.
             try? await Task.sleep(nanoseconds: 250_000_000)
+            guard sessionIsCurrent(operation.session), !Task.isCancelled else { return }
             peopleRefreshPending = false
-            await readPeopleSnapshot()
+            await readPeopleSnapshot(operation)
+            guard sessionIsCurrent(operation.session) else { return }
             peopleRefreshTask = nil
             if peopleRefreshPending { requestPeopleRefresh() }
             else { isRefreshingPeople = false }
         }
+        peopleRefreshTask = task
+        catalogSession.bind(operation) { task.cancel() }
     }
     public func refreshPeople() async {
-        guard repository != nil else { return }
+        guard repository != nil, !isQuiescingCatalog else { return }
         requestPeopleRefresh()
         // A request during a held read requires its dirty successor. Await at most these two
         // shared tasks, never an entire continuously active scan or a per-callback waiter queue.
         await peopleRefreshTask?.value
         await peopleRefreshTask?.value
     }
-    private func readPeopleSnapshot() async {
+    private func readPeopleSnapshot(_ operation: CatalogSessionLifecycle.Operation) async {
         guard let repository else { return }
         #if DEBUG
         if usesSyntheticFixture {
@@ -287,6 +363,10 @@ public final class AppServices: ObservableObject {
             #endif
             let snapshot = try await repository.peopleSnapshot()
             #if DEBUG
+            await holdSessionWork(operation)
+            #endif
+            guard sessionIsCurrent(operation.session) else { return }
+            #if DEBUG
             if usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-refresh-burst") {
                 // Finite replay uses a real generated source photo and the production callback path.
                 // It happens while this real snapshot is held, so the next read must absorb the dirty flag.
@@ -301,14 +381,17 @@ public final class AppServices: ObservableObject {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
             }
             #endif
-            if snapshot.revision >= peopleSnapshot.revision { peopleSnapshot = snapshot }
+            guard sessionIsCurrent(operation.session), !Task.isCancelled else { return }
+            if snapshot.revision >= peopleSnapshot.revision { peopleSnapshot = snapshot; presentation.reconcile(snapshot.people.map(\.person)) }
             hasLoadedPeopleSnapshot = true
             peopleRefreshWarning = nil
         } catch {
+            guard sessionIsCurrent(operation.session) else { return }
             peopleRefreshWarning = "People view could not be refreshed. Cached photos and saved decisions remain available."
         }
     }
     public func clearDecisionError() {
+        guard !isQuiescingCatalog else { return }
         decisionErrorGeneration += 1; decisionError = nil
     }
     #if DEBUG
@@ -326,110 +409,77 @@ public final class AppServices: ObservableObject {
     }
     #endif
     @discardableResult public func decide(_ decision: ManualDecision) async -> Bool {
-        guard !isSavingDecision, let decisionService else { return false }
+        guard !isSavingDecision, let decisionService, let operation = catalogSession.begin("decision") else { return false }
         isSavingDecision = true; decisionError = nil
-        defer { isSavingDecision = false }
-        do { _ = try await decisionService.apply(decision) }
-        catch { decisionError = (error as? DecisionError)?.message ?? "The decision was not saved. Try again."; return false }
+        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
+        let work = Task { try await decisionService.apply(decision) }
+        catalogSession.bind(operation) { work.cancel() }
+        do { _ = try await work.value }
+        catch {
+            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "The decision was not saved. Try again." }
+            return false
+        }
+        // A committed write remains successful even if its retired session must not publish.
+        guard sessionIsCurrent(operation.session) else { return true }
         #if DEBUG
         armCommittedRefreshFault(merge: false)
         #endif
         await refreshPeople()
+        guard sessionIsCurrent(operation.session) else { return true }
         if peopleRefreshWarning != nil { peopleRefreshWarning = "Decision saved. People view could not be refreshed; refresh before another decision." }
         return true
     }
     public func previewMerge(source: UUID, survivor: UUID) async -> MergePreview? {
-        guard let decisionService else { return nil }
+        guard let decisionService, let operation = catalogSession.begin("merge-preview") else { return nil }
+        defer { catalogSession.finish(operation) }
         clearDecisionError()
         let errorGeneration = decisionErrorGeneration
-        do { return try await decisionService.previewMerge(source: source, survivor: survivor) }
-        catch {
-            if decisionErrorGeneration == errorGeneration { decisionError = (error as? DecisionError)?.message ?? "Merge preview unavailable. Refresh and try again." }
+        let work = Task { try await decisionService.previewMerge(source: source, survivor: survivor) }
+        catalogSession.bind(operation) { work.cancel() }
+        do {
+            let preview = try await work.value
+            return sessionIsCurrent(operation.session) ? preview : nil
+        } catch {
+            if sessionIsCurrent(operation.session), decisionErrorGeneration == errorGeneration {
+                decisionError = (error as? DecisionError)?.message ?? "Merge preview unavailable. Refresh and try again."
+            }
             return nil
         }
     }
     @discardableResult public func merge(_ preview: MergePreview, resolutions: [MergeResolution]) async -> Bool {
-        guard !isSavingDecision, let decisionService else { return false }
+        guard !isSavingDecision, let decisionService, let operation = catalogSession.begin("merge") else { return false }
         isSavingDecision = true; decisionError = nil
-        defer { isSavingDecision = false }
-        do { _ = try await decisionService.merge(preview, resolutions: resolutions) }
-        catch { decisionError = (error as? DecisionError)?.message ?? "Merge was not saved. Refresh and try again."; return false }
+        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
+        let work = Task { try await decisionService.merge(preview, resolutions: resolutions) }
+        catalogSession.bind(operation) { work.cancel() }
+        do { _ = try await work.value }
+        catch {
+            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "Merge was not saved. Refresh and try again." }
+            return false
+        }
+        guard sessionIsCurrent(operation.session) else { return true }
         #if DEBUG
         armCommittedRefreshFault(merge: true)
         #endif
         await refreshPeople()
+        guard sessionIsCurrent(operation.session) else { return true }
         if peopleRefreshWarning != nil { peopleRefreshWarning = "Merge saved. People view could not be refreshed; refresh before another decision." }
         return true
     }
     public func undoDecision() async {
-        guard !isSavingDecision, let undoService, let id = peopleSnapshot.undoID else { return }
+        guard !isSavingDecision, let undoService, let id = peopleSnapshot.undoID,
+              let operation = catalogSession.begin("undo") else { return }
         isSavingDecision = true; decisionError = nil
-        defer { isSavingDecision = false }
-        do { try await undoService.undo(id); await refreshPeople() }
-        catch { decisionError = (error as? DecisionError)?.message ?? "Undo was not saved. Try again." }
-    }
-    var usesSyntheticFixture: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source")
-        #else
-        return false
-        #endif
-    }
-    func chooseSyntheticFixture() {
-        #if DEBUG
-        guard usesSyntheticFixture else { return }
-        Task {
-            do {
-                let root = try await Task.detached {
-                    let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-                        .appendingPathComponent("AFITCFixture-" + UUID().uuidString, isDirectory: true)
-                    let nested = root.appendingPathComponent("nested", isDirectory: true)
-                    try CatalogRepository.protect(nested, directory: true)
-                    let context = CGContext(data: nil, width: 32, height: 16, bitsPerComponent: 8,
-                        bytesPerRow: 128, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-                    context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.6, alpha: 1))
-                    context.fill(CGRect(x: 0, y: 0, width: 32, height: 16))
-                    let data = try JPEGPreviewDecoder.jpeg(context.makeImage()!)
-                    for index in 0..<3 { try data.write(to: nested.appendingPathComponent("synthetic-\(index).jpg")) }
-                    return root
-                }.value
-                choose(root)
-            } catch { setupError = "Synthetic fixture unavailable." }
-        }
-        #endif
-    }
-    #if DEBUG
-    /// Explicit synthetic UI workflow evidence, never native Vision qualification.
-    private actor SyntheticUIDetector: DetectionProvider {
-        func process(_ data: Data, contentVersion: Int) async throws -> ProcessedPreview {
-            try Task.checkCancellation()
-            let image = try JPEGPreviewDecoder.decode(data)
-            return ProcessedPreview(jpeg: try JPEGPreviewDecoder.jpeg(image), analysis: FaceAnalysisState(
-                status: .successful, detectorVersion: "synthetic-ui-preview-only-v1", contentVersion: contentVersion,
-                faces: ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-faces")
-                    ? [FaceGeometry(rectangle: [0.05, 0.1, 0.3, 0.7], landmarks: []),
-                       FaceGeometry(rectangle: [0.6, 0.2, 0.3, 0.6], landmarks: [])] : []))
+        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
+        let work = Task { try await undoService.undo(id) }
+        catalogSession.bind(operation) { work.cancel() }
+        do {
+            try await work.value
+            guard sessionIsCurrent(operation.session) else { return }
+            await refreshPeople()
+        } catch {
+            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "Undo was not saved. Try again." }
         }
     }
-    private actor SlowSyntheticSource: PhotoSource {
-        let source: FolderPhotoSource
-        var returned = 0
-        let holdAfterFirst: Bool
-        init(source: FolderPhotoSource, holdAfterFirst: Bool) { self.source = source; self.holdAfterFirst = holdAfterFirst }
-        func identity() async throws -> String? { try await source.identity() }
-        func permissionBookmark() async throws -> Data? { try await source.permissionBookmark() }
-        func open() async throws { try await source.open() }
-        func next() async throws -> SourceEntry? {
-            if returned > 0, holdAfterFirst {
-                // Deterministic DEBUG-only gate: XCTest cancellation releases this operation.
-                while true { try await Task.sleep(nanoseconds: 100_000_000) }
-            }
-            returned += 1
-            return try await source.next()
-        }
-        func read(_ entry: SourceEntry) async throws -> Data { try await source.read(entry) }
-        func close() async { await source.close() }
-    }
-    #endif
 
 }

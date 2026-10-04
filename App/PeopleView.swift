@@ -10,7 +10,7 @@ struct PeopleView: View {
     var body: some View {
         let coverFaces = Dictionary(uniqueKeysWithValues: services.peopleSnapshot.faces.map { ($0.key, $0) })
         VStack(alignment: .leading, spacing: 24) {
-            Text("People").font(.largeTitle.bold())
+            Text("Confirmed people").font(.headline).accessibilityIdentifier("people-records-start")
             DecisionStatus(services: services)
             #if DEBUG
             if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-refresh-burst") {
@@ -37,7 +37,8 @@ struct PeopleView: View {
                                 Text("Possible matching unavailable").font(.caption).foregroundStyle(secondary)
                             }.frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
                                 .padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
-                        }.buttonStyle(.plain).accessibilityIdentifier("person-\(summary.id.uuidString)")
+                        }.presentationAnchor(summary.id, section: "People")
+                            .buttonStyle(.plain).accessibilityIdentifier("person-\(summary.id.uuidString)")
                     }
                 }
             }
@@ -132,16 +133,23 @@ struct FacePreview: View {
             releaseDecodedPreview(forMemory: true)
         }
         .task(id: decodeRequest) {
+            guard let operation = services.catalogSession.begin("face-preview") else { image = nil; loading = false; return }
+            defer { services.catalogSession.finish(operation) }
             let token = UUID()
             decodeToken = token; image = nil; loading = true; releasedForMemory = false
             let url = services.previewURL(face.photo), rectangle = face.geometry.rectangle, whole = wholePhoto
-            let decoded = await Task.detached(priority: .utility) {
+            let work = Task.detached(priority: .utility) {
                 guard let url, let full = UIImage(contentsOfFile: url.path), let raster = full.cgImage else { return nil as UIImage? }
+                #if DEBUG
+                await services.protection.holdPreview(operation)
+                #endif
                 if whole { return full }
                 guard let crop = FaceCropGeometry.pixelRectangle(rectangle, width: raster.width, height: raster.height),
                       let cropped = raster.cropping(to: crop) else { return nil }
                 return UIImage(cgImage: cropped)
-            }.value
+            }
+            services.catalogSession.bind(operation) { work.cancel() }
+            let decoded = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
             #if DEBUG
             // Causal runtime fixture: warn after a real decode but before its result can publish.
             // Normal DEBUG use and all release builds never select this hook.
@@ -151,7 +159,7 @@ struct FacePreview: View {
             }
             #endif
             // Detached work can outlive SwiftUI's parent task or a memory-warning invalidation.
-            guard !Task.isCancelled, decodeToken == token else { return }
+            guard services.sessionIsCurrent(operation.session), !Task.isCancelled, decodeToken == token else { return }
             image = decoded; loading = false
         }
     }

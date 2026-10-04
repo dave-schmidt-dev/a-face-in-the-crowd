@@ -1,0 +1,2 @@
+# Files allowed over the 800-line ceiling, with the reason. No line caps.
+AFITC.xcodeproj/project.pbxproj | Xcode project object graph; Xcode requires this generated metadata in one project.pbxproj.

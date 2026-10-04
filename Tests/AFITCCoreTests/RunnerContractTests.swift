@@ -35,6 +35,128 @@ final class RunnerContractTests: XCTestCase {
         return try run(["tools/verify.sh", task, "--validate-manifest", fixture.path])
     }
 
+    func testResourceMatrixIncludedForFocusedAndAccumulatedTaskIDs() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let driver = temporary.appendingPathComponent("matrix-contract.py")
+        let source = #"""
+        import ast, json, os, re, select, signal, subprocess, sys, time
+        from pathlib import Path
+        root, scratch = map(Path, sys.argv[1:])
+        sys.path.insert(0, str(root))
+        from tools.headless_task_matrices import selected_task_matrices, run_selected_task_matrices
+        source = (root / 'tools/verify.sh').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+        tree = ast.parse(source)
+        namespace = dict(globals(), logs=scratch, stage_durations={})
+        nodes = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef)
+                               and n.name in {'reject', 'run'}], type_ignores=[])
+        exec(compile(nodes, str(root / 'tools/verify.sh'), 'exec'), namespace)
+        glue = [n for n in tree.body if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
+                and isinstance(n.value.func, ast.Name) and n.value.func.id == 'run_selected_task_matrices']
+        assert len(glue) == 1
+        marker = scratch / 'observed.jsonl'
+        child = scratch / 'child.py'
+        child.write_text("import json,sys\nfrom pathlib import Path\np=Path(sys.argv[1])\nwith p.open('a') as f:f.write(json.dumps(sys.argv[2:])+'\\n')\nsys.exit(int(sys.argv[3]))\n")
+        original = namespace['run']
+        for tasks, expected in [(['task2.model-resources'], 2),
+                                (['task1.1','task2.model-resources','task1.4'], 2),
+                                (['task2.model-resources'] * 2, 2), (['task1.4'], 0)]:
+            commands = selected_task_matrices(tasks)
+            assert len(commands) == expected
+            seen = []
+            def actual(command, stage):
+                seen.append((stage, command))
+                return original(['python3', str(child), str(marker), stage, '0'], stage)
+            namespace.update(task_ids=tasks, run=actual, run_selected_task_matrices=run_selected_task_matrices)
+            before = len(marker.read_text().splitlines()) if marker.exists() else 0
+            exec(compile(ast.Module(body=glue, type_ignores=[]), '<actual-runner-glue>', 'exec'), namespace)
+            after = len(marker.read_text().splitlines()) if marker.exists() else 0
+            assert after - before == expected
+            assert seen == [(stage, list(command)) for stage, command in commands]
+        before = len(marker.read_text().splitlines())
+        def failed(command, stage):
+            return original(['python3', str(child), str(marker), stage, '7'], stage)
+        try:
+            run_selected_task_matrices(['task2.model-resources'], failed)
+            raise AssertionError('failed child accepted')
+        except SystemExit as error:
+            assert error.code != 0
+        assert len(marker.read_text().splitlines()) == before + 1
+        print('RESOURCE_MATRIX_CONTRACT_PASSED')
+        """#
+        try source.write(to: driver, atomically: true, encoding: .utf8)
+        let result = try run(["-c", "python3 \"$1\" \"$2\" \"$3\"", "_", driver.path, root.path, temporary.path])
+        XCTAssertEqual(result.0, 0, result.1)
+        XCTAssertTrue(result.1.contains("RESOURCE_MATRIX_CONTRACT_PASSED"), result.1)
+    }
+
+    func testCoreRunsReceiveFreshOwnedEvidenceDirectoryOrCallerValue() throws {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let driver = temporary.appendingPathComponent("evidence-contract.py")
+        let source = #"""
+        import ast, json, os, re, select, shutil, signal, subprocess, sys, time
+        from pathlib import Path
+        root, scratch = map(Path, sys.argv[1:])
+        key = 'AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE'
+        source = (root / 'tools/verify.sh').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
+        tree = ast.parse(source)
+        logs = scratch / 'logs'
+        logs.mkdir()
+        namespace = dict(globals(), logs=logs, stage_durations={})
+        names = {'reject', 'run', 'synthetic_evidence_environment'}
+        nodes = ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names], type_ignores=[])
+        exec(compile(nodes, str(root / 'tools/verify.sh'), 'exec'), namespace)
+        helper = namespace['synthetic_evidence_environment']
+        # The runner call precedes the matrices and the only SwiftPM test stage.
+        def calls(node, name):
+            return any(isinstance(c, ast.Call) and isinstance(c.func, ast.Name) and c.func.id == name for c in ast.walk(node))
+        body = tree.body
+        setup = [i for i, n in enumerate(body) if calls(n, 'synthetic_evidence_environment')]
+        swift = [i for i, n in enumerate(body) if "'swift', 'test'" in ast.get_source_segment(source, n)]
+        matrices = [i for i, n in enumerate(body) if calls(n, 'run_selected_task_matrices')]
+        exits = [i for i, n in enumerate(body) if isinstance(n, ast.If) and ast.get_source_segment(source, n.test) == 'validate_only']
+        assert len(setup) == 1 and len(swift) == 1 and len(matrices) == 1 and exits, (setup, swift, matrices, exits)
+        assert max(exits) < setup[0] < matrices[0] < swift[0], (exits, setup, matrices, swift)
+        # Runner-owned: fresh, empty, existing, and inherited by a real run child.
+        env = {k: v for k, v in os.environ.items() if k != key}
+        path, owner = helper(logs, env)
+        owned = logs / 'synthetic-evidence'
+        assert (path, owner) == (str(owned), 'runner') and env[key] == path
+        assert owned.is_dir() and not owned.is_symlink() and list(owned.iterdir()) == []
+        (owned / 'helper-retained-stage').mkdir()
+        (owned / 'stale.json').write_text('{}')
+        env = {k: v for k, v in os.environ.items() if k != key}  # the next run's process
+        path, owner = helper(logs, env)
+        assert owner == 'runner' and owned.is_dir() and list(owned.iterdir()) == [], list(owned.iterdir())
+        saved = os.environ.get(key)
+        os.environ.pop(key, None)
+        try:
+            os.environ[key] = helper(logs, os.environ)[0]
+            seen = namespace['run']([sys.executable, '-c', 'import os; print("CHILD=" + os.environ["%s"])' % key], 'child', stream=False)
+            assert seen.strip() == 'CHILD=' + str(owned), seen
+        finally:
+            os.environ.pop(key, None)
+            if saved is not None:
+                os.environ[key] = saved
+        # Caller-provided: value preserved, caller directory and runner path untouched.
+        shutil.rmtree(owned)
+        caller = scratch / 'caller-evidence'
+        caller.mkdir()
+        (caller / 'sentinel').write_text('caller')
+        env = {key: str(caller)}
+        assert helper(logs, env) == (str(caller), 'caller') and env == {key: str(caller)}
+        assert (caller / 'sentinel').read_text() == 'caller' and not owned.exists()
+        print('SYNTHETIC_EVIDENCE_CONTRACT_PASSED')
+        """#
+        try source.write(to: driver, atomically: true, encoding: .utf8)
+        let result = try run(["-c", "python3 \"$1\" \"$2\" \"$3\"", "_", driver.path, root.path, temporary.path])
+        XCTAssertEqual(result.0, 0, result.1)
+        XCTAssertTrue(result.1.contains("SYNTHETIC_EVIDENCE_CONTRACT_PASSED"), result.1)
+    }
+
     func testMissingAndEmptyMappingsFail() throws {
         let missing = try manifestCheck("task_missing")
         XCTAssertNotEqual(missing.0, 0)
@@ -79,26 +201,35 @@ final class RunnerContractTests: XCTestCase {
         root, scratch = map(Path, sys.argv[1:])
         source = (root / 'tools/verify.sh').read_text().split("<<'PY'\n", 1)[1].rsplit('\nPY', 1)[0]
         tree = ast.parse(source)
-        names = {'reject', 'run', 'validate_native_output'}
-        namespace = dict(globals(), logs=scratch)
+        names = {'reject', 'run', 'validate_native_output', 'native_test_selection'}
+        namespace = dict(globals(), logs=scratch, stage_durations={})
         nodes = ast.Module(body=[node for node in tree.body
                                 if isinstance(node, ast.FunctionDef) and node.name in names], type_ignores=[])
         exec(compile(nodes, str(root / 'tools/verify.sh'), 'exec'), namespace)
-        selectors = ['UITests.SyntheticTests/testNativeCase']
+        ui = ['UITests.SyntheticTests/testNativeCase']
+        unit = ['AFITCCoreTests.SyntheticRuntime/testArithmetic']
+        selectors = namespace['native_test_selection'](False, ui + ui, unit + unit)
+        assert selectors == sorted(ui + unit), selectors
+        assert namespace['native_test_selection'](True, ui, unit + unit) == unit
+        assert namespace['native_test_selection'](False, ui, []) == ui
+        assert namespace['native_test_selection'](False, [], []) == []
+        unit_case = "Test Case '-[AFITCCoreTests.SyntheticRuntime testArithmetic]' passed (0.001 seconds).\n"
         case = "Test Case '-[UITests.SyntheticTests testNativeCase]' passed (0.001 seconds).\n"
         fixtures = [
-            ('test', case + '** TEST SUCCEEDED **\n', 0, True),
-            ('execute', case + '** TEST EXECUTE SUCCEEDED **\n', 0, True),
-            ('failed', case + '** TEST FAILED **\n', 0, False),
-            ('execute-failed', case + '** TEST EXECUTE FAILED **\n', 0, False),
-            ('no-marker', case, 0, False),
-            ('build-only', case + '** BUILD SUCCEEDED **\n', 0, False),
-            ('test-build-only', case + '** TEST BUILD SUCCEEDED **\n', 0, False),
+            ('missing-unit', case + '** TEST SUCCEEDED **\n', 0, False),
+            ('missing-ui', unit_case + '** TEST SUCCEEDED **\n', 0, False),
+            ('test', case + unit_case + '** TEST SUCCEEDED **\n', 0, True),
+            ('execute', case + unit_case + '** TEST EXECUTE SUCCEEDED **\n', 0, True),
+            ('failed', case + unit_case + '** TEST FAILED **\n', 0, False),
+            ('execute-failed', case + unit_case + '** TEST EXECUTE FAILED **\n', 0, False),
+            ('no-marker', case + unit_case, 0, False),
+            ('build-only', case + unit_case + '** BUILD SUCCEEDED **\n', 0, False),
+            ('test-build-only', case + unit_case + '** TEST BUILD SUCCEEDED **\n', 0, False),
             ('no-actual-case', '** TEST EXECUTE SUCCEEDED **\n', 0, False),
-            ('wrong-case', case.replace('testNativeCase', 'testDifferentCase') + '** TEST EXECUTE SUCCEEDED **\n', 0, False),
-            ('nonzero-test', case + '** TEST SUCCEEDED **\n', 7, False),
-            ('nonzero-execute', case + '** TEST EXECUTE SUCCEEDED **\n', 7, False),
-            ('conflicting-markers', case + '** TEST FAILED **\n** TEST EXECUTE SUCCEEDED **\n', 0, False),
+            ('wrong-case', case.replace('testNativeCase', 'testDifferentCase') + unit_case + '** TEST EXECUTE SUCCEEDED **\n', 0, False),
+            ('nonzero-test', case + unit_case + '** TEST SUCCEEDED **\n', 7, False),
+            ('nonzero-execute', case + unit_case + '** TEST EXECUTE SUCCEEDED **\n', 7, False),
+            ('conflicting-markers', case + unit_case + '** TEST FAILED **\n** TEST EXECUTE SUCCEEDED **\n', 0, False),
         ]
         for name, output, exit_code, expected in fixtures:
             admitted = False
@@ -111,6 +242,7 @@ final class RunnerContractTests: XCTestCase {
             except SystemExit as failure:
                 assert failure.code != 0
             assert admitted is expected, (name, admitted, expected)
+        print('NATIVE_SELECTION_UNION_PASSED')
         print('NATIVE_MARKER_CONTRACT_PASSED')
         """#
         try driver.write(to: markerDriver, atomically: true, encoding: .utf8)
@@ -118,6 +250,7 @@ final class RunnerContractTests: XCTestCase {
                                markerDriver.path, root.path, temporary.path])
         XCTAssertEqual(markers.0, 0, markers.1)
         XCTAssertTrue(markers.1.contains("NATIVE_MARKER_CONTRACT_PASSED"), markers.1)
+        XCTAssertTrue(markers.1.contains("NATIVE_SELECTION_UNION_PASSED"), markers.1)
     }
 
     func testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion() throws {
@@ -220,21 +353,26 @@ final class RunnerContractTests: XCTestCase {
         tree = ast.parse(source)
         names = {'ui_budget_seconds', 'reject', 'owned_phase_child', 'stop_phase_process', 'run'}
         namespace = dict(globals(), logs=scratch, task_id='phase1',
-                         UI_FINALIZATION_GRACE_SECONDS=0.15, UI_STOP_GRACE_SECONDS=0.4)
+                         UI_FINALIZATION_GRACE_SECONDS=0.15, UI_STOP_GRACE_SECONDS=0.4, stage_durations={})
         # Execute actual production budget declarations and functions, then shorten
         # only the fixture clocks. The cleanup runs below also exercise run's selection.
-        constants = {'UI_BUDGET_SECONDS', 'UI_PHASE_BUDGET_SECONDS'}
+        constants = {'UI_BUDGET_SECONDS', 'UI_PHASE_BUDGET_SECONDS', 'UI_FINALIZATION_GRACE_SECONDS', 'UI_STOP_GRACE_SECONDS'}
         functions = ast.Module(body=[node for node in tree.body
             if (isinstance(node, ast.FunctionDef) and node.name in names)
             or (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
                 and target.id in constants for target in node.targets))], type_ignores=[])
         exec(compile(functions, str(root / 'tools/verify.sh'), 'exec'), namespace)
         assert namespace['ui_budget_seconds']('phase3') == 1800
-        for phase in ('phase1', 'phase2', 'phase4', 'phase5', 'phase6', 'phase_unknown'):
+        assert namespace['ui_budget_seconds']('phase5') == 2700
+        assert namespace['ui_budget_seconds']('phase6') == 4500
+        assert namespace['UI_FINALIZATION_GRACE_SECONDS'] == 60
+        assert namespace['UI_STOP_GRACE_SECONDS'] == 60
+        namespace.update(UI_FINALIZATION_GRACE_SECONDS=0.15, UI_STOP_GRACE_SECONDS=0.4)
+        for phase in ('phase1', 'phase2', 'phase4', 'phase_unknown'):
             assert namespace['ui_budget_seconds'](phase) == 1200, phase
         print('PHASE_BUDGET_SELECTION_PASSED')
         namespace['UI_BUDGET_SECONDS'] = 2
-        namespace['UI_PHASE_BUDGET_SECONDS'] = {'phase3': 2.4}
+        namespace['UI_PHASE_BUDGET_SECONDS'] = {'phase3': 2.4, 'phase5': 2.6, 'phase6': 2.6}
         phase_script = next(node.value.value for node in ast.walk(tree)
                             if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
                             and isinstance(node.value.value, str)
@@ -265,8 +403,8 @@ final class RunnerContractTests: XCTestCase {
         os.environ.update(REAL_GATE=str(real_library), APPLE_UI_TEST_LOCK=str(lock),
                           GATE_XCTEST_DEVICE_SET=str(scratch / 'absent-clone-set'))
         try:
-            for mode in ('terminal', 'absolute', 'phase3'):
-                namespace['task_id'] = 'phase1' if mode == 'absolute' else 'phase3'
+            for mode in ('terminal', 'absolute', 'phase3', 'phase5', 'phase6'):
+                namespace['task_id'] = 'phase1' if mode == 'absolute' else 'phase3' if mode == 'terminal' else mode
                 trace = scratch / (mode + '-trace')
                 receipt = scratch / (mode + '-child.pid')
                 os.environ['TRACE'] = str(trace)
@@ -282,10 +420,12 @@ final class RunnerContractTests: XCTestCase {
                 assert elapsed < 5, 'watchdog did not bound completion'
                 if mode == 'terminal':
                     assert elapsed < 1.5, 'failed-suite marker did not shorten the absolute budget'
-                elif mode == 'phase3':
-                    assert elapsed >= 2.3, 'run did not select the longer phase3 budget'
+                elif mode in ('phase3', 'phase5', 'phase6'):
+                    floor = 2.3 if mode == 'phase3' else 2.5
+                    assert elapsed >= floor, 'run did not select the longer phase budget'
                 else:
                     assert elapsed >= 1.9, 'absolute watchdog fired before its budget'
+                assert namespace['stage_durations']['fixture-' + mode] >= elapsed - 0.2
                 evidence = (scratch / ('fixture-' + mode + '.log')).read_text()
                 assert 'TERM sent to owned UI leaf' in evidence
                 assert 'owned wrapper session stopped' not in evidence
@@ -358,7 +498,8 @@ final class RunnerContractTests: XCTestCase {
             }
         }
         """
-        try (diagnostics + "\n" + driver).write(to: source, atomically: true, encoding: .utf8)
+        let diagnosticFiles = try String(contentsOf: root.appendingPathComponent("App/Services/DiagnosticFiles.swift"))
+        try (diagnosticFiles + "\n" + diagnostics + "\n" + driver).write(to: source, atomically: true, encoding: .utf8)
         let executable = temporary.appendingPathComponent("smoke")
         let smoke = try run(["-c", "swiftc -parse-as-library \"$1\" -o \"$2\" && \"$2\" \"$3\"", "_",
                              source.path, executable.path, temporary.path])
@@ -367,6 +508,8 @@ final class RunnerContractTests: XCTestCase {
     }
     #else
     // Host verification exercises the runner; iPad gate does not invoke host processes.
+    func testResourceMatrixIncludedForFocusedAndAccumulatedTaskIDs() throws { throw XCTSkip("Host runner contract") }
+    func testCoreRunsReceiveFreshOwnedEvidenceDirectoryOrCallerValue() throws { throw XCTSkip("Host runner contract") }
     func testMissingAndEmptyMappingsFail() throws { throw XCTSkip("Host runner contract") }
     func testManifestDriftAndZeroSelectorsFail() throws { throw XCTSkip("Host runner contract") }
     func testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion() throws { throw XCTSkip("Host runner contract") }

@@ -14,8 +14,6 @@ struct LibraryView: View {
     @State private var selectionError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("A Face in the Crowd").font(.largeTitle.bold())
-            Text("Find the people in your photo collection.").font(.title3)
             if services.canStart && !services.isScanning {
                 VStack(alignment: .leading, spacing: 16) {
                     Label("Start with a photo folder", systemImage: "folder").font(.headline)
@@ -46,13 +44,14 @@ struct LibraryView: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
                     ForEach(services.photos) { photo in
                         VStack(alignment: .leading, spacing: 8) {
-                            PhotoPreview(url: services.previewURL(photo), pending: photo.analysis.status == .pending)
+                            PhotoPreview(services: services, url: services.previewURL(photo), pending: photo.analysis.status == .pending)
                             Text(photo.relativePath).lineLimit(2)
                             if photo.missing == true { Text("Missing at last complete discovery").font(.caption) }
                             Text("Detection: \(photo.analysis.status.rawValue) · \(photo.analysis.faces.count) faces")
                                 .font(.subheadline)
                             if let reason = photo.analysis.reason { Text(reason).font(.caption) }
                         }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
+                            .presentationAnchor(photo.id, section: "Library")
                             .accessibilityIdentifier("photo-\(photo.id.uuidString)")
                     }
                 }
@@ -85,6 +84,7 @@ struct LibraryView: View {
 
 /// Reading/decompressing derived JPEGs also stays off the UI executor.
 private struct PhotoPreview: View {
+    @ObservedObject var services: AppServices
     let url: URL?
     let pending: Bool
     @State private var image: UIImage?
@@ -109,14 +109,24 @@ private struct PhotoPreview: View {
             releaseDecodedPreview(forMemory: true)
         }
         .task(id: url) {
+            guard let operation = services.catalogSession.begin("library-preview") else { image = nil; loading = false; return }
+            defer { services.catalogSession.finish(operation) }
             let token = UUID()
             decodeToken = token; image = nil; loading = true; releasedForMemory = false
             let decoded: UIImage?
             if let url {
-                decoded = await Task.detached(priority: .utility) { UIImage(contentsOfFile: url.path) }.value
+                let work = Task.detached(priority: .utility) {
+                    let result = UIImage(contentsOfFile: url.path)
+                    #if DEBUG
+                    if result != nil { await services.protection.holdPreview(operation) }
+                    #endif
+                    return result
+                }
+                services.catalogSession.bind(operation) { work.cancel() }
+                decoded = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
             } else { decoded = nil }
             // Detached decode may finish after SwiftUI cancels its parent task.
-            guard !Task.isCancelled, decodeToken == token else { return }
+            guard services.sessionIsCurrent(operation.session), !Task.isCancelled, decodeToken == token else { return }
             image = decoded; loading = false
         }
     }

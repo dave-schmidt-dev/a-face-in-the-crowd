@@ -3,9 +3,19 @@ import AFITCCore
 
 struct SearchView: View {
     @ObservedObject var services: AppServices
-    @StateObject private var controller = SearchService()
-    @State private var selected: Set<UUID> = []
-    @State private var mode = SearchMode.together
+    @ObservedObject private var presentation: AppPresentationState
+    @ObservedObject private var controller: SearchService
+    init(services: AppServices) {
+        self.services = services; presentation = services.presentation; controller = services.presentation.search
+    }
+    private var selected: Set<UUID> {
+        get { presentation.preferences.search.selected }
+        nonmutating set { presentation.setSearch(selected: newValue) }
+    }
+    private var mode: SearchMode {
+        get { presentation.preferences.search.mode }
+        nonmutating set { presentation.setSearch(mode: newValue) }
+    }
     @State private var viewer: PhotoIdentity?
     @Environment(\.colorScheme) private var scheme
     private var tokens: DesignTokens { DesignTokens(scheme: scheme) }
@@ -49,7 +59,6 @@ struct SearchView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Search").font(.largeTitle.bold())
             Text("Confirmed people").font(.headline)
             if !services.hasLoadedPeopleSnapshot { Text("People unavailable. Refresh People before searching.") }
             PersonChips(people: activePeople, selected: chipSelection)
@@ -75,7 +84,7 @@ struct SearchView: View {
             #endif
             Text("Only confirmed identities included. Possible matches unavailable.")
                 .font(.caption).foregroundStyle(tokens.secondary).accessibilityIdentifier("possible-unavailable")
-            Button("Show photos") { controller.search(mode: mode, selected: canonicalSelection, services: services) }
+            Button("Show photos") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
                 .frame(minHeight: 48).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
                 .accessibilityIdentifier("show-photos")
             if controller.searching { ProgressView("Searching").accessibilityIdentifier("searching") }
@@ -84,7 +93,7 @@ struct SearchView: View {
                 Text("\(snapshot.totalCount) \(snapshot.totalCount == 1 ? "photo" : "photos")").font(.headline).accessibilityIdentifier("search-result-count")
                 Text(snapshot.selectedPeople.isEmpty ? "All catalog photos" : "Confirmed: " + snapshot.selectedPeople.map(\.displayName).joined(separator: ", "))
                     .font(.caption).accessibilityIdentifier("search-snapshot")
-                Button("Refresh results") { controller.search(mode: mode, selected: canonicalSelection, services: services) }
+                Button("Refresh results") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
                     .frame(minHeight: 44).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
                     .accessibilityIdentifier("refresh-search")
                 if snapshot.query.mode == .only {
@@ -96,26 +105,27 @@ struct SearchView: View {
                     ForEach(controller.visibleResults, id: \.photo.id) { result in
                         Button { viewer = result.photo } label: {
                             VStack(alignment: .leading) {
-                                SearchPreview(url: services.previewURL(result.photo))
+                                SearchPreview(services: services, url: services.previewURL(result.photo))
                                 Text(result.photo.relativePath).font(.caption).lineLimit(2)
                             }
-                        }.accessibilityIdentifier("search-photo-\(result.photo.id.uuidString)")
+                        }.presentationAnchor(result.photo.id, section: "Search")
+                            .accessibilityIdentifier("search-photo-\(result.photo.id.uuidString)")
                             .accessibilityLabel("Open photo \(result.photo.relativePath)")
                     }
                 }
                 if controller.visibleResults.count < snapshot.totalCount {
-                    Button("Load more photos") { controller.nextPage() }.frame(minHeight: 48).accessibilityIdentifier("search-next-page")
+                    Button("Load more photos") { controller.nextPage(); presentation.requestedPage() }.frame(minHeight: 48).disabled(presentation.preferences.search.requestedPages >= 64).accessibilityIdentifier("search-next-page")
+                    if presentation.preferences.search.requestedPages >= 64 { Text("Refine this search to view more photos.").foregroundStyle(tokens.secondary) }
                 }
             }
         }
-        .onChange(of: selected) { controller.invalidate() }
-        .onChange(of: mode) { controller.invalidate() }
-        .onDisappear { controller.invalidate() }
+        .onDisappear { controller.cancelInFlight() }
         .sheet(item: $viewer) { PhotoViewer(photo: $0, services: services) }
     }
 }
 
 private struct SearchPreview: View {
+    @ObservedObject var services: AppServices
     let url: URL?
     @State private var image: UIImage?
     @State private var token = UUID()
@@ -126,16 +136,22 @@ private struct SearchPreview: View {
             else { Text(released ? "Preview released for memory" : "Cached preview unavailable") }
         }.frame(maxWidth: .infinity).frame(height: 160)
             .task(id: url) {
+                guard let operation = services.catalogSession.begin("search-preview") else { image = nil; return }
+                defer { services.catalogSession.finish(operation) }
                 let current = UUID(); token = current; image = nil; released = false
                 guard let url else { return }
                 let work = Task.detached { () -> CGImage? in
                     guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
                     defer { try? handle.close() }
                     guard let data = try? handle.read(upToCount: DecodeLimits.maximumFileBytes + 1) else { return nil }
+                    #if DEBUG
+                    await services.protection.holdPreview(operation)
+                    #endif
                     return try? PreviewService.decode(data)
                 }
+                services.catalogSession.bind(operation) { work.cancel() }
                 let result = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
-                guard !Task.isCancelled, token == current else { return }
+                guard services.sessionIsCurrent(operation.session), !Task.isCancelled, token == current else { return }
                 image = result.map { UIImage(cgImage: $0) }
             }
             .onDisappear { token = UUID(); image = nil; released = true }

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import select
+import shutil
 import signal
 import subprocess
 import sys
@@ -15,14 +16,19 @@ import time
 import xml.etree.ElementTree as ET
 
 UI_BUDGET_SECONDS = 20 * 60
-UI_PHASE_BUDGET_SECONDS = {'phase3': 30 * 60}
+UI_PHASE_BUDGET_SECONDS = {'phase3': 30 * 60, 'phase5': 45 * 60, 'phase6': 75 * 60}
 UI_FINALIZATION_GRACE_SECONDS = 60
 UI_STOP_GRACE_SECONDS = 60
 
 
 def ui_budget_seconds(phase):
-    """Phase 3's accumulated manual workflows have a measured larger native budget."""
+    """Select the bounded native-subprocess budget for the accumulated phase."""
     return UI_PHASE_BUDGET_SECONDS.get(phase, UI_BUDGET_SECONDS)
+
+
+def native_test_selection(runtime_only, ui_selectors, unit_selectors):
+    """Include every accumulated native case; the standalone runtime lane stays unit-only."""
+    return sorted(set(unit_selectors if runtime_only else ui_selectors + unit_selectors))
 
 
 def reject(message):
@@ -46,6 +52,20 @@ def validate_native_output(output, selectors):
         klass, method = selector.split('.', 1)[1].split('/')
         if not re.search(re.escape(klass) + r'.*' + re.escape(method) + r'.*passed', output):
             reject(f'Zero passing UI tests actually executed for {selector}')
+
+
+def synthetic_evidence_environment(logs, environ):
+    """Export a fresh runner-owned Core evidence directory unless the caller set one."""
+    if environ.get('AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE'):
+        return environ['AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE'], 'caller'
+    evidence = logs / 'synthetic-evidence'
+    if evidence.is_symlink() or evidence.is_file():
+        evidence.unlink()
+    elif evidence.exists():
+        shutil.rmtree(evidence)
+    evidence.mkdir()
+    environ['AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE'] = str(evidence)
+    return str(evidence), 'runner'
 
 
 def select_simulator(inventory, devices):
@@ -98,9 +118,12 @@ if len(args) == 3 and args[0] == '--select-simulator':
 started = time.monotonic()
 validate_only = len(args) == 3 and args[1] == '--validate-manifest'
 native = len(args) == 1 and args[0].startswith('phase')
-if not (validate_only or native or (len(args) == 2 and args[1] == '--headless')):
-    reject('Usage: tools/verify.sh <task> --headless | <phase> | <task> --validate-manifest <file>')
+runtime_admission = len(args) == 2 and args == ['task2.runtime-admission', '--runtime-admission']
+if not (validate_only or native or runtime_admission or (len(args) == 2 and args[1] == '--headless')):
+    reject('Usage: tools/verify.sh <task> --headless | <phase> | <task> --validate-manifest <file> | task2.runtime-admission --runtime-admission')
 task_id = args[0]
+if task_id == 'task2.runtime-admission' and any(os.environ.get(key) for key in ('ORT_POD_LOCAL_PATH', 'ORT_EXTENSIONS_POD_LOCAL_PATH')):
+    reject('Local ORT archive overrides are not admitted')
 root = Path.cwd()
 logs = root / '.logs' / 'verification' / task_id
 if not re.fullmatch(r'[A-Za-z0-9_.-]+', task_id):
@@ -109,6 +132,7 @@ logs.mkdir(parents=True, exist_ok=True)
 if not validate_only:
     (logs / 'summary.json').unlink(missing_ok=True)
 print(f'[verify] Starting {task_id}; evidence: {logs}', flush=True)
+stage_durations = {}
 
 
 def owned_phase_child(process, receipt):
@@ -240,6 +264,9 @@ def run(command, name, stream=True, watchdog=False, owned_child_receipt=None):
                     os.killpg(process.pid, signal.SIGKILL)
                     process.wait()
             raise
+        finally:
+            stage_durations[name] = round(time.monotonic() - launched, 3)
+            (logs / 'stage-durations.json').write_text(json.dumps(stage_durations, indent=2) + '\n')
     if timed_out:
         reject(f'{name} watchdog timed out; subprocess exited {status}; gate remains failed')
     if terminal_failed:
@@ -259,12 +286,19 @@ try:
             reject('Empty target mapping')
         for target, config in task['targets'].items():
             if target not in targets:
-                targets[target] = dict(config, testFiles=[], selectors=[])
+                targets[target] = dict(config, testFiles=[], selectors=[], nativeUnitSelectors=[])
             targets[target]['testFiles'] += config.get('testFiles', [])
             targets[target]['selectors'] += config.get('selectors', [])
+            native_selectors = config.get('nativeUnitSelectors', [])
+            if not isinstance(native_selectors, list) or any(not isinstance(value, str) for value in native_selectors):
+                reject(f'Invalid nativeUnitSelectors type for {target}')
+            if native_selectors and (config.get('type') != 'unit' or identifier != 'task2.runtime-admission'):
+                reject('Native unit mapping is restricted to the runtime admission task')
+            targets[target]['nativeUnitSelectors'] += native_selectors
     for config in targets.values():
         config['testFiles'] = sorted(set(config['testFiles']))
         config['selectors'] = sorted(set(config['selectors']))
+        config['nativeUnitSelectors'] = sorted(set(config['nativeUnitSelectors']))
 except (KeyError, ValueError, OSError) as error:
     reject(f'Missing or invalid task mapping: {error}')
 if not targets:
@@ -315,8 +349,24 @@ if actual_tests != mapped_tests:
 scheme = ET.parse('AFITC.xcodeproj/xcshareddata/xcschemes/AFITC.xcscheme')
 testables = {element.attrib['BlueprintName'] for element in
              scheme.findall('.//TestableReference/BuildableReference')}
+def declares_native_test(file, klass, method):
+    """Require each native selector inside its mapped test class."""
+    source = Path(file).read_text()
+    declaration = re.search(r'\bclass\s+' + re.escape(klass) + r'\b[^\{]*\{', source)
+    if not declaration:
+        return False
+    body = re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"', '', source[declaration.end():], flags=re.S)
+    depth = 1
+    for index, character in enumerate(body):
+        depth += (character == '{') - (character == '}')
+        if depth == 0:
+            return bool(re.search(r'\bfunc\s+' + re.escape(method) + r'\s*\(', body[:index]))
+    return False
+
+
 filters = []
 ui_filters = []
+native_unit_filters = []
 declared = []
 for target, config in targets.items():
     expected_type = {'unit': 'com.apple.product-type.bundle.unit-test',
@@ -333,7 +383,10 @@ for target, config in targets.items():
         if not Path(file).is_file() or file not in membership.get(target, set()):
             reject(f'{file} is not a source member of {target}')
         declared.append(file)
-    for selector in selectors:
+    native_selectors = config.get('nativeUnitSelectors', [])
+    if task_id == 'task2.runtime-admission' and not native_selectors:
+        reject('Empty native unit selectors for runtime admission')
+    for selector in sorted(set(selectors + native_selectors)):
         if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*/test[A-Za-z0-9_]+', selector):
             reject(f'Invalid selector: {selector}')
         if selector.split('.')[0] != target:
@@ -344,11 +397,15 @@ for target, config in targets.items():
                    and re.search(r'\bfunc\s+' + re.escape(method) + r'\s*\(', Path(file).read_text())
                    for file in files):
             reject(f'Selector has no declared implementation: {selector}')
-        if config.get('type') == 'unit' and not config.get('phaseGateOnly', False):
+        if selector in native_selectors:
+            if not any(declares_native_test(file, klass, method) for file in files):
+                reject(f'Native selector method is not declared in its class: {selector}')
+            native_unit_filters.append(selector)
+        if selector in selectors and config.get('type') == 'unit' and not config.get('phaseGateOnly', False):
             filters.append(selector)
-        elif config.get('type') == 'ui' and config.get('phaseGateOnly', False):
+        elif selector in selectors and config.get('type') == 'ui' and config.get('phaseGateOnly', False):
             ui_filters.append(selector)
-        else:
+        elif selector in selectors:
             reject(f'Unsupported headless target configuration: {target}')
 if not filters:
     reject('Zero runnable core tests selected')
@@ -357,6 +414,12 @@ print(f'[verify] Verified {len(declared)} test file memberships; selected {filte
 if validate_only:
     print('[verify] PASS manifest contract', flush=True)
     raise SystemExit(0)
+
+# Every child below, including each SwiftPM Core run, inherits this evidence root.
+evidence_root, evidence_owner = synthetic_evidence_environment(logs, os.environ)
+print(f'[verify] Synthetic diagnostic evidence ({evidence_owner}): {evidence_root}', flush=True)
+from tools.headless_task_matrices import run_selected_task_matrices
+run_selected_task_matrices(task_ids, run)
 
 # Verify SwiftPM test source membership independently of Xcode membership.
 os.environ['CLANG_MODULE_CACHE_PATH'] = str(root / 'build/swift/module-cache')
@@ -398,8 +461,11 @@ output = run(['xcodebuild', 'build-for-testing', '-project', 'AFITC.xcodeproj',
 if '** TEST BUILD SUCCEEDED **' not in output:
     reject('Expected successful test-build marker missing')
 ui_executed = False
-if native:
-    if not ui_filters:
+runtime_executed = False
+if runtime_admission and not native_unit_filters:
+    reject('Zero native unit tests selected for runtime admission')
+if native or runtime_admission:
+    if native and not ui_filters:
         reject('Zero UI tests selected for phase')
     library = Path(os.environ.get('AFITC_SIMCTL_GATE_LIB', str(Path.home() /
         'Documents/Projects/apple_developer/release_tools/templates/simctl_gate_lib.sh')))
@@ -413,7 +479,8 @@ if native:
     command = ['xcodebuild', 'test-without-building', '-project', 'AFITC.xcodeproj',
                '-scheme', 'AFITC', '-derivedDataPath', 'build/DerivedData',
                '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO']
-    command += ['-only-testing:' + selector.replace('.', '/', 1) for selector in ui_filters]
+    selected_native = native_test_selection(runtime_admission, ui_filters, native_unit_filters)
+    command += ['-only-testing:' + selector.replace('.', '/', 1) for selector in selected_native]
     # Source in the real Bash parent: shared EXIT/signal cleanup survives the
     # command-substitution used to create the owned disposable destination.
     script = '''set -euo pipefail
@@ -426,16 +493,31 @@ echo "[verify] Owned disposable simulator created"
 gate_ui_test_lock --label "AFITC phase UI" --simulator-udid "$udid" bash -c \
     'printf "%s\\n" "$$" > "$1"; shift; exec "$@"' _ "$receipt" "$@" -destination "platform=iOS Simulator,id=$udid"
 '''
-    child_receipt = logs / 'phase-ui-child.pid'
+    # Keep the original phase literal available to the watchdog AST regression;
+    # derive the runtime lane as plain text without interpolating the tested script.
+    runtime_script = script.replace(
+        'gate_sim_create AFITC phase', 'gate_sim_create AFITCRuntime runtime', 1
+    ).replace('AFITC phase UI', 'AFITC runtime unit admission', 1)
+    child_name = 'runtime-unit-child.pid' if runtime_admission else 'phase-ui-child.pid'
+    child_receipt = logs / child_name
     child_receipt.unlink(missing_ok=True)
-    output = run(['bash', '-c', script, '_', str(library),
+    run_name = 'runtime-unit' if runtime_admission else 'phase-ui'
+    gate_script = runtime_script if runtime_admission else script
+    output = run(['bash', '-c', gate_script, '_', str(library),
                   selection['runtime'], selection['deviceType'], str(child_receipt), *command],
-                 'phase-ui', watchdog=True, owned_child_receipt=child_receipt)
-    validate_native_output(output, ui_filters)
-    ui_executed = True
+                 run_name, watchdog=True, owned_child_receipt=child_receipt)
+    validate_native_output(output, selected_native)
+    runtime_executed = bool(native_unit_filters)
+    ui_executed = native
 summary = {'task': task_id, 'coreExecutedCounts': counts, 'testFiles': declared,
            'ipadSimulatorCompile': 'passed', 'deploymentTarget': '17.0',
            'uiTestsExecuted': ui_executed, 'physicalDeviceEvidence': False,
+           'uiSelectedSelectors': ui_filters,
+           'syntheticDiagnosticEvidence': {'path': evidence_root, 'owner': evidence_owner},
+           'uiExecutedCounts': {selector: 1 for selector in ui_filters} if ui_executed else {},
+           'nativeUnitSelectedSelectors': native_unit_filters,
+           'nativeUnitExecutedCounts': {selector: 1 for selector in native_unit_filters} if runtime_executed else {},
+           'stageDurationSeconds': stage_durations,
            'durationSeconds': round(time.monotonic() - started, 2)}
 (logs / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
 print(f'[verify] PASS {task_id}: {sum(counts.values())} core test(s); UI executed={ui_executed}; duration={summary["durationSeconds"]}s', flush=True)

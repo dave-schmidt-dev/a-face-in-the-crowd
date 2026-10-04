@@ -97,7 +97,7 @@ extension CatalogRepository {
                 state = face
                 for index in people.indices {
                     if people[index].id == before.face?.personID || people[index].id == face.personID {
-                        people[index].exemplarRevision += 1
+                        people[index].exemplarRevision = try CatalogCounters.successor(people[index].exemplarRevision, minimum: 1)
                     }
                     if people[index].cover == key, people[index].id != face.personID { people[index].cover = nil }
                     if people[index].id == face.personID, people[index].cover == nil { people[index].cover = key }
@@ -109,7 +109,7 @@ extension CatalogRepository {
             if failure == .afterFaceWrite { throw DecisionError.injectedFailure }
             let record = DecisionRecord(id: UUID(), kind: kind, before: before,
                 after: DecisionEffect(people: people, face: state), createdPersonID: created, date: Date(),
-                revision: try PeopleSQL.scalar(db, "SELECT revision FROM catalog_revision") + 1, undoOf: nil)
+                revision: try CatalogCounters.successor(CatalogCounters.read(db, .revision)), undoOf: nil)
             try PeopleSQL.run(db, "INSERT INTO decisions(id,payload,undo_of) VALUES(?,?,NULL)", strings: [record.id.uuidString], data: JSONEncoder().encode(record))
             if failure == .afterLedgerWrite { throw DecisionError.injectedFailure }
             return record.id
@@ -232,11 +232,11 @@ extension CatalogRepository {
             people[0].mergedInto = survivor; people[0].cover = nil
             let eligible = states.filter { $0.personID == survivor && $0.isAnchor }.map(\.key)
             if !eligible.contains(where: { $0 == people[1].cover }) { people[1].cover = eligible.first }
-            for index in people.indices { people[index].exemplarRevision += 1; try PeopleSQL.writePerson(db, people[index]) }
+            for index in people.indices { people[index].exemplarRevision = try CatalogCounters.successor(people[index].exemplarRevision, minimum: 1); try PeopleSQL.writePerson(db, people[index]) }
             if failure == .afterArchiveWrite { throw DecisionError.injectedFailure }
             var record = DecisionRecord(id: UUID(), kind: "merge", before: current.effect,
                 after: DecisionEffect(people: people, face: nil, faces: states), createdPersonID: nil,
-                date: Date(), revision: try PeopleSQL.scalar(db, "SELECT revision FROM catalog_revision") + 1, undoOf: nil)
+                date: Date(), revision: try CatalogCounters.successor(CatalogCounters.read(db, .revision)), undoOf: nil)
             record.mergeResolutions = resolutions
             try PeopleSQL.run(db, "INSERT INTO decisions(id,payload,undo_of) VALUES(?,?,NULL)", strings: [record.id.uuidString], data: JSONEncoder().encode(record))
             if failure == .afterLedgerWrite { throw DecisionError.injectedFailure }
