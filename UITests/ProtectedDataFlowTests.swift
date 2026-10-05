@@ -2,7 +2,7 @@ import XCTest
 
 /// Actual generated-fixture workers; authored and compiled only until the coordinated native gate.
 final class ProtectedDataFlowTests: XCTestCase {
-    override func setUpWithError() throws { continueAfterFailure = false }
+    override func setUpWithError() throws { continueAfterFailure = false; applyRequestedOrientation() }
     private func launch(_ flags: [String] = [], token: String = UUID().uuidString) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces",
@@ -13,22 +13,27 @@ final class ProtectedDataFlowTests: XCTestCase {
     private func hittableButton(_ id: String, _ app: XCUIApplication) -> XCUIElement? {
         let matches = app.buttons.matching(identifier: id).allElementsBoundByIndex
         if matches.count > 1 {
-            print("[ui-probe] \(id) matches=\(matches.count) " + matches.map { "hittable=\($0.isHittable) frame=\($0.frame)" }.joined(separator: "; "))
+            print("[ui-probe] \(id) matches=\(matches.count) " + matches.map { "frame=\($0.frame)" }.joined(separator: "; "))
         }
-        return matches.first { $0.exists && $0.isHittable }
+        return matches.first { isRevealed($0, app) }
     }
     private func tap(_ id: String, _ app: XCUIApplication) {
         var button = app.buttons[id].firstMatch, found = false
-        for _ in 0..<12 { if let match = hittableButton(id, app) { button = match; found = true; break }; app.swipeUp() }
-        if !found { for _ in 0..<16 { if let match = hittableButton(id, app) { button = match; break }; app.swipeDown() } }
+        for _ in 0..<12 { if let match = hittableButton(id, app) { button = match; found = true; break }; scrollPage(app, towardEnd: true, containing: id) }
+        if !found { for _ in 0..<16 { if let match = hittableButton(id, app) { button = match; break }; scrollPage(app, towardEnd: false, containing: id) } }
         XCTAssertTrue(button.waitForExistence(timeout: 10))
         expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: button)
-        waitForExpectations(timeout: 10); XCTAssertTrue(button.isHittable); button.tap()
+        waitForExpectations(timeout: 10); XCTAssertTrue(isRevealed(button, app), id + " " + whyNotRevealed(button, app)); button.tap()
     }
     private func wait(_ id: String, _ fragment: String, _ app: XCUIApplication) {
         let label = app.staticTexts[id]; XCTAssertTrue(label.waitForExistence(timeout: 10))
         expectation(for: NSPredicate(format: "label CONTAINS %@", fragment), evaluatedWith: label)
         waitForExpectations(timeout: 20)
+    }
+    /// Machine state keys travel in the accessibility value; the label is human copy.
+    private func waitValue(_ id: String, _ expected: String, _ app: XCUIApplication) {
+        let element = app.staticTexts[id]; XCTAssertTrue(element.waitForExistence(timeout: 10))
+        expectation(for: NSPredicate(format: "value == %@", expected), evaluatedWith: element); waitForExpectations(timeout: 20)
     }
     private func navigate(_ section: String, _ app: XCUIApplication) {
         let button = app.descendants(matching: .any).matching(NSPredicate(format:
@@ -39,13 +44,13 @@ final class ProtectedDataFlowTests: XCTestCase {
     private func backFromPerson(_ app: XCUIApplication) {
         let bar = app.navigationBars["Person"]; XCTAssertTrue(bar.waitForExistence(timeout: 10))
         let back = bar.buttons.matching(NSPredicate(format: "label IN %@ OR identifier == 'BackButton'", ["People", "Back"])).firstMatch
-        let buttons = bar.buttons.allElementsBoundByIndex.map { "\($0.label)|\($0.identifier)|hittable=\($0.isHittable)" }
+        let buttons = bar.buttons.allElementsBoundByIndex.map { "\($0.label)|\($0.identifier)" }
         XCTAssertTrue(back.waitForExistence(timeout: 10), "Person bar buttons: \(buttons)")
         back.tap(); XCTAssertTrue(bar.waitForNonExistence(timeout: 10))
     }
     private func scan(_ app: XCUIApplication, completed: Bool = true) {
         tap("choose-folder", app); tap("start-scan", app); app.alerts.buttons["Start scan"].tap()
-        if completed { wait("scan-phase", "Completed", app) }
+        if completed { waitValue("scan-phase", "completed", app) }
     }
     private func assertClosed(_ app: XCUIApplication, reopen: Bool = true) {
         wait("protected-catalog-state", "closed", app)
@@ -140,7 +145,7 @@ final class ProtectedDataFlowTests: XCTestCase {
         let app = launch(["--uitest-protected-hold-deletion", "--uitest-session-short-timeout"])
         XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10))
         tap("settings", app); tap("prepare-backup", app)
-        wait("backup-operation-state", "exportPreview", app)
+        waitValue("backup-operation-state", "exportPreview", app)
         tap("delete-local-catalog", app)
         XCTAssertTrue(app.alerts["Confirm privacy action"].waitForExistence(timeout: 10))
         app.alerts["Confirm privacy action"].buttons["Continue"].tap()
@@ -161,8 +166,7 @@ final class ProtectedDataFlowTests: XCTestCase {
     private func nameAndOpen(_ app: XCUIApplication) {
         navigate("People", app)
         let face = app.buttons.matching(NSPredicate(format: "identifier == 'unidentified-face' AND label CONTAINS 'nested/synthetic-0.jpg'")).firstMatch
-        for _ in 0..<12 { if face.exists && face.isHittable { break }; app.swipeUp() }
-        XCTAssertTrue(face.waitForExistence(timeout: 10)); face.tap()
+        XCTAssertTrue(face.waitForExistence(timeout: 10)); revealElement(face, app); face.tap()
         let field = app.textFields["new-person-name"]; XCTAssertTrue(field.waitForExistence(timeout: 10))
         field.tap(); field.typeText("Fictional Alice"); tap("save-selected-face", app)
         XCTAssertTrue(field.waitForNonExistence(timeout: 10))
@@ -183,18 +187,18 @@ final class ProtectedDataFlowTests: XCTestCase {
         XCTAssertTrue(person.waitForExistence(timeout: 10)); person.tap()
         XCTAssertEqual(app.textFields["rename-person-name"].value as? String, "Fictional Alice retained owner input")
         backFromPerson(app); navigate("Library", app)
-        wait("scan-phase", "Completed", app)
+        waitValue("scan-phase", "completed", app)
         tap("settings", app); XCTAssertEqual(app.staticTexts["backup-source-state"].label, "Original source folder selected")
     }
     func testRetainedPreparedRestoreOwnerLockAndExplicitUnlockUsesSameRecoveryAuthority() {
         let app = launch(["--uitest-privacy-controls", "--uitest-backup-prepared-fault"])
         scan(app); tap("settings", app); tap("choose-restore", app)
-        wait("backup-operation-state", "restorePreview", app); tap("confirm-catalog-restore", app)
-        wait("backup-operation-state", "recoveryRequired", app)
+        waitValue("backup-operation-state", "restorePreview", app); tap("confirm-catalog-restore", app)
+        waitValue("backup-operation-state", "recoveryRequired", app)
         wait("backup-operation-probe", "Restore 1 · Open 0 · Adopt 0", app)
         tap("protected-synthetic-will", app); assertClosed(app)
         tap("settings", app); XCTAssertEqual(app.staticTexts["backup-source-state"].label, "No source folder selected")
-        XCTAssertFalse(app.staticTexts["backup-operation-state"].label.contains("recoveryRequired"))
+        XCTAssertNotEqual(app.staticTexts["backup-operation-state"].value as? String, "recoveryRequired")
         XCTAssertFalse(app.buttons["start-scan"].exists)
     }
     func testUnavailableAgainDuringFreshSnapshotRetainsActorAndPreventsLatePublication() {
@@ -202,9 +206,9 @@ final class ProtectedDataFlowTests: XCTestCase {
         scan(app); nameAndOpen(app)
         backFromPerson(app)
         let personID = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).firstMatch.identifier
-        navigate("Library", app); wait("scan-phase", "Completed", app)
+        navigate("Library", app); waitValue("scan-phase", "completed", app)
         tap("settings", app); tap("prepare-backup", app)
-        wait("backup-operation-state", "exportPreview", app)
+        waitValue("backup-operation-state", "exportPreview", app)
         XCTAssertEqual(app.staticTexts["backup-source-state"].label, "Original source folder selected")
         tap("protected-synthetic-will", app); assertClosed(app, reopen: false)
         tap("open-protected-catalog", app)
@@ -218,17 +222,17 @@ final class ProtectedDataFlowTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["protected-catalog-state"].label, "retryRequired")
         tap("retry-protected-close", app); assertClosed(app)
         wait("protected-retained-backup-probe", "Prepared 0", app)
-        navigate("Library", app); wait("scan-phase", "Completed", app)
+        navigate("Library", app); waitValue("scan-phase", "completed", app)
         navigate("People", app)
         XCTAssertTrue(app.buttons[personID].waitForExistence(timeout: 10)); app.buttons[personID].tap()
         XCTAssertEqual(app.textFields["rename-person-name"].value as? String, "Fictional Alice")
         backFromPerson(app)
-        tap("settings", app); wait("backup-operation-state", "idle", app)
+        tap("settings", app); waitValue("backup-operation-state", "idle", app)
         XCTAssertEqual(app.staticTexts["backup-source-state"].label, "Original source folder selected")
         XCTAssertFalse(app.buttons["retry-backup-operation"].exists)
         // A subsequent real preparation/cancel cannot resurrect the already consumed old stage.
-        tap("prepare-backup", app); wait("backup-operation-state", "exportPreview", app)
-        tap("cancel-backup-preview", app); wait("backup-operation-state", "idle", app)
+        tap("prepare-backup", app); waitValue("backup-operation-state", "exportPreview", app)
+        tap("cancel-backup-preview", app); waitValue("backup-operation-state", "idle", app)
         app.buttons["Done"].tap(); wait("protected-retained-backup-probe", "Prepared 0", app)
     }
     func testMissingExistingCatalogAfterLockShowsRecoveryAndNeverCreatesEmptyCatalog() {

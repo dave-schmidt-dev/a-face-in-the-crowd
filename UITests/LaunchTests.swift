@@ -3,6 +3,7 @@ import XCTest
 final class LaunchTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
+        applyRequestedOrientation()
     }
 
     func testAppLaunchesSuccessfully() throws {

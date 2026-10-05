@@ -4,59 +4,37 @@ import AFITCCore
 
 struct LibraryView: View {
     @ObservedObject var services: AppServices
-    let surface: Color
-    let secondary: Color
-    let primary: Color
-    let onPrimary: Color
+    @Environment(\.tokens) private var tokens
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var picker = false
     @State private var confirmation = false
     @State private var reconnectConfirmation = false
     @State private var selectionError: String?
+    @State private var viewer: PhotoIdentity?
+    @State private var showsFaceNote = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            if services.canStart && !services.isScanning {
-                VStack(alignment: .leading, spacing: 16) {
-                    Label("Start with a photo folder", systemImage: "folder").font(.headline)
-                    Text("Choose one folder to browse JPEGs, including nested folders. Your originals stay unchanged.")
-                        .foregroundStyle(secondary)
-                    Button {
-                        if services.usesSyntheticFixture { services.chooseSyntheticFixture() }
-                        else { picker = true }
-                    } label: {
-                        Text("Choose a photo folder").font(.headline).frame(minHeight: 44)
-                            .padding(.horizontal, 16).foregroundStyle(onPrimary).background(primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }.accessibilityIdentifier("choose-folder")
-                    if services.selectedFolder != nil {
-                        Button("Start scan") { confirmation = true }.frame(minHeight: 44)
-                            .accessibilityIdentifier("start-scan")
-                    }
-                    if let selectionError { Text(selectionError) }
-                }.padding(24).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(surface).clipShape(RoundedRectangle(cornerRadius: 16))
-            } else if services.isOpeningCatalog {
-                ProgressView("Opening catalog")
-            }
-            if !services.photos.isEmpty {
-                Text("Last verified photos").font(.headline)
-                Text("Detected faces need your confirmation. Detection may miss people; zero detected faces is not an identity claim.")
-                    .foregroundStyle(secondary)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220))], spacing: 16) {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.l) {
+            if services.photos.isEmpty {
+                // Welcome / empty: brand, one explanation and one action, then the status.
+                if services.canStart && !services.isScanning { welcome }
+                else if services.isOpeningCatalog { ProgressView("Opening catalog") }
+                StatusView(services: services, showsDetails: true)
+            } else {
+                // Browsing: one compact status line, a slim action row, then the dense photo grid.
+                StatusView(services: services, showsDetails: true)
+                if services.canStart && !services.isScanning { actionRow }
+                else if services.isOpeningCatalog { ProgressView("Opening catalog") }
+                LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.xxs) {
                     ForEach(services.photos) { photo in
-                        VStack(alignment: .leading, spacing: 8) {
-                            PhotoPreview(services: services, url: services.previewURL(photo), pending: photo.analysis.status == .pending)
-                            Text(photo.relativePath).lineLimit(2)
-                            if photo.missing == true { Text("Missing at last complete discovery").font(.caption) }
-                            Text("Detection: \(photo.analysis.status.rawValue) · \(photo.analysis.faces.count) faces")
-                                .font(.subheadline)
-                            if let reason = photo.analysis.reason { Text(reason).font(.caption) }
-                        }.padding(16).background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
+                        PhotoTile(services: services, photo: photo) { viewer = photo }
                             .presentationAnchor(photo.id, section: "Library")
                             .accessibilityIdentifier("photo-\(photo.id.uuidString)")
                     }
                 }
+                footer
             }
         }
+        .sheet(item: $viewer) { PhotoViewer(photo: $0, services: services) }
         .fileImporter(isPresented: $picker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): if let url = urls.first { services.choose(url); selectionError = nil }
@@ -80,59 +58,74 @@ struct LibraryView: View {
                 : "JPEG previews and face detection stay on this iPad. Originals remain unchanged. Existing previews remain available while source integrity is checked.")
         }
     }
-}
 
-/// Reading/decompressing derived JPEGs also stays off the UI executor.
-private struct PhotoPreview: View {
-    @ObservedObject var services: AppServices
-    let url: URL?
-    let pending: Bool
-    @State private var image: UIImage?
-    @State private var loading = true
-    @State private var decodeToken = UUID()
-    @State private var releasedForMemory = false
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image).resizable().scaledToFit().frame(maxHeight: 200)
-                    .accessibilityLabel("Photo preview")
-            } else if pending || loading {
-                ProgressView("Preparing preview")
-            } else {
-                Label(releasedForMemory ? "Preview released to free memory" :
-                    (url == nil ? "Preview not generated" : "Preview unavailable offline"), systemImage: "photo")
-            }
-        }
-        .frame(height: 200)
-        .onDisappear { releaseDecodedPreview() }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
-            releaseDecodedPreview(forMemory: true)
-        }
-        .task(id: url) {
-            guard let operation = services.catalogSession.begin("library-preview") else { image = nil; loading = false; return }
-            defer { services.catalogSession.finish(operation) }
-            let token = UUID()
-            decodeToken = token; image = nil; loading = true; releasedForMemory = false
-            let decoded: UIImage?
-            if let url {
-                let work = Task.detached(priority: .utility) {
-                    let result = UIImage(contentsOfFile: url.path)
-                    #if DEBUG
-                    if result != nil { await services.protection.holdPreview(operation) }
-                    #endif
-                    return result
-                }
-                services.catalogSession.bind(operation) { work.cancel() }
-                decoded = await withTaskCancellationHandler { await work.value } onCancel: { work.cancel() }
-            } else { decoded = nil }
-            // Detached decode may finish after SwiftUI cancels its parent task.
-            guard services.sessionIsCurrent(operation.session), !Task.isCancelled, decodeToken == token else { return }
-            image = decoded; loading = false
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.m) {
+            BrandLockup().padding(.bottom, DesignTokens.Spacing.xs)
+            Text("Put a name to the memories.").font(.title3.weight(.semibold))
+            Text("Your photos stay on your drive. Names and previews stay on this iPad. Choose one folder to browse JPEGs, including nested folders; originals are never changed.")
+                .foregroundStyle(tokens.textSecondary)
+            sourceRow
+            if let selectionError { Text(selectionError).foregroundStyle(tokens.destructive) }
+        }.card(padding: DesignTokens.Spacing.l)
+    }
+
+    private var actionRow: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+            sourceRow
+            if let selectionError { Text(selectionError).foregroundStyle(tokens.destructive) }
         }
     }
-    private func releaseDecodedPreview(forMemory: Bool = false) {
-        guard image != nil || loading else { return }
-        decodeToken = UUID()
-        image = nil; loading = false; releasedForMemory = forMemory
+
+    private var sourceRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.s) { sourceButtons }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { sourceButtons }
+        }
+    }
+
+    /// "N photos · Folder" status line as in the approved Library mockup; the face-detection
+    /// caveat sits one tap away instead of a standing paragraph.
+    private var footer: some View {
+        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+            Text(summary).font(.subheadline.weight(.semibold)).foregroundStyle(tokens.textSecondary)
+                .accessibilityIdentifier("library-summary")
+            Button { showsFaceNote = true } label: {
+                Image(systemName: "info.circle").frame(minWidth: DesignTokens.Layout.minimumHit, minHeight: DesignTokens.Layout.minimumHit)
+            }
+            .accessibilityLabel("About face detection")
+            .accessibilityIdentifier("library-face-note")
+            .popover(isPresented: $showsFaceNote) {
+                Text("Detected faces need your confirmation. Detection may miss people; zero detected faces is not an identity claim.")
+                    .padding(DesignTokens.Spacing.m).frame(minWidth: 260, maxWidth: 360)
+                    .presentationCompactAdaptation(.popover)
+            }
+        }
+    }
+
+    @ViewBuilder private var sourceButtons: some View {
+        Button {
+            if services.usesSyntheticFixture { services.chooseSyntheticFixture() }
+            else { picker = true }
+        } label: {
+            Label("Choose a photo folder", systemImage: "folder.badge.plus")
+        }
+        .buttonStyle(services.selectedFolder == nil ? CapsuleButtonStyle() : CapsuleButtonStyle(prominent: false))
+        .accessibilityIdentifier("choose-folder")
+        if services.selectedFolder != nil {
+            Button { confirmation = true } label: { Label("Start scan", systemImage: "play.fill") }
+                .buttonStyle(.capsule)
+                .accessibilityIdentifier("start-scan")
+        }
+    }
+    private var columns: [GridItem] {
+        typeSize.isAccessibilitySize ? Array(repeating: GridItem(.flexible(), spacing: DesignTokens.Spacing.xxs), count: 2)
+            : [GridItem(.adaptive(minimum: DesignTokens.Layout.photoGridMin), spacing: DesignTokens.Spacing.xxs)]
+    }
+    /// "N photos · Folder" status line, as in the approved Library mockup.
+    private var summary: String {
+        let count = services.photos.count == 1 ? "1 photo" : "\(services.photos.count) photos"
+        guard let folder = services.selectedFolder?.lastPathComponent, !folder.isEmpty else { return count }
+        return count + " · " + folder
     }
 }

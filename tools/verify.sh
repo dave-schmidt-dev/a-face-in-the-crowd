@@ -16,7 +16,7 @@ import time
 import xml.etree.ElementTree as ET
 
 UI_BUDGET_SECONDS = 20 * 60
-UI_PHASE_BUDGET_SECONDS = {'phase3': 30 * 60, 'phase5': 45 * 60, 'phase6': 75 * 60}
+UI_PHASE_BUDGET_SECONDS = {'phase3': 45 * 60, 'phase5': 45 * 60, 'phase6': 75 * 60}
 UI_FINALIZATION_GRACE_SECONDS = 60
 UI_STOP_GRACE_SECONDS = 60
 

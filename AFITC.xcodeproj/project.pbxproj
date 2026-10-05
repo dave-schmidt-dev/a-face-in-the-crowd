@@ -155,9 +155,33 @@
 		CC0000020000000000000130 /* BundledModelResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000130 /* BundledModelResourceTests.swift */; };
 		A23D00020000000000000001 /* TransientFaceEmbeddingProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */; };
 		A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */; };
+		AA0000020000000000000051 /* VerifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000051 /* VerifyView.swift */; };
+		AA0000020000000000000052 /* SuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000052 /* SuggestionService.swift */; };
 		A23D00020000000000000003 /* ScanEmbeddingEnrichmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */; };
 		A23D00020000000000000004 /* TransientFaceEmbeddingProducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */; };
 		A23D00020000000000000005 /* FacePipelineLifecycleAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */; };
+		BB0000020000000000000140 /* FaceVectorIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000140 /* FaceVectorIndex.swift */; };
+		BB0000020000000000000141 /* SuggestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000141 /* SuggestionEngine.swift */; };
+		CC0000020000000000000140 /* SuggestionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000140 /* SuggestionStateTests.swift */; };
+		BB0000020000000000000142 /* FaceJobCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000142 /* FaceJobCoordinator.swift */; };
+		BB0000020000000000000143 /* RuntimeFaceVectorProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000143 /* RuntimeFaceVectorProducer.swift */; };
+		CC0000020000000000000141 /* FaceJobCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000141 /* FaceJobCoordinatorTests.swift */; };
+		AA0000020000000000000053 /* ReviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000053 /* ReviewCard.swift */; };
+		AA0000020000000000000054 /* SyntheticSuggestionFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */; };
+		AA0000020000000000000055 /* VerificationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000055 /* VerificationFlowTests.swift */; };
+		AA0000020000000000000066 /* DesignScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000066 /* DesignScreensTests.swift */; };
+		AA0000020000000000000063 /* DesignFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000063 /* DesignFlowTests.swift */; };
+		AA0000020000000000000062 /* DesignTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000062 /* DesignTestSupport.swift */; };
+		AA0000020000000000000056 /* FacePreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000056 /* FacePreview.swift */; };
+		AA0000020000000000000057 /* PeopleCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000057 /* PeopleCards.swift */; };
+		AA0000020000000000000058 /* PhotoTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000058 /* PhotoTile.swift */; };
+		AA0000020000000000000059 /* BrandLockup.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000059 /* BrandLockup.swift */; };
+		AA0000020000000000000065 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000065 /* ZoomableImage.swift */; };
+		AA0000020000000000000064 /* TileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000064 /* TileLayout.swift */; };
+		AA0000020000000000000061 /* BackupSettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000061 /* BackupSettingsSection.swift */; };
+		AA0000020000000000000060 /* MachineValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000060 /* MachineValue.swift */; };
+		BB0000020000000000000144 /* ReviewQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000144 /* ReviewQueue.swift */; };
+		CC0000020000000000000142 /* ReviewQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000142 /* ReviewQueueTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -366,9 +390,33 @@
 		EF0000010000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tools/third-party-notices/OpenCV-Zoo-SFace-LICENSE.txt; sourceTree = "<group>"; };
 		A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducer.swift; sourceTree = "<group>"; };
 		A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/FaceEmbeddingCoordinator.swift; sourceTree = "<group>"; };
+		AA0000010000000000000051 /* VerifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifyView.swift; sourceTree = "<group>"; };
+		AA0000010000000000000052 /* SuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SuggestionService.swift; sourceTree = "<group>"; };
 		A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanEmbeddingEnrichmentTests.swift; sourceTree = "<group>"; };
 		A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducerTests.swift; sourceTree = "<group>"; };
 		A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacePipelineLifecycleAdapterTests.swift; sourceTree = "<group>"; };
+		BB0000010000000000000140 /* FaceVectorIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceVectorIndex.swift; sourceTree = "<group>"; };
+		BB0000010000000000000141 /* SuggestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionEngine.swift; sourceTree = "<group>"; };
+		CC0000010000000000000140 /* SuggestionStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionStateTests.swift; sourceTree = "<group>"; };
+		BB0000010000000000000142 /* FaceJobCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceJobCoordinator.swift; sourceTree = "<group>"; };
+		BB0000010000000000000143 /* RuntimeFaceVectorProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeFaceVectorProducer.swift; sourceTree = "<group>"; };
+		CC0000010000000000000141 /* FaceJobCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceJobCoordinatorTests.swift; sourceTree = "<group>"; };
+		AA0000010000000000000053 /* ReviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/ReviewCard.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SyntheticSuggestionFixture.swift; sourceTree = "<group>"; };
+		AA0000010000000000000055 /* VerificationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationFlowTests.swift; sourceTree = "<group>"; };
+		AA0000010000000000000066 /* DesignScreensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignScreensTests.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000063 /* DesignFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignFlowTests.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000062 /* DesignTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignTestSupport.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000056 /* FacePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/FacePreview.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000057 /* PeopleCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/PeopleCards.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000058 /* PhotoTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/PhotoTile.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000059 /* BrandLockup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/BrandLockup.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000065 /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/ZoomableImage.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000064 /* TileLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/TileLayout.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000061 /* BackupSettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/BackupSettingsSection.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000060 /* MachineValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/MachineValue.swift"; sourceTree = "<group>"; };
+		BB0000010000000000000144 /* ReviewQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewQueue.swift; sourceTree = "<group>"; };
+		CC0000010000000000000142 /* ReviewQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewQueueTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -496,7 +544,19 @@
 				6E48B92BB59D49CAA69ECF66 /* DiagnosticFiles.swift */,
 				F34A42044E5BF8DE67184FAC /* CatalogPrivacyService.swift */,
 				14FD12695D171D1A1CD92A9E /* PrivacyProtection.swift */,
-				A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */,);
+				A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */,
+				AA0000010000000000000051 /* VerifyView.swift */,
+				AA0000010000000000000052 /* SuggestionService.swift */,
+				AA0000010000000000000053 /* ReviewCard.swift */,
+				AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */,
+				AA0000010000000000000056 /* FacePreview.swift */,
+				AA0000010000000000000057 /* PeopleCards.swift */,
+				AA0000010000000000000058 /* PhotoTile.swift */,
+				AA0000010000000000000059 /* BrandLockup.swift */,
+				AA0000010000000000000065 /* ZoomableImage.swift */,
+				AA0000010000000000000064 /* TileLayout.swift */,
+				AA0000010000000000000061 /* BackupSettingsSection.swift */,
+				AA0000010000000000000060 /* MachineValue.swift */,);
 			path = App;
 			sourceTree = "<group>";
 		};
@@ -555,6 +615,10 @@
 				586F7AAD2BA6695AC84D3EA0,
 				326C73B4528BD91AF9F74232,
 				BB0000010000000000000130,
+				BB0000010000000000000140 /* FaceVectorIndex.swift */,
+				BB0000010000000000000141 /* SuggestionEngine.swift */,
+				BB0000010000000000000142 /* FaceJobCoordinator.swift */,
+				BB0000010000000000000144 /* ReviewQueue.swift */,
 			);
 			path = AFITCCore;
 			sourceTree = "<group>";
@@ -620,6 +684,9 @@
 				A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */,
 				A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */,
 				A23D00010000000000000005 /* FacePipelineLifecycleAdapterTests.swift */,
+				CC0000010000000000000140 /* SuggestionStateTests.swift */,
+				CC0000010000000000000141 /* FaceJobCoordinatorTests.swift */,
+				CC0000010000000000000142 /* ReviewQueueTests.swift */,
 			);
 			path = AFITCCoreTests;
 			sourceTree = "<group>";
@@ -637,7 +704,11 @@
 				DD0000010000000000000002 /* NavigationTests.swift */,
 
 				CE6D3BB465126317BB1C1601 /* PrivacyFlowTests.swift */,
-				56B9187FEADB55F856792846 /* ProtectedDataFlowTests.swift */,);
+				56B9187FEADB55F856792846 /* ProtectedDataFlowTests.swift */,
+				AA0000010000000000000055 /* VerificationFlowTests.swift */,
+				AA0000010000000000000066 /* DesignScreensTests.swift */,
+				AA0000010000000000000063 /* DesignFlowTests.swift */,
+				AA0000010000000000000062 /* DesignTestSupport.swift */,);
 			path = UITests;
 			sourceTree = "<group>";
 		};
@@ -664,6 +735,7 @@
 				CF0F7EDD4558567B95EEAB8E,
 				C6B38FBF3E273313F3258FB5,
 				A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */,
+				BB0000010000000000000143 /* RuntimeFaceVectorProducer.swift */,
 			);
 			path = AFITCRuntime;
 			sourceTree = "<group>";
@@ -857,6 +929,10 @@
 				7882F7BD839C736A518A2DA6,
 				B5EFAEC131E459D7FE4C2E68,
 				BB0000020000000000000130,
+				BB0000020000000000000140 /* FaceVectorIndex.swift in Sources */,
+				BB0000020000000000000141 /* SuggestionEngine.swift in Sources */,
+				BB0000020000000000000142 /* FaceJobCoordinator.swift in Sources */,
+				BB0000020000000000000144 /* ReviewQueue.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -893,7 +969,19 @@
 				F0A37ECF3221A0A954BAE2AF /* DiagnosticFiles.swift in Sources */,
 				B4CA8DE5240BBD6EA341E018 /* CatalogPrivacyService.swift in Sources */,
 				093FC255B10269D29D4E0FB1 /* PrivacyProtection.swift in Sources */,
-				A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */,);
+				A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */,
+				AA0000020000000000000051 /* VerifyView.swift in Sources */,
+				AA0000020000000000000052 /* SuggestionService.swift in Sources */,
+				AA0000020000000000000053 /* ReviewCard.swift in Sources */,
+				AA0000020000000000000054 /* SyntheticSuggestionFixture.swift in Sources */,
+				AA0000020000000000000056 /* FacePreview.swift in Sources */,
+				AA0000020000000000000057 /* PeopleCards.swift in Sources */,
+				AA0000020000000000000058 /* PhotoTile.swift in Sources */,
+				AA0000020000000000000059 /* BrandLockup.swift in Sources */,
+				AA0000020000000000000065 /* ZoomableImage.swift in Sources */,
+				AA0000020000000000000064 /* TileLayout.swift in Sources */,
+				AA0000020000000000000061 /* BackupSettingsSection.swift in Sources */,
+				AA0000020000000000000060 /* MachineValue.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		770000000000000000000003 /* Sources */ = {
@@ -950,6 +1038,9 @@
 				A23D00020000000000000003 /* ScanEmbeddingEnrichmentTests.swift in Sources */,
 				A23D00020000000000000004 /* TransientFaceEmbeddingProducerTests.swift in Sources */,
 				A23D00020000000000000005 /* FacePipelineLifecycleAdapterTests.swift in Sources */,
+				CC0000020000000000000140 /* SuggestionStateTests.swift in Sources */,
+				CC0000020000000000000141 /* FaceJobCoordinatorTests.swift in Sources */,
+				CC0000020000000000000142 /* ReviewQueueTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -967,7 +1058,11 @@
 				DD0000020000000000000002 /* NavigationTests.swift in Sources */,
 
 				44B0AF63412E0A94A2F8E17E /* PrivacyFlowTests.swift in Sources */,
-				433BD979FC39ACA1A3DE0457 /* ProtectedDataFlowTests.swift in Sources */,);
+				433BD979FC39ACA1A3DE0457 /* ProtectedDataFlowTests.swift in Sources */,
+				AA0000020000000000000055 /* VerificationFlowTests.swift in Sources */,
+				AA0000020000000000000066 /* DesignScreensTests.swift in Sources */,
+				AA0000020000000000000063 /* DesignFlowTests.swift in Sources */,
+				AA0000020000000000000062 /* DesignTestSupport.swift in Sources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 				FA7100000000000000000003 /* AFITCRuntime Sources */ = {
@@ -982,6 +1077,7 @@
 				2DB13551E2DFA9F6248FE15B,
 				60C703A497E3894ADCA3EAC6,
 				A23D00020000000000000001 /* TransientFaceEmbeddingProducer.swift in Sources */,
+				BB0000020000000000000143 /* RuntimeFaceVectorProducer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -3,11 +3,18 @@ import Foundation
 public enum ManualDecision: Sendable {
     case name(face: FaceKey, displayName: String)
     case confirm(face: FaceKey, personID: UUID)
+    /// Confirms an evaluation suggestion only if the face state and the person's exemplar
+    /// revision still match the rendered card; otherwise `DecisionError.conflict`. Ledger kind "confirm".
+    case confirmSuggestion(face: FaceKey, personID: UUID, exemplarRevision: Int, expectedState: ManualFaceState)
     case reject(face: FaceKey, personID: UUID)
     case unsure(face: FaceKey, personID: UUID?)
     case unassign(face: FaceKey)
     case notPerson(face: FaceKey)
     case rename(personID: UUID, displayName: String)
+    /// A review-card answer applied only if the face's manual state still equals the state the
+    /// card was rendered with; otherwise `DecisionError.conflict`. The inner decision must target a
+    /// face and must not itself be wrapped; its own ledger kind is kept, so the existing undo works.
+    indirect case expectingState(ManualDecision, expectedState: ManualFaceState)
 }
 public enum DecisionFailurePoint: String, Sendable, CaseIterable {
     case afterPersonWrite, afterFaceWrite, afterLedgerWrite
@@ -47,15 +54,25 @@ extension CatalogRepository {
             var key: FaceKey?
             var target: UUID?
             var name: String?
+            var expected: (revision: Int, state: ManualFaceState)?
+            var expectedState: ManualFaceState?
+            var decision = decision
+            if case .expectingState(let inner, let state) = decision {
+                if case .expectingState = inner { throw DecisionError.conflict }
+                decision = inner; expectedState = state
+            }
             let kind: String
             switch decision {
             case .name(let face, let value): key = face; name = value; kind = "name"
             case .confirm(let face, let person): key = face; target = person; kind = "confirm"
+            case .confirmSuggestion(let face, let person, let revision, let state):
+                key = face; target = person; expected = (revision, state); kind = "confirm"
             case .reject(let face, let person): key = face; target = person; kind = "reject"
             case .unsure(let face, let person): key = face; target = person; kind = "unsure"
             case .unassign(let face): key = face; kind = "unassign"
             case .notPerson(let face): key = face; kind = "not-person"
             case .rename(let person, let value): target = person; name = value; kind = "rename"
+            case .expectingState: throw DecisionError.conflict
             }
             if let name {
                 let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -63,11 +80,17 @@ extension CatalogRepository {
             }
             var state: ManualFaceState?
             if let key { _ = try PeopleSQL.currentPhoto(db, key); state = try PeopleSQL.faceState(db, key) }
+            // Checked against the state read in this transaction, so a newer decision made elsewhere wins.
+            if let expectedState { guard key != nil, state == expectedState else { throw DecisionError.conflict } }
             var ids = Set<UUID>()
             if let previous = state?.personID { ids.insert(previous) }
             if let target { ids.insert(target) }
             let priorPeople = try ids.map { try PeopleSQL.person(db, $0) }.sorted { $0.id.uuidString < $1.id.uuidString }
             guard priorPeople.allSatisfy({ $0.mergedInto == nil }) else { throw DecisionError.unknownPerson }
+            if let expected {
+                guard state == expected.state, priorPeople.first(where: { $0.id == target })?.exemplarRevision == expected.revision
+                else { throw DecisionError.conflict }
+            }
             var people = priorPeople
             var created: UUID?
             if kind == "name", let key, let name {

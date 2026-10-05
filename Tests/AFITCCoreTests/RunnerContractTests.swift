@@ -362,7 +362,7 @@ final class RunnerContractTests: XCTestCase {
             or (isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
                 and target.id in constants for target in node.targets))], type_ignores=[])
         exec(compile(functions, str(root / 'tools/verify.sh'), 'exec'), namespace)
-        assert namespace['ui_budget_seconds']('phase3') == 1800
+        assert namespace['ui_budget_seconds']('phase3') == 2700
         assert namespace['ui_budget_seconds']('phase5') == 2700
         assert namespace['ui_budget_seconds']('phase6') == 4500
         assert namespace['UI_FINALIZATION_GRACE_SECONDS'] == 60

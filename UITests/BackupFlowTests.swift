@@ -2,7 +2,7 @@ import XCTest
 
 /// Authored causal lifecycle tests. These do not establish backup or device qualification.
 final class BackupFlowTests: XCTestCase {
-    override func setUpWithError() throws { continueAfterFailure = false }
+    override func setUpWithError() throws { continueAfterFailure = false; applyRequestedOrientation() }
     private func backupApp(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-session-controls"] + flags
@@ -16,7 +16,7 @@ final class BackupFlowTests: XCTestCase {
     private func backupWait(_ state: String, _ app: XCUIApplication) {
         let element = app.staticTexts["backup-operation-state"]
         XCTAssertTrue(element.waitForExistence(timeout: 10))
-        expectation(for: NSPredicate(format: "label == %@", state), evaluatedWith: element)
+        expectation(for: NSPredicate(format: "value == %@", state), evaluatedWith: element)
         waitForExpectations(timeout: 20)
     }
     private func backupProbe(_ fragment: String, _ app: XCUIApplication) {
@@ -26,7 +26,7 @@ final class BackupFlowTests: XCTestCase {
     }
     private func backupTap(_ id: String, _ app: XCUIApplication) {
         let button = app.buttons[id]; XCTAssertTrue(button.waitForExistence(timeout: 10))
-        reveal(button, app: app); XCTAssertTrue(button.isHittable); button.tap()
+        reveal(button, app: app); XCTAssertTrue(isRevealed(button, app), id + " " + whyNotRevealed(button, app)); button.tap()
     }
     private func prepareBackup(_ app: XCUIApplication) {
         backupTap("prepare-backup", app); backupWait("exportPreview", app); backupProbe("Active 0", app)
@@ -194,12 +194,7 @@ final class BackupFlowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["setup-error"].exists)
         XCTAssertFalse(app.images["Photo preview"].exists)
     }
-    private func reveal(_ element: XCUIElement, app: XCUIApplication) {
-        for _ in 0..<8 {
-            if element.exists, element.isHittable { return }
-            app.swipeUp()
-        }
-    }
+    private func reveal(_ element: XCUIElement, app: XCUIApplication) { revealElement(element, app) }
     func testHeldActualViewerReadReleasesImageAndDrainsBeforeAnyFallbackPublication() {
         let app = launch(hold: "viewer")
         let choose = app.buttons["choose-folder"]
@@ -208,7 +203,7 @@ final class BackupFlowTests: XCTestCase {
         XCTAssertTrue(start.waitForExistence(timeout: 5)); start.tap()
         app.alerts.buttons["Start scan"].tap()
         let phase = app.staticTexts["scan-phase"]; reveal(phase, app: app)
-        expectation(for: NSPredicate(format: "label == 'Completed'"), evaluatedWith: phase)
+        expectation(for: NSPredicate(format: "value == 'completed'"), evaluatedWith: phase)
         waitForExpectations(timeout: 15)
         app.buttons["navigate-Search"].tap()
         let show = app.buttons["show-photos"]; reveal(show, app: app); show.tap()

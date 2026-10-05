@@ -2,19 +2,11 @@ import XCTest
 
 /// Runtime-created fictional JPEGs and manual confirmations exercise the real query and viewer.
 final class SearchFlowTests: XCTestCase {
-    private func visible(_ element: XCUIElement, _ app: XCUIApplication) -> Bool {
-        guard element.exists else { return false }
-        let f = element.frame
-        return !f.isEmpty && !f.isNull && !f.isInfinite && [f.minX, f.minY, f.maxX, f.maxY].allSatisfy { $0.isFinite }
-            && !f.intersection(app.windows.firstMatch.frame).isEmpty
-    }
-    private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
-        for _ in 0..<8 { if visible(element, app) { return }; app.swipeUp() }
-        for _ in 0..<12 { if visible(element, app) { return }; app.swipeDown() }
-    }
+    override func setUpWithError() throws { applyRequestedOrientation() }
+    private func reveal(_ element: XCUIElement, _ app: XCUIApplication) { revealElement(element, app) }
     private func tap(_ id: String, _ app: XCUIApplication) {
         let button = app.buttons[id].firstMatch; reveal(button, app)
-        XCTAssertTrue(button.waitForExistence(timeout: 5)); XCTAssertTrue(button.isHittable); button.tap()
+        XCTAssertTrue(button.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(button, app), id + " " + whyNotRevealed(button, app)); button.tap()
     }
     private func captureFailure(_ boundary: String, _ app: XCUIApplication) {
         guard app.launchArguments.contains("--uitest-synthetic-source") else { return }
@@ -39,13 +31,13 @@ final class SearchFlowTests: XCTestCase {
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces", "--uitest-catalog-token", UUID().uuidString] + extra
         app.launch(); tap("choose-folder", app); tap("start-scan", app); app.alerts.buttons["Start scan"].tap()
         let phase = app.staticTexts["scan-phase"]; reveal(phase, app)
-        expectation(for: NSPredicate(format: "label == 'Completed'"), evaluatedWith: phase)
-        waitForExpectations(timeout: 15); XCTAssertEqual(phase.label, "Completed")
+        expectation(for: NSPredicate(format: "value == 'completed'"), evaluatedWith: phase)
+        waitForExpectations(timeout: 15); XCTAssertEqual(phase.value as? String, "completed")
         guard navigate("People", app) else { return nil }; return app
     }
     private func name(_ name: String, _ app: XCUIApplication) {
         let face = app.buttons.matching(NSPredicate(format: "identifier == 'unidentified-face' AND label CONTAINS 'nested/synthetic-0.jpg'")).firstMatch
-        reveal(face, app); XCTAssertTrue(face.waitForExistence(timeout: 5)); XCTAssertTrue(face.isHittable); face.tap()
+        reveal(face, app); XCTAssertTrue(face.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(face, app), whyNotRevealed(face, app)); face.tap()
         let field = app.textFields["new-person-name"]; XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap(); field.typeText(name); tap("save-selected-face", app)
         XCTAssertTrue(field.waitForNonExistence(timeout: 5))
@@ -88,8 +80,8 @@ final class SearchFlowTests: XCTestCase {
         let frozen = app.staticTexts["search-result-count"]; XCTAssertTrue(frozen.waitForExistence(timeout: 5))
         let value = frozen.label
         XCTAssertEqual(value, "1 photo")
-        let snapshot = app.staticTexts["search-snapshot"].label
-        XCTAssertTrue(snapshot.contains("Fixture A, Fixture A")); XCTAssertEqual(frozen.label, value)
+        XCTAssertTrue(records[0].isSelected && records[1].isSelected, "both identical-name records are selected chips")
+        XCTAssertEqual(frozen.label, value)
         tap("search-mode-only", app); tap("show-photos", app)
         count(1, app)
         tap("search-mode-any", app); tap("show-photos", app); count(1, app)
@@ -105,7 +97,7 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertNotEqual(sourceID, survivorID)
         reveal(source, app); source.tap(); tap("merge-person", app); tap("merge-target-" + survivorID, app)
         let combined = app.staticTexts["merge-result-count"]
-        XCTAssertTrue(combined.waitForExistence(timeout: 5)); XCTAssertEqual(combined.label, "After selected resolutions: 1 confirmed photos")
+        XCTAssertTrue(combined.waitForExistence(timeout: 5)); XCTAssertEqual(combined.label, "After selected resolutions: 1 confirmed photo")
         tap("apply-merge", app)
         XCTAssertTrue(app.buttons["cancel-merge"].waitForNonExistence(timeout: 5))
         guard navigate("Search", app) else { return }
@@ -113,24 +105,24 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertEqual(records[0].identifier, "search-person-" + survivorID)
         XCTAssertTrue(records[0].label.contains("Fixture B")); XCTAssertFalse(records[0].label.contains("Fixture A"))
         records[0].tap(); tap("show-photos", app); count(1, app)
-        XCTAssertEqual(app.staticTexts["search-snapshot"].label, "Confirmed: Fixture B")
+        XCTAssertTrue(records[0].isSelected); XCTAssertFalse(app.staticTexts["search-snapshot"].exists)
         tap("search-mode-only", app); tap("show-photos", app); count(1, app)
     }
     func testCompactSwitchFromNonmergedPersonReachesCanonicalSearchRoot() {
         guard let app = fixture(["--uitest-compact"]) else { return }; name("Fixture A", app)
         let person = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS 'Fixture A'")).firstMatch
-        reveal(person, app); XCTAssertTrue(person.waitForExistence(timeout: 5)); XCTAssertTrue(person.isHittable)
+        reveal(person, app); XCTAssertTrue(person.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(person, app), whyNotRevealed(person, app))
         let personID = String(person.identifier.dropFirst("person-".count)); XCTAssertNotNil(UUID(uuidString: personID))
         person.tap(); XCTAssertTrue(app.navigationBars["Person"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photos")
+        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photo")
         guard navigate("Search", app) else { return }
         XCTAssertTrue(app.navigationBars["Person"].waitForNonExistence(timeout: 5))
-        XCTAssertTrue(app.scrollViews["screen-Search"].isHittable)
+        XCTAssertTrue(isHittableSafely(app.scrollViews["screen-Search"], app))
         guard let records = chips(app, expected: 1) else { return }
         XCTAssertEqual(records[0].identifier, "search-person-" + personID)
         XCTAssertTrue(records[0].label.contains("Fixture A"))
         records[0].tap(); tap("show-photos", app); count(1, app)
-        XCTAssertEqual(app.staticTexts["search-snapshot"].label, "Confirmed: Fixture A")
+        XCTAssertTrue(records[0].isSelected); XCTAssertFalse(app.staticTexts["search-snapshot"].exists)
     }
     func testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful() {
         guard let app = fixture(["--uitest-viewer-change-bytes"]) else { return }

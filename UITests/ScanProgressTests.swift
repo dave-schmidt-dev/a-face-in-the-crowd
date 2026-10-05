@@ -1,6 +1,7 @@
 import XCTest
 
 final class ScanProgressTests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false; applyRequestedOrientation() }
     func testFolderPickerCanBeCancelledWithoutSourceMutation() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-fresh-catalog", "--uitest-synthetic-detector"]
@@ -9,10 +10,10 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertTrue(choose.waitForExistence(timeout: 10)); XCTAssertTrue(choose.isEnabled)
         choose.tap()
         let cancel = app.buttons["Cancel"].firstMatch
-        let ready = NSPredicate { _, _ in cancel.exists && cancel.isHittable }
+        let ready = NSPredicate { _, _ in self.isHittableSafely(cancel, app) }
         let presentation = XCTNSPredicateExpectation(predicate: ready, object: cancel)
         XCTAssertEqual(XCTWaiter.wait(for: [presentation], timeout: 15), .completed)
-        XCTAssertTrue(cancel.isHittable)
+        XCTAssertTrue(isHittableSafely(cancel, app))
         cancel.tap()
         XCTAssertTrue(app.staticTexts["No folder selected"].exists)
         XCTAssertFalse(app.buttons["start-scan"].exists)
@@ -32,7 +33,7 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Total unknown until discovery completes"].exists)
         app.buttons["cancel-scan"].tap()
         let phase = app.staticTexts["scan-phase"]
-        let cancelled = NSPredicate(format: "label == 'Cancelled'")
+        let cancelled = NSPredicate(format: "value == 'cancelled'")
         expectation(for: cancelled, evaluatedWith: phase)
         waitForExpectations(timeout: 5)
         XCTAssertTrue(preview.exists)
@@ -52,12 +53,12 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
         app.buttons["cancel-scan"].tap()
         let phase = app.staticTexts["scan-phase"]
-        expectation(for: NSPredicate(format: "label == 'Cancelled'"), evaluatedWith: phase)
+        expectation(for: NSPredicate(format: "value == 'cancelled'"), evaluatedWith: phase)
         waitForExpectations(timeout: 5)
         XCTAssertTrue(preview.exists)
         app.buttons["start-scan"].tap(); app.alerts.buttons["Start scan"].tap()
         XCTAssertTrue(preview.exists)
-        expectation(for: NSPredicate(format: "label == 'Completed'"), evaluatedWith: phase)
+        expectation(for: NSPredicate(format: "value == 'completed'"), evaluatedWith: phase)
         waitForExpectations(timeout: 15)
         XCTAssertTrue(app.staticTexts["Discovered 3 · Processed 3 · Skipped 0 · Failed 0"].exists)
         XCTAssertTrue(app.staticTexts["Discovery complete"].exists)

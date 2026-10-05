@@ -8,7 +8,7 @@ public struct RootView: View {
     @ObservedObject private var presentation: AppPresentationState
     @ObservedObject private var searchController: SearchService
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.tokens) private var tokens
     @State private var selection: Section = .library
     @State private var navigationPaths: [Section: [UUID]] = [:]
     @State private var settingsPresented = false
@@ -20,7 +20,7 @@ public struct RootView: View {
         var id: String { rawValue }
         var symbol: String {
             switch self {
-            case .library: return "photo.on.rectangle"
+            case .library: return "photo.on.rectangle.angled"
             case .people: return "person.2"
             case .verify: return "checkmark.circle"
             case .search: return "magnifyingglass"
@@ -32,23 +32,27 @@ public struct RootView: View {
         self.services = services; backup = services.backup; protection = services.protection; privacy = services.privacy; presentation = services.presentation; searchController = services.presentation.search
     }
 
-    private var background: Color { token(dark: 0x141719, light: 0xF4EFE6) }
-    private var surface: Color { token(dark: 0x20262A, light: 0xFFFDF8) }
-    private var text: Color { token(dark: 0xF4EFE6, light: 0x1A1A1A) }
-    private var secondary: Color { token(dark: 0xC2CBD0, light: 0x4E5960) }
-    private var primary: Color { token(dark: 0x7EC5E8, light: 0x0F4C81) }
-    private var onPrimary: Color { token(dark: 0x102331, light: 0xFFFFFF) }
+    private var background: Color { tokens.background }
+    private var surface: Color { tokens.surface }
+    private var text: Color { tokens.textPrimary }
+    private var secondary: Color { tokens.textSecondary }
+    private var primary: Color { tokens.primary }
 
     public var body: some View {
         Group {
             if protection.blocksContent {
                 ProtectedCatalogView(protection: protection, services: services)
             } else if privacy.catalogDeleted {
-                VStack(spacing: 16) {
-                    Text("Local catalog deleted").font(.title2).accessibilityIdentifier("local-catalog-deleted")
-                    Text("Original photos and existing exported backups remain. Close and reopen the app to start a new local catalog.")
-                    Button("Settings") { settingsPresented = true }.frame(minHeight: 48).accessibilityIdentifier("settings")
-                }.padding(24)
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.m) {
+                    Label("Local catalog deleted", systemImage: "checkmark.circle.fill").font(.title2.bold())
+                        .foregroundStyle(tokens.success).accessibilityIdentifier("local-catalog-deleted")
+                    Text("Original photos and existing exported backups were not touched.")
+                    // A new catalog is only created at launch, never silently while the app is running.
+                    Text("To start a new local catalog, swipe this app away in the app switcher and open it again.")
+                        .foregroundStyle(tokens.textSecondary).accessibilityIdentifier("catalog-deleted-next-step")
+                    Button { settingsPresented = true } label: { Label("Settings", systemImage: "gearshape") }
+                        .buttonStyle(.capsuleSecondary).accessibilityIdentifier("settings")
+                }.card(raised: true).padding(24).frame(maxWidth: 560)
             } else if privacy.blocksActions {
                 VStack(spacing: 16) {
                     Text("Catalog privacy action").font(.title2)
@@ -58,18 +62,26 @@ public struct RootView: View {
             } else if sizeClass == .regular && !ProcessInfo.processInfo.arguments.contains("--uitest-compact") {
                 NavigationSplitView {
                     List(Section.allCases) { section in
+                        let selected = selection == section
                         Button { if !services.isQuiescingCatalog { select(section) } } label: {
                             Label(section.rawValue, systemImage: section.symbol)
+                                .symbolVariant(selected ? .fill : .none)
+                                .font(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
-                        .foregroundStyle(selection == section ? primary : text)
-                        .accessibilityAddTraits(selection == section ? .isSelected : [])
+                        .buttonStyle(.plain)
+                        .foregroundStyle(selected ? tokens.onPrimary : text)
+                        .listRowBackground(RoundedRectangle(cornerRadius: DesignTokens.Radius.control, style: .continuous)
+                            .fill(selected ? primary : Color.clear).padding(.horizontal, 8))
+                        .listRowSeparator(.hidden)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                         .accessibilityIdentifier("navigate-\(section.rawValue)")
                     }
                     .scrollContentBackground(.hidden)
                     .background(surface)
-                    .navigationTitle("AFITC")
-                    .safeAreaInset(edge: .bottom) { settingsButton.padding(16) }
+                    .navigationTitle("A Face in the Crowd")
+                    .navigationBarTitleDisplayMode(.inline)
                 } detail: {
                     navigationStack(for: selection)
                 }
@@ -117,37 +129,8 @@ public struct RootView: View {
             #endif
         }
         .onChange(of: services.catalogSessionID) { navigationPaths = [:] }
-        .safeAreaInset(edge: .bottom) {
-            if !protection.blocksContent, presentation.warning != nil || !protection.blocksContent && presentation.saveFeedback != nil {
-                VStack(spacing: 8) {
-                    if let warning = presentation.warning { Text(warning).font(.footnote).accessibilityIdentifier("presentation-save-warning") }
-                    if let feedback = presentation.saveFeedback { Text(feedback).font(.caption).accessibilityIdentifier("presentation-save-status") }
-                    if presentation.saveFailed {
-                        Button("Retry saving inputs", action: presentation.retrySavingInputs)
-                            .frame(minHeight: 44).disabled(!presentation.canRetrySavingInputs)
-                            .accessibilityIdentifier("retry-presentation-save")
-                    }
-                }.padding(8)
-            }
-            #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls") {
-                VStack {
-                    Text(presentation.persistenceProbe).font(.caption).accessibilityIdentifier("presentation-persistence-probe")
-                    Button("Flush saved inputs") { Task { await presentation.preserveInputsForTest() } }
-                        .accessibilityIdentifier("flush-presentation-inputs")
-                    if ProcessInfo.processInfo.arguments.contains("--uitest-presentation-save-retry") {
-                        Text(presentation.saveFixtureProbe).accessibilityIdentifier("presentation-save-fixture-probe")
-                        HStack {
-                            Button("Block input saving") { presentation.setSaveObstructionForTest(create: true) }.accessibilityIdentifier("block-presentation-save")
-                            Button("Repair input saving") { presentation.setSaveObstructionForTest(create: false) }.accessibilityIdentifier("repair-presentation-save")
-                        }.disabled(services.isQuiescingCatalog)
-                    }
-                }
-            }
-            #endif
-        }
+        // Tint only: a blanket foregroundStyle here would flatten default buttons into captions.
         .tint(primary)
-        .foregroundStyle(text)
         .onChange(of: protection.blocksContent) { if protection.blocksContent { settingsPresented = false } }
         .sheet(isPresented: $settingsPresented) {
             SettingsView(services: services, backup: services.backup)
@@ -158,23 +141,64 @@ public struct RootView: View {
         Binding(get: { selection }, set: { if !services.isQuiescingCatalog { select($0) } })
     }
 
-    /// Section controls always show that section's root, including after a person is archived.
+    /// Switching sections keeps each section's pushed screens; selecting the section that is
+    /// already showing pops it to its root. A person archived or deleted meanwhile is dropped.
     private func select(_ section: Section) {
-        navigationPaths[selection] = []
-        navigationPaths[section] = []
+        if selection == section { navigationPaths[section] = [] }
+        let live = Set(services.peopleSnapshot.people.filter { $0.person.mergedInto == nil }.map(\.id))
+        navigationPaths[section] = navigationPaths[section, default: []].filter { live.contains($0) }
         selection = section
+    }
+
+    /// Save warnings and retry rows. Applied to each screen inside its NavigationStack, because an
+    /// inset on the split view or tab root is not honoured by a nested (pushed) ScrollView and
+    /// would cover the screen's last control.
+    @ViewBuilder private var bottomStatus: some View {
+        if !protection.blocksContent, presentation.warning != nil || !protection.blocksContent && presentation.saveFeedback != nil {
+            VStack(spacing: 8) {
+                if let warning = presentation.warning { Text(warning).font(.footnote).accessibilityIdentifier("presentation-save-warning") }
+                if let feedback = presentation.saveFeedback { Text(feedback).font(.caption).accessibilityIdentifier("presentation-save-status") }
+                if presentation.saveFailed {
+                    Button("Retry saving inputs", action: presentation.retrySavingInputs)
+                        .frame(minHeight: 44).disabled(!presentation.canRetrySavingInputs)
+                        .accessibilityIdentifier("retry-presentation-save")
+                }
+            }.padding(8)
+        }
+        #if DEBUG
+        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls") {
+            VStack {
+                Text(presentation.persistenceProbe).font(.caption).accessibilityIdentifier("presentation-persistence-probe")
+                Button("Flush saved inputs") { Task { await presentation.preserveInputsForTest() } }
+                    .accessibilityIdentifier("flush-presentation-inputs")
+                if ProcessInfo.processInfo.arguments.contains("--uitest-presentation-save-retry") {
+                    Text(presentation.saveFixtureProbe).accessibilityIdentifier("presentation-save-fixture-probe")
+                    HStack {
+                        Button("Block input saving") { presentation.setSaveObstructionForTest(create: true) }.accessibilityIdentifier("block-presentation-save")
+                        Button("Repair input saving") { presentation.setSaveObstructionForTest(create: false) }.accessibilityIdentifier("repair-presentation-save")
+                    }.disabled(services.isQuiescingCatalog)
+                }
+            }
+        }
+        #endif
+    }
+
+    private func withBottomStatus<Screen: View>(_ screen: Screen) -> some View {
+        screen.safeAreaInset(edge: .bottom) { bottomStatus }
     }
 
     private func navigationStack(for section: Section) -> some View {
         let path = Binding<[UUID]>(get: { navigationPaths[section, default: []] },
                                    set: { navigationPaths[section] = $0 })
         return NavigationStack(path: path) {
-            content(section)
+            withBottomStatus(content(section))
                 .navigationDestination(for: UUID.self) { personID in
-                    PersonDetailView(services: services, personID: personID,
-                                     surface: surface, secondary: secondary)
+                    // Same single gear on pushed screens, so Settings stays reachable from Person
+                    // now that the sidebar footer entry point is gone (CLEAR C3).
+                    withBottomStatus(PersonDetailView(services: services, personID: personID))
+                        .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
                 }
-        }.id(services.catalogSessionID).disabled(services.isQuiescingCatalog)
+        }.id("\(section.rawValue)-\(services.catalogSessionID)").disabled(services.isQuiescingCatalog)
     }
 
     private var settingsButton: some View {
@@ -188,21 +212,20 @@ public struct RootView: View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // One compact status strip per screen, first; Library draws its own around the grid.
+                if section != .library { StatusView(services: services) }
                 if section == .library {
-                    LibraryView(services: services, surface: surface, secondary: secondary,
-                                primary: primary, onPrimary: onPrimary)
+                    LibraryView(services: services)
                 } else if section == .people {
-                    PeopleView(services: services, surface: surface, secondary: secondary)
+                    PeopleView(services: services)
                 } else if section == .search {
                     SearchView(services: services)
                 } else {
-                    Label(section.rawValue, systemImage: section.symbol).font(.largeTitle.bold())
-                    Text(emptyMessage(section)).foregroundStyle(secondary)
+                    VerifyView(services: services, suggestions: services.suggestions)
                 }
-                StatusView(services: services).foregroundStyle(secondary)
             }
             .id("catalog-top-" + section.rawValue)
-            .padding(24).frame(maxWidth: 720, alignment: .leading)
+            .padding(DesignTokens.Spacing.l).frame(maxWidth: 960, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .coordinateSpace(name: "catalog-scroll-" + section.rawValue)
@@ -214,8 +237,10 @@ public struct RootView: View {
         .onChange(of: availableAnchors(section)) { restorePendingAnchor(section, proxy: proxy) }
         .background(background)
         .navigationTitle(section.rawValue)
+        .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("screen-\(section.rawValue)")
         .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
+        .modifier(PeopleRefresh(enabled: section == .people, services: services))
         }
     }
     private func availableAnchors(_ section: Section) -> Set<UUID> {
@@ -241,20 +266,13 @@ public struct RootView: View {
         guard let id = pendingAnchors[section], availableAnchors(section).contains(id) else { return }
         pendingAnchors[section] = nil; proxy.scrollTo(id, anchor: .top)
     }
+}
 
-    private func emptyMessage(_ section: Section) -> String {
-        switch section {
-        case .people: return "People you name will appear here after a photo folder is set up."
-        case .verify: return "Suggestions will need your confirmation. Verification is not available yet."
-        case .search: return "Search your confirmed people after library setup and naming are available."
-        case .library: return "Choose a photo folder to begin."
-        }
-    }
-
-    private func token(dark: UInt32, light: UInt32) -> Color {
-        let value = colorScheme == .dark ? dark : light
-        return Color(red: Double((value >> 16) & 255) / 255,
-                     green: Double((value >> 8) & 255) / 255,
-                     blue: Double(value & 255) / 255)
+/// Pull-to-refresh for People: the way to retry after a failed read, with no standing button.
+private struct PeopleRefresh: ViewModifier {
+    let enabled: Bool
+    @ObservedObject var services: AppServices
+    func body(content: Content) -> some View {
+        if enabled { content.refreshable { await services.refreshPeople() } } else { content }
     }
 }

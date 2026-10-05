@@ -2,32 +2,26 @@ import XCTest
 
 /// Synthetic local actions: authored/compiled here; the coordinated native gate executes them later.
 final class PrivacyFlowTests: XCTestCase {
-    override func setUpWithError() throws { continueAfterFailure = false }
+    override func setUpWithError() throws { continueAfterFailure = false; applyRequestedOrientation() }
     private func app(_ flags: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces", "--uitest-session-controls", "--uitest-presentation-controls", "--uitest-catalog-token", UUID().uuidString] + flags
         app.launch(); XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10)); return app
     }
-    private func reveal(_ element: XCUIElement, _ app: XCUIApplication) {
-        for _ in 0..<12 { if revealed(element, app) { return }; app.swipeUp() }
-        for _ in 0..<16 { if revealed(element, app) { return }; app.swipeDown() }
-    }
-    /// isHittable accepts a 1 pt sliver at a scroll viewport edge under popover chrome; a scrolled control must be fully clear.
-    private func revealed(_ element: XCUIElement, _ app: XCUIApplication) -> Bool {
-        guard element.exists, element.isHittable else { return false }
-        let id = element.identifier
-        guard !id.isEmpty, let viewport = app.scrollViews.containing(.any, identifier: id).allElementsBoundByIndex.last else { return true }
-        let frame = element.frame
-        guard viewport.frame.contains(frame) else { return false }
-        return !app.navigationBars.allElementsBoundByIndex.contains { $0.frame.intersects(frame) }
-    }
+    private func reveal(_ element: XCUIElement, _ app: XCUIApplication) { revealElement(element, app) }
+    private func revealed(_ element: XCUIElement, _ app: XCUIApplication) -> Bool { isRevealed(element, app) }
     private func tap(_ id: String, _ app: XCUIApplication) {
         let element = app.buttons[id].firstMatch; reveal(element, app)
-        XCTAssertTrue(element.waitForExistence(timeout: 10)); XCTAssertTrue(element.isHittable); element.tap()
+        XCTAssertTrue(element.waitForExistence(timeout: 10)); XCTAssertTrue(isRevealed(element, app), id + " " + whyNotRevealed(element, app)); element.tap()
     }
     private func wait(_ id: String, _ text: String, _ app: XCUIApplication) {
         let element = app.staticTexts[id]; XCTAssertTrue(element.waitForExistence(timeout: 10))
         expectation(for: NSPredicate(format: "label CONTAINS %@", text), evaluatedWith: element); waitForExpectations(timeout: 20)
+    }
+    /// Machine state keys travel in the accessibility value; the label is human copy.
+    private func waitValue(_ id: String, _ expected: String, _ app: XCUIApplication) {
+        let element = app.staticTexts[id]; XCTAssertTrue(element.waitForExistence(timeout: 10))
+        expectation(for: NSPredicate(format: "value == %@", expected), evaluatedWith: element); waitForExpectations(timeout: 20)
     }
     private func navigate(_ title: String, _ app: XCUIApplication) {
         let control = app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@ OR label == %@", "navigate-" + title, title)).firstMatch
@@ -35,11 +29,13 @@ final class PrivacyFlowTests: XCTestCase {
     }
     private func scan(_ app: XCUIApplication, completed: Bool = true) {
         tap("choose-folder", app); tap("start-scan", app); app.alerts.buttons["Start scan"].tap()
-        if completed { wait("scan-phase", "Completed", app) }
+        if completed { waitValue("scan-phase", "completed", app) }
     }
     private func settings(_ app: XCUIApplication) { tap("settings", app) }
     private func confirm(_ action: String, _ app: XCUIApplication) {
-        tap(action, app); XCTAssertTrue(app.alerts["Confirm privacy action"].waitForExistence(timeout: 10)); app.alerts.buttons["Continue"].tap()
+        tap(action, app)
+        let diagnostics = { "\(action) enabled=\(app.buttons[action].firstMatch.isEnabled) frame=\(app.buttons[action].firstMatch.frame) keyboard=\(app.keyboards.firstMatch.exists) alerts=\(app.alerts.allElementsBoundByIndex.map { $0.label })" }
+        XCTAssertTrue(app.alerts["Confirm privacy action"].waitForExistence(timeout: 10), diagnostics()); app.alerts.buttons["Continue"].tap()
     }
     private func name(_ app: XCUIApplication, path: String = "nested/synthetic-0.jpg") {
         navigate("People", app)
@@ -69,11 +65,11 @@ final class PrivacyFlowTests: XCTestCase {
     }
     func testWholeDeletionAfterRealExportAndImportCancelPreservesExternalCopiesAndOriginals() {
         let app = app(["--uitest-privacy-controls"]); scan(app); name(app); settings(app)
-        tap("prepare-backup", app); wait("backup-operation-state", "exportPreview", app)
+        tap("prepare-backup", app); waitValue("backup-operation-state", "exportPreview", app)
         tap("choose-backup-destination", app); wait("backup-operation-probe", "Active 0", app)
-        tap("confirm-backup-export", app); wait("backup-operation-state", "finished", app)
-        tap("choose-restore", app); wait("backup-operation-state", "restorePreview", app)
-        tap("cancel-restore-preview", app); wait("backup-operation-state", "idle", app)
+        tap("confirm-backup-export", app); waitValue("backup-operation-state", "finished", app)
+        tap("choose-restore", app); waitValue("backup-operation-state", "restorePreview", app)
+        tap("cancel-restore-preview", app); waitValue("backup-operation-state", "idle", app)
         confirm("delete-local-catalog", app); deletedProof(app, copies: 2)
         settings(app); tap("cleanup-deletion-fixture", app); wait("privacy-deletion-fixture-probe", "Owned synthetic copies cleaned", app)
     }
@@ -90,12 +86,12 @@ final class PrivacyFlowTests: XCTestCase {
     }
     func testWholeDeletionRefusesRetainedRestoreOwnerWithoutStartingCleanup() {
         let app = app(["--uitest-privacy-controls", "--uitest-backup-prepared-fault"]); settings(app)
-        tap("choose-restore", app); wait("backup-operation-state", "restorePreview", app)
-        tap("confirm-catalog-restore", app); wait("backup-operation-state", "recoveryRequired", app)
+        tap("choose-restore", app); waitValue("backup-operation-state", "restorePreview", app)
+        tap("confirm-catalog-restore", app); waitValue("backup-operation-state", "recoveryRequired", app)
         tap("delete-local-catalog", app); wait("privacy-operation-message", "Finish catalog recovery", app)
         XCTAssertFalse(app.alerts["Confirm privacy action"].exists); XCTAssertFalse(app.staticTexts["local-catalog-deleted"].exists)
         wait("backup-operation-probe", "Restore 1 · Open 0 · Adopt 0", app)
-        tap("retry-backup-operation", app); wait("backup-operation-state", "finished", app)
+        tap("retry-backup-operation", app); waitValue("backup-operation-state", "finished", app)
         confirm("delete-local-catalog", app); deletedProof(app, copies: 1, originals: 0)
         settings(app); tap("cleanup-deletion-fixture", app); wait("privacy-deletion-fixture-probe", "Owned synthetic copies cleaned", app)
     }
@@ -126,7 +122,9 @@ final class PrivacyFlowTests: XCTestCase {
         alert.buttons["Continue"].tap(); settings(app); wait("privacy-operation-state", "finished", app)
         XCTAssertTrue(app.staticTexts["privacy-operation-message"].label.contains("related Undo is unavailable"))
         app.buttons["Done"].tap(); navigate("People", app)
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).count, 1)
+        // Rows below the fold are not rendered by the lazy grid, so the count is read from the heading's value.
+        let heading = app.staticTexts["people-records-start"]; XCTAssertTrue(heading.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilTrue(10) { heading.value as? String == "1" }, "people count: \(heading.value ?? "nil")")
     }
     func testCommittedPreferenceCleanupRetryNeverDeletesAgain() {
         let app = app(["--uitest-presentation-save-retry"]); scan(app); name(app); openPerson(app)
@@ -141,8 +139,8 @@ final class PrivacyFlowTests: XCTestCase {
     }
     func testRetainedRestoreOwnerRefusesPrivacyActionsWithoutCompetingRecovery() {
         let app = app(["--uitest-backup-prepared-fault"]); settings(app)
-        tap("choose-restore", app); wait("backup-operation-state", "restorePreview", app)
-        tap("confirm-catalog-restore", app); wait("backup-operation-state", "recoveryRequired", app)
+        tap("choose-restore", app); waitValue("backup-operation-state", "restorePreview", app)
+        tap("confirm-catalog-restore", app); waitValue("backup-operation-state", "recoveryRequired", app)
         tap("clear-cached-previews", app)
         wait("privacy-operation-message", "Finish catalog recovery", app)
         XCTAssertFalse(app.alerts["Confirm privacy action"].exists)

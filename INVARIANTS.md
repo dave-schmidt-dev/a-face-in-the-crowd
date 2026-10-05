@@ -2,15 +2,15 @@
 
 Native MVP charter and evidence boundary. iPadOS17 minimum; one chosen drive root; local processing; human-confirmed Together/Any/Only search. Current user scope overrides archived packet examples.
 
-Gate mappings identify verification entry points, not passing evidence. INV-4 manual identity, correction and merge/undo behavior are implemented. Current phase status is recorded in `.logs/delivery.json`, with run receipts under `.logs/verification/` and canonical past work in `HISTORY.md`. INV-6 core search snapshots and Search UI are implemented; accumulated native Search UI gates remain pending, and INV-9 model qualification remains planned. No selector or compile result establishes physical-device or recognition-model qualification.
+Gate mappings identify verification entry points, not passing evidence. INV-4 manual identity, correction and merge/undo behavior are implemented. Current phase status is recorded in `.logs/delivery.json`, with run receipts under `.logs/verification/` and canonical past work in `HISTORY.md`. INV-6 core search snapshots and Search UI are implemented; accumulated native Search UI gates remain pending, and INV-9 model qualification remains planned. Task 3.2 evaluation suggestions are implemented (owner-enabled, off by default, session-only RAM vector index) and unqualified; 3.2 phase acceptance stays pending on Task 2.2. No selector or compile result establishes physical-device or recognition-model qualification.
 
 Area mappings include current and planned paths; mappings do not claim implementation.
 
 ### INV-1 — Visible, resumable work
-area: ["Sources/AFITCCore/ScanCoordinator.swift", "App/AppServices.swift", "App/StatusView.swift", "App/LibraryView.swift", "tools/verify.sh"]
+area: ["Sources/AFITCCore/ScanCoordinator.swift", "App/AppServices.swift", "App/StatusView.swift", "App/LibraryView.swift", "App/VerifyView.swift", "tools/verify.sh"]
 gate_test: Tests/AFITCCoreTests/SourceRecoveryTests.swift
 threshold: 3
-rationale: Discovery, reads, hashes, previews, detection, inference and restore show actual operation/counts, indeterminate totals where unknown, cancellation and durable checkpoints; failures preserve accepted work.
+rationale: Discovery, reads, hashes, previews, detection, inference and restore show actual operation/counts, indeterminate totals where unknown, cancellation and durable checkpoints; failures preserve accepted work. Suggestion jobs report counts, per-photo durations and fixed pause reasons (off, device warm, memory low); a skipped job never fails the scan.
 
 ### INV-2 — Source integrity
 area: ["Sources/AFITCCore/SourceProtocol.swift", "Sources/AFITCCore/ScanCoordinator.swift", "App/Services/FolderSource.swift"]
@@ -25,13 +25,13 @@ threshold: 3
 rationale: Catalog/derived data stays in the protected app container, excluded from automatic app backups. No photo/name/path/crop/vector telemetry, provider upload, public fixture or sensitive log. Export is explicit and warns of unencrypted private contents.
 
 ### INV-4 — Human identity authority
-area: ["Sources/AFITCCore/PeopleRepository.swift", "Sources/AFITCCore/DecisionService.swift", "Sources/AFITCCore/UndoService.swift", "App/PeopleView.swift", "App/PersonDetailView.swift"]
+area: ["Sources/AFITCCore/PeopleRepository.swift", "Sources/AFITCCore/DecisionService.swift", "Sources/AFITCCore/UndoService.swift", "Sources/AFITCCore/ReviewQueue.swift", "App/PeopleView.swift", "App/PersonDetailView.swift"]
 gate_test: Tests/AFITCCoreTests/DecisionDurabilityTests.swift
 threshold: 3
-rationale: Naming confirms only the selected face. Suggestions cannot confirm themselves; rejection/unsure history persists. Correction/merge conflicts require explicit resolution; undo restores before-state atomically.
+rationale: Naming confirms only the selected face. Suggestions cannot confirm themselves; rejection/unsure history persists. A suggestion's Yes is a guarded confirm: the face state and the person's exemplar revision the card was rendered with must still match inside the write transaction, otherwise it is a conflict. The card's Not this person, Unsure and Not a person answers are guarded by the rendered face state the same way, so a stale card never overrides a newer decision. Correction/merge conflicts require explicit resolution; undo restores before-state atomically.
 
 ### INV-5 — Stable catalog versions
-area: ["Sources/AFITCCore/PhotoIdentity.swift", "Sources/AFITCCore/FaceAnalysisState.swift", "Sources/AFITCCore/ScanCoordinator.swift", "Sources/AFITCCore/CatalogRepository.swift", "Sources/AFITCCore/CatalogSchema.swift"]
+area: ["Sources/AFITCCore/PhotoIdentity.swift", "Sources/AFITCCore/FaceAnalysisState.swift", "Sources/AFITCCore/ScanCoordinator.swift", "Sources/AFITCCore/CatalogRepository.swift", "Sources/AFITCCore/CatalogSchema.swift", "Sources/AFITCCore/FaceJobCoordinator.swift", "Sources/AFITCCore/SuggestionEngine.swift"]
 gate_test: Tests/AFITCCoreTests/CatalogPersistenceTests.swift
 threshold: 3
 rationale: Photo UUIDs and content/detector/model generations bind every face/job/decision. Stale work cannot overwrite newer decisions. Identical bytes at distinct paths are distinct photo records with separate confirmations/counts.
@@ -49,7 +49,7 @@ threshold: 3
 rationale: SQLite migrations, export and restore use validated consistent snapshots, version checks and rollback. Failed/partial restore cannot overwrite live work. Grants are renewed, never portable backup permissions.
 
 ### INV-8 — Bounded resources
-area: ["Sources/AFITCCore/ScanCoordinator.swift", "Sources/AFITCCore/CachePolicy.swift", "Sources/AFITCCore/CatalogRepository.swift", "App/Services/PreviewService.swift", "App/Services/FaceEmbeddingCoordinator.swift", "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift", "App/Services/PrivacyProtection.swift"]
+area: ["Sources/AFITCCore/ScanCoordinator.swift", "Sources/AFITCCore/CachePolicy.swift", "Sources/AFITCCore/CatalogRepository.swift", "App/Services/PreviewService.swift", "App/Services/FaceEmbeddingCoordinator.swift", "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift", "Sources/AFITCCore/FaceVectorIndex.swift", "Sources/AFITCRuntime/RuntimeFaceVectorProducer.swift", "App/Services/PrivacyProtection.swift"]
 gate_test: Tests/AFITCCoreTests/SourceRecoveryTests.swift
 threshold: 3
 rationale: Decode/inference concurrency and the shared derived cache are bounded. Replacement reserves old plus staged bytes, including residual canonical stages; eviction removes only canonical owned previews. Staging publication and cleanup require matching single-link inode identity. Lock, source loss, low storage and memory pressure pause safely; missing previews remain explicit while accepted analysis is preserved.
@@ -58,7 +58,7 @@ rationale: Decode/inference concurrency and the shared derived cache are bounded
 area: ["Sources/AFITCCore/ModelManifest.swift", "Sources/AFITCCore/EmbeddingProvider.swift", "Sources/AFITCCore/FaceAlignmentAssociation.swift", "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift", "tools/model-qualification.md"]
 gate_test: Tests/AFITCCoreTests/ModelContractTests.swift
 threshold: 3
-rationale: The pinned SFace manifest records declared license, source, checksum and tensor contract; dependency-free tensor/vector checks and an opt-in CPU diagnostic do not implement a production image-alignment or recognition path. Preprocessing parity, rights review, private-corpus utility, physical iPad6/M4 behavior and owner usability are separate gates before rollout. No model substitution, install, upload or publication without its required authority.
+rationale: The pinned SFace manifest records declared license, source, checksum and tensor contract; dependency-free tensor/vector checks and an opt-in CPU diagnostic do not implement a production image-alignment or recognition path. Preprocessing parity, rights review, private-corpus utility, physical iPad6/M4 behavior and owner usability are separate gates before rollout. Owner-enabled evaluation suggestions on Verify (off by default, uncalibrated evaluation thresholds) are not rollout and do not change these gates. No model substitution, install, upload or publication without its required authority.
 
 ## Manual identity implementation boundary
 
@@ -139,6 +139,6 @@ Prepared typed person-family deletion with immutable history retained, comprehen
 ## Transient scan-byte face pipeline boundary
 
 - ScanCoordinator offers one optional awaited enrichment after an accepted photo is saved and published, only for bytes this scan iteration already read and hashed. It passes the same bytes, hash, entry and source identity; no reopen or second read. The trusted no-read path and non-successful analyses never enrich. Ordinary enrichment failure leaves saved analysis and manual state unchanged and reports unavailable; cancellation waits for the callback's actual return, then the existing source close and single finish. Stage text reaches the existing scan progress surface, is never checkpointed, and stops once cancellation or pause is requested.
-- TransientFaceEmbeddingProducer composes canonical oriented RGB, the qualified fixed-640 BGR tensor, pinned YuNet heads, strict decode and inverse geometry, unique association to existing Vision face UUIDs, the SFace five-point crop and the raw 128-value output. It captures the catalog fence from the saved photo, requires the scan's verified hash, and revalidates after every await before publishing. Ambiguous, unmatched or misaligned faces are unavailable; zero-face photos never prepare models. Vectors are not normalized, matched, labeled, persisted, cached or encoded.
-- The store retains only the latest single-photo batch in RAM. MainActor clear, session quiescence, protected-snapshot release, source change and memory pressure synchronously invalidate the operation token and drop the batch; a completion that drains afterwards cannot publish. Model handles are released after the owning scan returns. A retained batch proves one transaction instant; any later use must revalidate it.
+- TransientFaceEmbeddingProducer composes canonical oriented RGB, the qualified fixed-640 BGR tensor, pinned YuNet heads, strict decode and inverse geometry, unique association to existing Vision face UUIDs, the SFace five-point crop and the raw 128-value output. It captures the catalog fence from the saved photo, requires the scan's verified hash, and revalidates after every await before publishing. Ambiguous, unmatched or misaligned faces are unavailable; zero-face photos never prepare models. The producer never normalizes, matches, persists or encodes vectors. Only with evaluation suggestions on, a FaceJobCoordinator normalizes a fenced photo's vectors once into a bounded RAM-only index (default 20,000 faces; when full it stops adding). The index is never encoded, persisted or exported, and is dropped on toggle off, quiescence, memory pressure, source or catalog-session change and relaunch. A ranking already running when the index is dropped holds its own vector copy only until that ranking returns; its result is discarded unpublished. Suggestions are labeled evaluation-only and never confirm.
+- The store retains only the latest single-photo batch in RAM; the evaluation suggestion index above is the only other vector holder and the same invalidations drop it. MainActor clear, session quiescence, protected-snapshot release, source change and memory pressure synchronously invalidate the operation token and drop the batch; a completion that drains afterwards cannot publish. Model handles are released after the owning scan returns. A retained batch proves one transaction instant; any later use must revalidate it.
 - Generic mechanics use fake ORT sessions behind the production adapter. The actual host CPU pipeline diagnostic is opt-in, reads models and the JPEG only from explicit environment paths, and is mapped separately from phase6. Neither establishes recognition usefulness, a tolerance, iOS trained execution or physical-device qualification.

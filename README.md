@@ -2,7 +2,7 @@
 
 A planned, local-first iPad app for naming people in personal photo collections and finding photos containing selected combinations of them.
 
-**Status:** buildable iPadOS 17 source slice with folder selection, recursive JPEG previews, local face detection and resumable incremental reconciliation. People supports manual naming, correction, deliberate merge and undo with stable person IDs; confirmed-person Search supports Together, Any and Only. Recognition/Verify suggestions, backup/restore and model qualification remain unavailable or planned. Physical iPad compatibility, qualified recognition and full MVP acceptance require separate device and model evaluation.
+**Status:** buildable iPadOS 17 source slice with folder selection, recursive JPEG previews, local face detection and resumable incremental reconciliation. People supports manual naming, correction, deliberate merge and undo with stable person IDs; confirmed-person Search supports Together, Any and Only. Backup export, validated restore, privacy controls and whole-catalog deletion are implemented. Verify offers unqualified evaluation suggestions, off by default; model qualification remains planned. Physical iPad compatibility, qualified recognition and full MVP acceptance require separate device and model evaluation.
 
 ## Product direction
 
@@ -41,7 +41,9 @@ Search uses human-confirmed identities and Together, Any, or Only selection rule
 
 ## Transient face details boundary
 
-During a scan, photos whose bytes were actually read may get transient face details: the scan reuses those exact bytes, runs the pinned local YuNet and SFace models on the CPU, and attaches raw vectors only to existing Vision face IDs that match one detection uniquely. Results stay in memory for the latest photo only and are dropped on clear, source change, catalog quiescence or memory pressure. Nothing is saved, matched or labeled, and no UI is added. Failures leave accepted analysis and manual decisions unchanged. Synthetic DEBUG fixtures bypass the trained models. This does not establish recognition usefulness or physical-device qualification.
+During a scan, photos whose bytes were actually read may get transient face details: the scan reuses those exact bytes, runs the pinned local YuNet and SFace models on the CPU, and attaches raw vectors only to existing Vision face IDs that match one detection uniquely. Results stay in memory for the latest photo only and are dropped on clear, source change, catalog quiescence or memory pressure. With evaluation suggestions off (the default), nothing is saved, matched or labeled. Failures leave accepted analysis and manual decisions unchanged. Synthetic DEBUG fixtures bypass the trained models. This does not establish recognition usefulness or physical-device qualification.
+
+Verify is an evaluation screen, off by default and session-only. When on, Find face details keeps normalized face vectors in a bounded in-memory index (dropped on toggle off, memory pressure, source or catalog change and relaunch) and shows one suggestion at a time with the candidate, closest confirmed example and similarity. Yes, Not this person, Unsure and Not a person are ordinary undoable decisions guarded against cards that changed elsewhere; Skip lasts for the session. Thresholds are uncalibrated and recognition is not qualified (Task 2.2). DEBUG `--uitest-synthetic-suggestions` drives the same path with fixed fictional vectors.
 
 ## Verification and diagnostics
 

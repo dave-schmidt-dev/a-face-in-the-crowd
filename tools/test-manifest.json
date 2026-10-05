@@ -272,6 +272,207 @@
         }
       }
     },
+    "task3.2a": {
+      "description": "Evaluation-only RAM face vector index and pure nearest-exemplar suggestion engine; recognition not qualified",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SuggestionStateTests/testNegativesDeferralsAndFalseDetectionsAreHonored",
+            "AFITCCoreTests.SuggestionStateTests/testAmbiguousCandidateIsSkippedAndCounted",
+            "AFITCCoreTests.SuggestionStateTests/testSamePhotoConflictsKeepOneFacePerPerson",
+            "AFITCCoreTests.SuggestionStateTests/testStaleHashModelOrGenerationEntriesAreIgnored",
+            "AFITCCoreTests.SuggestionStateTests/testEngineNeverMutatesSnapshotOrConfirmation",
+            "AFITCCoreTests.SuggestionStateTests/testIndexBoundsAndInvalidateDropEverything",
+            "AFITCCoreTests.SuggestionStateTests/testNearestExemplarScoringAndDeterministicOrder"
+          ]
+        }
+      }
+    },
+    "task3.2b": {
+      "description": "Guarded suggestion confirmation rejects stale face state or exemplar revision and reuses confirm undo",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift",
+            "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+            "Tests/AFITCCoreTests/IdentityCorrectionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SuggestionStateTests/testStaleCardCannotEraseNewerPairRejection",
+            "AFITCCoreTests.SuggestionStateTests/testExemplarRevisionChangeRejectsConfirmSuggestion",
+            "AFITCCoreTests.SuggestionStateTests/testConfirmSuggestionConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
+            "AFITCCoreTests.SuggestionStateTests/testConfirmSuggestionInjectedFailurePreservesBeforeState",
+            "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
+            "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
+            "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",
+            "AFITCCoreTests.DecisionDurabilityTests/testChangedGenerationCannotInheritDecisionsOrAnchors",
+            "AFITCCoreTests.DecisionDurabilityTests/testDuplicateCopiesIndependentAndRepeatedFacesCountOnce",
+            "AFITCCoreTests.DecisionDurabilityTests/testSchemaTwoBackfillAndTransactionalMigrationFailure",
+            "AFITCCoreTests.IdentityCorrectionTests/testCropLowerLeftCoordinatesClampAndRejectInvalidGeometry",
+            "AFITCCoreTests.IdentityCorrectionTests/testRenameReassignAndUndoRestoreBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnassignUnsureRejectAndNotPersonAreDistinctUndoableStates",
+            "AFITCCoreTests.IdentityCorrectionTests/testDecisionAndUndoEveryInjectedWriteFailurePreservesBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
+            "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
+            "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeConflictsRequireExactExplicitChoicesAndCancelChangesNothing",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeUndoAfterReopenRestoresDomainAndAdvancesBothEpochs",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeAndUndoFailurePointsRollBackCompleteStateAfterReopen",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeStalePreviewNewTargetedMembershipAndGenerationAreRejected",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergePreservesThirdPersonAndNeverPropagatesDuplicateConfirmation",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnavailableSameGenerationMergeRefusesUntilReconnectResolvesConflict",
+            "AFITCCoreTests.IdentityCorrectionTests/testLegacySchemaThreePayloadUndoAdvancesEpochWithoutRewindingJobs"
+          ]
+        }
+      }
+    },
+    "task3.2c": {
+      "description": "Evaluation-only suggestion jobs ride the serial scan, recheck the face pipeline fence before indexing, pause visibly on gate and record durations only",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceJobCoordinatorTests/testContentChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testManualStateChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testDisabledGateAndThermalPauseSkipWithoutFailure",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testCancellationDrainsThenPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testWithinSessionRescanSkipsInferenceWhenIndexed",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testJobStatsRecordDurationsOnly",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testInvalidateDuringJobPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testPhotoWithIneligibleFaceIsNotReinferredWithinSession"
+          ]
+        }
+      }
+    },
+    "task3.2d": {
+      "description": "Evaluation suggestions App wiring: session-only toggle (default off), RAM-only index owned by SuggestionService, FaceJobCoordinator around the runtime producer only when on, release and invalidation on finish, source change, quiescence and memory warning; recognition not qualified",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift",
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceJobCoordinatorTests/testContentChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testManualStateChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testDisabledGateAndThermalPauseSkipWithoutFailure",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testCancellationDrainsThenPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testWithinSessionRescanSkipsInferenceWhenIndexed",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testJobStatsRecordDurationsOnly",
+            "AFITCCoreTests.SuggestionStateTests/testIndexBoundsAndInvalidateDropEverything"
+          ]
+        }
+      }
+    },
+    "task3.2e": {
+      "description": "Verify tab evaluation shell: persistent evaluation banner, off-by-default toggle, no-anchor, not-indexed, finding, none-above-threshold, suggestion count and index-full states, job stats and Clear face details; no review actions yet",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift",
+            "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SuggestionStateTests/testNegativesDeferralsAndFalseDetectionsAreHonored",
+            "AFITCCoreTests.SuggestionStateTests/testAmbiguousCandidateIsSkippedAndCounted",
+            "AFITCCoreTests.SuggestionStateTests/testSamePhotoConflictsKeepOneFacePerPerson",
+            "AFITCCoreTests.SuggestionStateTests/testStaleHashModelOrGenerationEntriesAreIgnored",
+            "AFITCCoreTests.SuggestionStateTests/testEngineNeverMutatesSnapshotOrConfirmation",
+            "AFITCCoreTests.SuggestionStateTests/testIndexBoundsAndInvalidateDropEverything",
+            "AFITCCoreTests.SuggestionStateTests/testNearestExemplarScoringAndDeterministicOrder",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testDisabledGateAndThermalPauseSkipWithoutFailure",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testJobStatsRecordDurationsOnly"
+          ]
+        }
+      }
+    },
+    "task3.2f": {
+      "description": "Review card and session-local queue: one evaluation suggestion at a time with candidate crop, whole-photo context, suggested name and short id, similarity, closest and up to two more confirmed examples; Yes uses the guarded confirmSuggestion, Not this person, Unsure, Not a person and session-local Skip; reachable undo; stale card replaced with 'This suggestion changed. Showing the latest.', never confirmed; job index epoch drops publications after invalidate and zero-face photos are counted separately; recognition not qualified",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/ReviewQueueTests.swift",
+            "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.ReviewQueueTests/testSkipIsSessionLocalAndNeverPersisted",
+            "AFITCCoreTests.ReviewQueueTests/testQueueReconcilesAfterDecisionRefresh",
+            "AFITCCoreTests.ReviewQueueTests/testStaleCardIsReplacedNotConfirmed",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testInvalidateDuringJobPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testJobStatsRecordDurationsOnly",
+            "AFITCCoreTests.ReviewQueueTests/testAnswerForDisplayedCardIsRefusedAfterReplacement",
+            "AFITCCoreTests.ReviewQueueTests/testUnrequestedRemovalRequiresAcknowledgement",
+            "AFITCCoreTests.ReviewQueueTests/testOwnAnswerDoesNotRaiseStaleNotice"
+          ]
+        }
+      }
+    },
+    "task3.2g": {
+      "description": "Synthetic evaluation-suggestion fixture (DEBUG --uitest-synthetic-suggestions builds a FaceJobCoordinator with fixed fictional vectors through the production fence, index, engine and queue) and Verify UI flows; card answers Not this person, Unsure and Not a person are guarded by the rendered face state (DecisionError.conflict when a newer decision exists); recognition not qualified, suggestions never confirm themselves; design pass D2 UI contract (person detail fit, one status per screen with human phase copy, Settings order, viewer zoom, Search grid, Verify popover/Details/index-full, path persistence, pull-to-refresh)",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift",
+            "Tests/AFITCCoreTests/ReviewQueueTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.SuggestionStateTests/testStaleCardNotAPersonCannotOverrideNewerConfirmation",
+            "AFITCCoreTests.SuggestionStateTests/testStaleCardCannotEraseNewerPairRejection",
+            "AFITCCoreTests.SuggestionStateTests/testAmbiguousCandidateIsSkippedAndCounted",
+            "AFITCCoreTests.SuggestionStateTests/testNegativesDeferralsAndFalseDetectionsAreHonored",
+            "AFITCCoreTests.SuggestionStateTests/testConfirmSuggestionConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
+            "AFITCCoreTests.ReviewQueueTests/testQueueReconcilesAfterDecisionRefresh",
+            "AFITCCoreTests.ReviewQueueTests/testStaleCardIsReplacedNotConfirmed"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/VerificationFlowTests.swift",
+            "UITests/DesignTestSupport.swift",
+            "UITests/DesignFlowTests.swift",
+            "UITests/DesignScreensTests.swift"
+          ],
+          "selectors": [
+            "UITests.VerificationFlowTests/testVerifyIsOffAndLabeledEvaluationByDefault",
+            "UITests.VerificationFlowTests/testYesConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
+            "UITests.VerificationFlowTests/testNotThisPersonUnsureAndFalseDetectionPersistAndAreHonoredAfterRescan",
+            "UITests.VerificationFlowTests/testAmbiguousCandidateIsNeverShown",
+            "UITests.VerificationFlowTests/testStaleCardAfterPersonDetailRejectionCannotConfirm",
+            "UITests.VerificationFlowTests/testCompactLargeTextAndRelaunchShowsSuggestionsUnavailableUntilScan",
+            "UITests.DesignFlowTests/testPersonDetailFitsRegularWidth",
+            "UITests.DesignFlowTests/testPersonDetailFitsCompactWidth",
+            "UITests.DesignFlowTests/testPersonDetailFitsCompactLargestText",
+            "UITests.DesignFlowTests/testRecordSuffixOnlyWhereNamesAreIdentical",
+            "UITests.DesignFlowTests/testNamingSheetAtLargestTextPinsSaveAndValidatesName",
+            "UITests.DesignFlowTests/testPersonDetailLastControlClearsBottomInset",
+            "UITests.DesignScreensTests/testStatusAppearsOnceWithHumanPhaseCopyOnEveryScreen",
+            "UITests.DesignScreensTests/testSettingsPutsDestructiveActionLastAndConfirmsIt",
+            "UITests.DesignScreensTests/testLibraryTileOpensZoomableViewerWithoutEnumText",
+            "UITests.DesignScreensTests/testSearchHasOneModeControlAndAPhotoGrid",
+            "UITests.DesignScreensTests/testVerifyOffExplanationIsAPopoverAndTimingsSitBehindDetails",
+            "UITests.DesignScreensTests/testIndexFullNamesNextActionAndClearingRemovesIt",
+            "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtRegularWidth",
+            "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtCompactWidth",
+            "UITests.DesignScreensTests/testPullToRefreshReloadsPeopleWithoutAButton",
+            "UITests.DesignScreensTests/testScreenshotWalk"
+          ]
+        }
+      }
+    },
     "task4.capture-date": {
       "description": "Original JPEG EXIF capture wall-clock metadata, conservative app validation and durable generation semantics",
       "targets": {
@@ -3595,7 +3796,19 @@
         "App/Services/DiagnosticFiles.swift",
         "App/Services/CatalogPrivacyService.swift",
         "App/Services/PrivacyProtection.swift",
-        "App/Services/FaceEmbeddingCoordinator.swift"
+        "App/Services/FaceEmbeddingCoordinator.swift",
+        "App/Services/SuggestionService.swift",
+        "App/Services/SyntheticSuggestionFixture.swift",
+        "App/VerifyView.swift",
+        "App/Components/ReviewCard.swift",
+        "App/Components/FacePreview.swift",
+        "App/Components/PeopleCards.swift",
+        "App/Components/PhotoTile.swift",
+        "App/Components/BrandLockup.swift",
+        "App/Components/BackupSettingsSection.swift",
+        "App/Components/MachineValue.swift",
+        "App/Components/TileLayout.swift",
+        "App/Components/ZoomableImage.swift"
       ]
     },
     "AFITCCore": {
@@ -3642,7 +3855,11 @@
         "Sources/AFITCCore/YuNetTensorDecoder.swift",
         "Sources/AFITCCore/YuNetGeometryTransform.swift",
         "Sources/AFITCCore/CatalogFacePipeline.swift",
-        "Sources/AFITCCore/BundledModelResources.swift"
+        "Sources/AFITCCore/BundledModelResources.swift",
+        "Sources/AFITCCore/FaceVectorIndex.swift",
+        "Sources/AFITCCore/SuggestionEngine.swift",
+        "Sources/AFITCCore/FaceJobCoordinator.swift",
+        "Sources/AFITCCore/ReviewQueue.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -3696,7 +3913,10 @@
         "Tests/AFITCCoreTests/BundledModelResourceTests.swift",
         "Tests/AFITCCoreTests/FacePipelineLifecycleAdapterTests.swift",
         "Tests/AFITCCoreTests/ScanEmbeddingEnrichmentTests.swift",
-        "Tests/AFITCCoreTests/TransientFaceEmbeddingProducerTests.swift"
+        "Tests/AFITCCoreTests/TransientFaceEmbeddingProducerTests.swift",
+        "Tests/AFITCCoreTests/SuggestionStateTests.swift",
+        "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift",
+        "Tests/AFITCCoreTests/ReviewQueueTests.swift"
       ]
     },
     "UITests": {
@@ -3711,7 +3931,11 @@
         "UITests/BackupFlowTests.swift",
         "UITests/AcceptanceFlowTests.swift",
         "UITests/PrivacyFlowTests.swift",
-        "UITests/ProtectedDataFlowTests.swift"
+        "UITests/ProtectedDataFlowTests.swift",
+        "UITests/VerificationFlowTests.swift",
+        "UITests/DesignTestSupport.swift",
+        "UITests/DesignFlowTests.swift",
+        "UITests/DesignScreensTests.swift"
       ]
     },
     "AFITCRuntime": {
@@ -3724,7 +3948,8 @@
         "Sources/AFITCRuntime/YuNetModelPreparation.swift",
         "Sources/AFITCRuntime/YuNetCPUBackend.swift",
         "Sources/AFITCRuntime/YuNetRuntime.swift",
-        "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift"
+        "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift",
+        "Sources/AFITCRuntime/RuntimeFaceVectorProducer.swift"
       ]
     }
   },
@@ -3741,7 +3966,14 @@
       "task1.2",
       "task1.5",
       "task3.1",
-      "task3.3"
+      "task3.3",
+      "task3.2a",
+      "task3.2b",
+      "task3.2c",
+      "task3.2d",
+      "task3.2e",
+      "task3.2f",
+      "task3.2g"
     ],
     "phase4": [
       "task1.1",
@@ -3800,6 +4032,13 @@
       "task1.5",
       "task3.1",
       "task3.3",
+      "task3.2a",
+      "task3.2b",
+      "task3.2c",
+      "task3.2d",
+      "task3.2e",
+      "task3.2f",
+      "task3.2g",
       "task4.capture-date",
       "task4.1",
       "task4.2",

@@ -166,18 +166,22 @@ struct PhotoViewer: View {
     @ObservedObject var services: AppServices
     @StateObject private var controller = ViewerController()
     @Environment(\.dismiss) private var dismiss
+    @State private var zoomed = false
     var body: some View {
         NavigationStack {
+            // The photo takes most of the sheet; details scroll below it. Scrolling is held while zoomed
+            // so a pan moves the photo.
+            GeometryReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Group {
                         if let image = controller.image {
-                            Image(uiImage: image).resizable().scaledToFit().accessibilityLabel("Photo view")
+                            ZoomableImage(image: image) { zoomed = $0 }
                                 .accessibilityIdentifier("viewer-image")
                         } else if controller.status == "Opening photo" {
                             ProgressView("Opening photo")
                         } else { Text(controller.status).multilineTextAlignment(.center) }
-                    }.frame(maxWidth: .infinity).frame(height: 360)
+                    }.frame(maxWidth: .infinity).frame(height: max(320, proxy.size.height * 0.68))
                     Text(controller.status).accessibilityIdentifier("viewer-status")
                     #if DEBUG
                     if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") {
@@ -191,11 +195,15 @@ struct PhotoViewer: View {
                     #endif
                     Text(photo.relativePath).font(.caption).textSelection(.enabled)
                     if let date = photo.captureDate {
-                        Text("Captured \(date.localWallClock)\(date.sourceOffset.map { " · source offset " + $0 } ?? "")")
-                        Text("Source EXIF DateTimeOriginal").font(.caption)
-                    } else { Text("Capture date unknown") }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Date taken").font(.caption)
+                            Text("\(date.localWallClock)\(date.sourceOffset.map { " · UTC offset " + $0 } ?? "")")
+                                .accessibilityIdentifier("viewer-date-taken")
+                        }.accessibilityElement(children: .combine)
+                    } else { Text("Date taken unknown").accessibilityIdentifier("viewer-date-taken") }
                     Text("Read-only view. Originals stay unchanged.").font(.caption)
                 }.padding(24)
+            }.scrollDisabled(zoomed)
             }
             .navigationTitle("Photo")
             .toolbar {

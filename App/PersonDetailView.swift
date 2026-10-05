@@ -4,12 +4,13 @@ import AFITCCore
 struct PersonDetailView: View {
     @ObservedObject var services: AppServices
     let personID: UUID
-    let surface: Color
-    let secondary: Color
     @ObservedObject private var privacy: CatalogPrivacyService
     @ObservedObject private var presentation: AppPresentationState
-    init(services: AppServices, personID: UUID, surface: Color, secondary: Color) {
-        self.services = services; self.personID = personID; self.surface = surface; self.secondary = secondary
+    @Environment(\.tokens) private var tokens
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 120
+    init(services: AppServices, personID: UUID) {
+        self.services = services; self.personID = personID
         presentation = services.presentation; privacy = services.privacy
     }
     private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
@@ -18,46 +19,38 @@ struct PersonDetailView: View {
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.l) {
                 if let summary = services.peopleSnapshot.people.first(where: { $0.id == personID }) {
-                    Text(summary.person.displayName).font(.largeTitle.bold())
-                    Text("Record \(personID.uuidString.prefix(8))").font(.caption)
-                    Text("\(summary.confirmedPhotoCount) confirmed photos").accessibilityIdentifier("person-confirmed-count")
-                    Text("Possible matching unavailable. These decisions are manual.").foregroundStyle(secondary)
-                    if let cover = services.peopleSnapshot.faces.first(where: { $0.key == summary.person.cover }) {
-                        FacePreview(services: services, face: cover, wholePhoto: false)
+                    header(summary)
+                    if summary.person.mergedInto == nil || presentation.drafts[personID]?.dirty == true {
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { draftEditor(summary.person) }.card()
                     }
-                    if let survivor = summary.person.mergedInto {
-                        Text("Merged into record \(survivor.uuidString.prefix(8)). Undo restores this record and its decisions.")
-                    } else {
-                        Button("Merge duplicate person") { merging = true }
-                            .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
-                            .accessibilityIdentifier("merge-person")
-                    }
-                    if summary.person.mergedInto == nil || presentation.drafts[personID]?.dirty == true { draftEditor(summary.person) }
-                    Button("Delete person", role: .destructive) { privacy.request(.person(personID)) }
-                        .frame(minHeight: 48).disabled(!privacy.canRequest).accessibilityIdentifier("delete-person")
-                    if privacy.busy { ProgressView("Checking privacy action") }
-                    if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("person-privacy-message") }
                     DecisionStatus(services: services)
-                    Text("Confirmed faces").font(.title2.bold())
-                    ForEach(services.peopleSnapshot.faces.filter { $0.state.personID == personID }) { face in
-                        Button { selectedFace = face } label: {
-                            VStack(alignment: .leading, spacing: 8) {
-                                FacePreview(services: services, face: face, wholePhoto: false)
-                                Text(face.photo.relativePath)
-                                Text("Correct this assignment").font(.subheadline)
-                            }.padding(16).frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                                .background(surface).clipShape(RoundedRectangle(cornerRadius: 12))
-                        }.buttonStyle(.plain).accessibilityIdentifier("correct-face")
-                        .optionalPresentationAnchor(services.peopleSnapshot.faces.first(where: { $0.state.personID == personID && $0.photo.id == face.photo.id })?.key == face.key ? face.photo.id : nil, section: "Person-" + personID.uuidString)
+                    PillLabel(title: "Confirmed faces", selected: true)
+                        .accessibilityAddTraits(.isHeader)
+                    let confirmed = services.peopleSnapshot.faces.filter { $0.state.personID == personID }
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                        ForEach(confirmed) { face in
+                            Button { selectedFace = face } label: {
+                                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                                    FacePreview(services: services, face: face, wholePhoto: false, style: .tile)
+                                    Text((face.photo.relativePath as NSString).lastPathComponent)
+                                        .font(.caption).foregroundStyle(tokens.textSecondary).lineLimit(1)
+                                }.contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                            .accessibilityLabel("Correct this assignment, \(face.photo.relativePath)")
+                            .accessibilityIdentifier("correct-face")
+                            .optionalPresentationAnchor(confirmed.first(where: { $0.photo.id == face.photo.id })?.key == face.key ? face.photo.id : nil, section: "Person-" + personID.uuidString)
+                        }
                     }
+                    manage(summary)
                 } else {
                     Text("This person is no longer available.")
                     if presentation.drafts[personID]?.dirty == true { draftEditor(nil) }
                 }
-            }.id("person-top").padding(24).frame(maxWidth: 720, alignment: .leading).frame(maxWidth: .infinity)
+            }.id("person-top").padding(DesignTokens.Spacing.l).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
         }
+        .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "catalog-scroll-Person-" + personID.uuidString)
         .onPreferenceChange(PresentationAnchorKey.self) { positions in
             presentation.recordVisible("Person-" + personID.uuidString, positions: positions["Person-" + personID.uuidString] ?? [:])
@@ -69,6 +62,7 @@ struct PersonDetailView: View {
         }
         .modifier(PeoplePalette())
         .navigationTitle("Person")
+        .navigationBarTitleDisplayMode(.inline)
         .modifier(PrivacyConfirmation(privacy: privacy, person: true))
         .onAppear {
             if let person = services.peopleSnapshot.people.first(where: { $0.id == personID })?.person { presentation.ensureDraft(person) }
@@ -80,17 +74,73 @@ struct PersonDetailView: View {
             NavigationStack { ManualFaceView(services: services, face: face, initialPerson: personID) }
         }
     }
+    private var columns: [GridItem] {
+        typeSize.isAccessibilitySize ? [GridItem(.flexible())]
+            : [GridItem(.adaptive(minimum: DesignTokens.Layout.photoCardMin), spacing: DesignTokens.Spacing.s)]
+    }
+    /// Large circular cover, name and confirmed count; stacks vertically at accessibility sizes.
+    @ViewBuilder private func header(_ summary: PersonSummary) -> some View {
+        let size = min(portrait, 200)
+        let cover = services.peopleSnapshot.faces.first(where: { $0.key == summary.person.cover })
+        let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: DesignTokens.Spacing.m))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: DesignTokens.Spacing.l))
+        layout {
+            if let cover {
+                FacePreview(services: services, face: cover, wholePhoto: false, style: .circle(size))
+            } else {
+                Image(systemName: "person.crop.circle.fill").resizable().scaledToFit()
+                    .frame(width: size, height: size).foregroundStyle(tokens.surfaceRaised)
+                    .accessibilityLabel("Cover unavailable")
+            }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                // Wrap, never truncate or clip: the name may be long and the type size large.
+                Text(summary.person.displayName).font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("person-name-heading")
+                Text(confirmedPhotoPhrase(summary.confirmedPhotoCount)).font(.headline)
+                    .foregroundStyle(tokens.textSecondary).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("person-confirmed-count")
+                if PersonNames.isAmbiguous(summary.person, among: services.peopleSnapshot.people.map(\.person)) {
+                    Text("Record \(personID.uuidString.prefix(4))").font(.footnote).foregroundStyle(tokens.textSecondary)
+                        .accessibilityIdentifier("person-record")
+                }
+                if summary.person.mergedInto != nil {
+                    Text("Merged into another person. Undo restores this person and their decisions.")
+                        .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading).layoutPriority(1)
+        }
+    }
+    /// Secondary record management sits below the photos.
+    @ViewBuilder private func manage(_ summary: PersonSummary) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+            Text("Manage").font(.headline).foregroundStyle(tokens.textSecondary).accessibilityAddTraits(.isHeader)
+            if summary.person.mergedInto == nil {
+                Button { merging = true } label: { Label("Merge duplicate person", systemImage: "arrow.triangle.merge") }
+                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
+                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                    .accessibilityIdentifier("merge-person")
+            }
+            Button(role: .destructive) { privacy.request(.person(personID)) } label: {
+                Label("Delete person", systemImage: "trash").foregroundStyle(tokens.destructive)
+            }
+            .frame(minHeight: 48).disabled(!privacy.canRequest).accessibilityIdentifier("delete-person")
+            if privacy.busy { ProgressView("Checking privacy action") }
+            if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("person-privacy-message") }
+        }
+    }
     @ViewBuilder private func draftEditor(_ person: PersonRecord?) -> some View {
+        Text("Name").font(.subheadline.bold()).foregroundStyle(tokens.textSecondary)
         TextField("Person name", text: editingName).textFieldStyle(.roundedBorder).accessibilityIdentifier("rename-person-name")
         if let conflict = presentation.drafts[personID]?.conflict {
             Text(conflict == .changed ? "This record changed. Review your draft against its current name before saving." : "This record is unavailable. Your draft is retained.")
                 .accessibilityIdentifier("name-draft-conflict")
             if let person, person.mergedInto == nil {
-                Button("Review draft with current record") { presentation.review(person) }.frame(minHeight: 48).accessibilityIdentifier("review-name-draft")
-                Button("Use current name") { presentation.useCurrent(person) }.frame(minHeight: 48).accessibilityIdentifier("use-current-name")
+                Button("Review draft with current record") { presentation.review(person) }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("review-name-draft")
+                Button("Use current name") { presentation.useCurrent(person) }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("use-current-name")
             }
             Button("Discard draft") { presentation.discardDraft(personID); if let person { presentation.ensureDraft(person) } }
-                .frame(minHeight: 48).accessibilityIdentifier("discard-name-draft")
+                .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("discard-name-draft")
         }
         #if DEBUG
         if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls"), let person {
@@ -105,7 +155,7 @@ struct PersonDetailView: View {
                     presentation.acceptedCommit(personID, text: text)
                 }
             }
-        }.frame(minHeight: 48)
+        }.buttonStyle(CapsuleButtonStyle(minHeight: 48))
             .disabled(person == nil || person?.mergedInto != nil || presentation.drafts[personID]?.conflict != nil || services.isSavingDecision || services.peopleRefreshWarning != nil)
             .accessibilityIdentifier("save-person-name")
     }
@@ -117,46 +167,66 @@ struct ManualFaceView: View {
     let face: FaceItem
     let initialPerson: UUID?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.tokens) private var tokens
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 180
     @State private var name = ""
     @State private var personID: UUID?
     @State private var context = false
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                FacePreview(services: services, face: face, wholePhoto: false)
-                Button(context ? "Hide whole photo" : "Open whole photo context") { context.toggle() }
-                    .frame(minHeight: 48).accessibilityIdentifier("whole-photo-context")
+                VStack(spacing: 12) {
+                    FacePreview(services: services, face: face, wholePhoto: false, style: .circle(min(portrait, typeSize.isAccessibilitySize ? 120 : 260)))
+                    Button { context.toggle() } label: {
+                        Label(context ? "Hide whole photo" : "Open whole photo context", systemImage: "photo")
+                    }
+                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("whole-photo-context")
+                }.frame(maxWidth: .infinity)
                 if context { FacePreview(services: services, face: face, wholePhoto: true) }
                 Text("This names the selected face. Other faces need separate decisions.")
+                    .font(.subheadline).foregroundStyle(tokens.textSecondary)
+                Text("Name").font(.subheadline.bold()).foregroundStyle(tokens.textSecondary)
                 TextField("New person name", text: $name).textFieldStyle(.roundedBorder).accessibilityIdentifier("new-person-name")
                 if services.peopleSnapshot.people.contains(where: { $0.person.displayName.localizedCaseInsensitiveCompare(name.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame }), !name.isEmpty {
                     Text("That name already exists. Saving a new person creates a separate record.").accessibilityIdentifier("duplicate-name-warning")
                 }
+                if let hint = nameHint {
+                    Text(hint).font(.footnote).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("name-hint")
+                }
                 Picker("Choose existing person", selection: $personID) {
                     Text("Create a new person").tag(nil as UUID?)
-                    ForEach(services.peopleSnapshot.people.filter { $0.person.mergedInto == nil }) { summary in
-                        Text("\(summary.person.displayName) · \(summary.id.uuidString.prefix(8))").tag(Optional(summary.id))
+                    ForEach(activePeople) { person in
+                        Text(PersonNames.label(person, among: activePeople)).tag(Optional(person.id))
                     }
                 }.accessibilityIdentifier("existing-person")
-                Button(personID == nil ? "Save selected face" : "Confirm selected face") {
-                    perform(personID.map { .confirm(face: face.key, personID: $0) } ?? .name(face: face.key, displayName: name))
-                }.frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("save-selected-face")
                 if let personID {
                     Button("Not this person") { perform(.reject(face: face.key, personID: personID)) }
-                        .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("reject-selected-person")
+                        .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("reject-selected-person")
                 }
                 Button("Unsure") { perform(.unsure(face: face.key, personID: personID)) }
-                    .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("defer-face")
+                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("defer-face")
                 if face.state.personID != nil {
                     Button("Remove this assignment") { perform(.unassign(face: face.key)) }
-                        .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("unassign-face")
+                        .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("unassign-face")
                 }
                 Button("Not a person · false detection") { perform(.notPerson(face: face.key)) }
-                    .frame(minHeight: 48).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("not-a-person")
+                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("not-a-person")
                 Text("Use Not a person only for a false detection, never for an unknown person.").font(.subheadline)
+                    .foregroundStyle(tokens.textSecondary)
                 if let message = services.decisionError { Text(message).accessibilityIdentifier("decision-error") }
                 if services.isSavingDecision { ProgressView("Saving decision") }
             }.padding(24).frame(maxWidth: 640, alignment: .leading).frame(maxWidth: .infinity)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        // The primary action stays above the keyboard and the largest text, never scrolled away.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button(personID == nil ? "Save selected face" : "Confirm selected face") {
+                perform(personID.map { .confirm(face: face.key, personID: $0) } ?? .name(face: face.key, displayName: name))
+            }.buttonStyle(CapsuleButtonStyle(minHeight: 48)).disabled(!canSave)
+                .accessibilityIdentifier("save-selected-face")
+                .padding(.horizontal, 24).padding(.vertical, DesignTokens.Spacing.s)
+                .frame(maxWidth: .infinity).background(tokens.background)
         }
         .modifier(PeoplePalette())
         .navigationTitle("Selected face")
@@ -167,16 +237,27 @@ struct ManualFaceView: View {
     private func perform(_ decision: ManualDecision) {
         Task { if await services.decide(decision) { dismiss() } }
     }
+    private var activePeople: [PersonRecord] { services.peopleSnapshot.people.map(\.person).filter { $0.mergedInto == nil } }
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// Mirrors the core name rule (non-empty, at most 120, no control characters) so Save is only
+    /// offered for input the catalog would accept.
+    private var nameIsValid: Bool {
+        !trimmedName.isEmpty && trimmedName.count <= 120
+            && !trimmedName.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+    }
+    private var canSave: Bool {
+        !services.isSavingDecision && services.peopleRefreshWarning == nil && (personID != nil || nameIsValid)
+    }
+    private var nameHint: String? {
+        guard personID == nil, !nameIsValid else { return nil }
+        return trimmedName.count > 120 ? "Names can be up to 120 characters." : "Enter a name to save this face."
+    }
 }
 
 private struct PeoplePalette: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-    private func color(_ dark: UInt32, _ light: UInt32) -> Color {
-        let hex = colorScheme == .dark ? dark : light
-        return Color(red: Double((hex >> 16) & 255) / 255, green: Double((hex >> 8) & 255) / 255, blue: Double(hex & 255) / 255)
-    }
+    @Environment(\.tokens) private var tokens
     func body(content: Content) -> some View {
-        content.background(color(0x141719, 0xF4EFE6)).foregroundStyle(color(0xF4EFE6, 0x1A1A1A)).tint(color(0x7EC5E8, 0x0F4C81))
+        content.background(tokens.background).tint(tokens.primary)
     }
 }
 
@@ -194,18 +275,18 @@ struct MergePersonView: View {
                 Text("Choose the record to keep").font(.title2.bold())
                 Text("The source record is archived. Only existing decisions move; other people and unidentified faces stay independent.")
                 if let source = services.peopleSnapshot.people.first(where: { $0.id == sourceID }) {
-                    Text("Source: \(source.person.displayName) · \(sourceID.uuidString.prefix(8))")
+                    Text("Source: \(PersonNames.label(source.person, among: allPeople))")
                 }
                 ForEach(services.peopleSnapshot.people.filter { $0.id != sourceID && $0.person.mergedInto == nil }) { summary in
-                    Button("Keep \(summary.person.displayName) · \(summary.id.uuidString.prefix(8))") { select(summary.id) }
-                        .frame(minHeight: 48).disabled(loading || services.isSavingDecision)
+                    Button("Keep \(PersonNames.label(summary.person, among: allPeople))") { select(summary.id) }
+                        .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(loading || services.isSavingDecision)
                         .accessibilityIdentifier("merge-target-\(summary.id.uuidString)")
                 }
                 if loading { ProgressView("Reading current merge decisions") }
                 if let preview {
-                    Text("Keep: \(preview.survivor.displayName) · \(preview.survivor.id.uuidString.prefix(8))")
-                    Text("Before: source \(preview.sourcePhotoCount), kept record \(preview.survivorPhotoCount) confirmed photos")
-                    Text("After selected resolutions: \(resultCount(preview)) confirmed photos")
+                    Text("Keep: \(PersonNames.label(preview.survivor, among: allPeople))")
+                    Text("Before: source \(preview.sourcePhotoCount), kept record \(confirmedPhotoPhrase(preview.survivorPhotoCount))")
+                    Text("After selected resolutions: \(confirmedPhotoPhrase(resultCount(preview)))")
                         .accessibilityIdentifier("merge-result-count")
                     Text("Resolve every contradictory face explicitly. No choice is selected for you.")
                     ForEach(preview.faces) { face in
@@ -220,25 +301,25 @@ struct MergePersonView: View {
                             }
                             if preview.conflicts.contains(face.key) {
                                 Button("Keep confirmation") { choices[face.key] = .keepConfirmation }
-                                    .frame(minHeight: 48).accessibilityIdentifier("merge-confirm-\(face.key.id)")
+                                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("merge-confirm-\(face.key.id)")
                                 Button("Keep rejection · remove conflicting confirmation") { choices[face.key] = .keepRejection }
-                                    .frame(minHeight: 48).accessibilityIdentifier("merge-reject-\(face.key.id)")
+                                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("merge-reject-\(face.key.id)")
                                 Text(choices[face.key].map { $0 == .keepConfirmation ? "Chosen: confirmation" : "Chosen: rejection" } ?? "Resolution required")
                             }
-                        }.padding(16).background(.secondary.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 12))
+                        }.card()
                     }
                     Button("Apply merge") {
                         Task {
                             let resolutions = choices.map { MergeResolution(key: $0.key, choice: $0.value) }
                             if await services.merge(preview, resolutions: resolutions) { dismiss() }
                         }
-                    }.frame(minHeight: 48)
+                    }.buttonStyle(CapsuleButtonStyle(minHeight: 48))
                         .disabled(loading || services.isSavingDecision || choices.count != preview.conflicts.count)
                         .accessibilityIdentifier("apply-merge")
                 }
                 if let message = services.decisionError {
                     Text(message).accessibilityIdentifier("decision-error")
-                    if let survivorID { Button("Refresh merge preview") { select(survivorID) }.frame(minHeight: 48) }
+                    if let survivorID { Button("Refresh merge preview") { select(survivorID) }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)) }
                 }
                 if services.isSavingDecision { ProgressView("Saving merge atomically") }
             }.padding(24).frame(maxWidth: 640, alignment: .leading).frame(maxWidth: .infinity)
@@ -247,6 +328,7 @@ struct MergePersonView: View {
             .onAppear { services.clearDecisionError() }
             .onDisappear { services.clearDecisionError() }
     }
+    private var allPeople: [PersonRecord] { services.peopleSnapshot.people.map(\.person) }
     private func select(_ id: UUID) {
         survivorID = id; preview = nil; choices = [:]; loading = true
         Task {

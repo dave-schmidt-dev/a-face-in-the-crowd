@@ -153,6 +153,7 @@ public final class AppServices: ObservableObject {
     }
     lazy var backup = CatalogBackupService(services: self)
     lazy var privacy = CatalogPrivacyService(services: self)
+    lazy var suggestions = SuggestionService(services: self)
     func privacyContext() -> (CatalogRepository, URL)? {
         guard let repository, let previewDirectory else { return nil }; return (repository, previewDirectory)
     }

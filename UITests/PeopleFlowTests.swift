@@ -2,6 +2,7 @@ import XCTest
 
 /// Fictional runtime rectangles prove manual workflow only; no real face/model qualification.
 final class PeopleFlowTests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false; applyRequestedOrientation() }
     private func catalog(compact: Bool = false, previewMemoryWarning: Bool = false, extraArguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces", "--uitest-catalog-token", UUID().uuidString]
@@ -16,9 +17,9 @@ final class PeopleFlowTests: XCTestCase {
         let phase = app.staticTexts["scan-phase"]
         reveal(phase, app: app, passive: true)
         XCTAssertTrue(phase.exists); XCTAssertTrue(inViewport(phase, app: app))
-        expectation(for: NSPredicate(format: "label == 'Completed'"), evaluatedWith: phase)
+        expectation(for: NSPredicate(format: "value == 'completed'"), evaluatedWith: phase)
         waitForExpectations(timeout: 15)
-        XCTAssertEqual(phase.label, "Completed")
+        XCTAssertEqual(phase.value as? String, "completed")
         navigate("People", app: app)
         return app
     }
@@ -29,30 +30,18 @@ final class PeopleFlowTests: XCTestCase {
               [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy({ $0.isFinite }) else { return false }
         return !frame.intersection(viewport).isEmpty
     }
+    /// `passive` only needs the element in the viewport (it is read, not tapped); otherwise the
+    /// shared reveal scrolls until the element is fully hittable.
     private func reveal(_ control: XCUIElement, app: XCUIApplication, passive: Bool = false) {
-        func visible() -> Bool {
-            passive ? inViewport(control, app: app) : (inViewport(control, app: app) && control.isHittable)
-        }
-        for _ in 0..<8 {
-            if visible() { return }
-            app.swipeUp()
-        }
-        for _ in 0..<12 {
-            if visible() { return }
-            app.swipeDown()
-        }
+        guard passive else { revealElement(control, app); return }
+        for _ in 0..<8 { if inViewport(control, app: app) { return }; scrollPage(app, towardEnd: true, containing: control.exists ? control.identifier : "") }
+        for _ in 0..<12 { if inViewport(control, app: app) { return }; scrollPage(app, towardEnd: false, containing: control.exists ? control.identifier : "") }
     }
-    private func navigate(_ title: String, app: XCUIApplication) {
-        let navigation = app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier == %@ OR label == %@", "navigate-\(title)", title)).firstMatch
-        XCTAssertTrue(navigation.waitForExistence(timeout: 5)); XCTAssertTrue(navigation.isHittable)
-        navigation.tap()
-        XCTAssertTrue(app.scrollViews["screen-\(title)"].waitForExistence(timeout: 5))
-    }
+    private func navigate(_ title: String, app: XCUIApplication) { navigateTo(title, app) }
     private func tap(_ identifier: String, app: XCUIApplication) {
         let control = app.buttons[identifier].firstMatch
         reveal(control, app: app)
-        XCTAssertTrue(control.waitForExistence(timeout: 5)); XCTAssertTrue(control.isHittable); control.tap()
+        XCTAssertTrue(control.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(control, app), identifier + " " + whyNotRevealed(control, app)); control.tap()
     }
     private func person(_ name: String, app: XCUIApplication) -> XCUIElement {
         let record = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS %@", name)).firstMatch
@@ -77,7 +66,7 @@ final class PeopleFlowTests: XCTestCase {
         collect()
         for _ in 0..<8 {
             if inViewport(boundary, app: app) { break }
-            scroll.swipeUp(); collect()
+            dragScroll(scroll, towardEnd: true); collect()
         }
         XCTAssertTrue(inViewport(boundary, app: app), "People traversal must reach its following section")
         return records
@@ -85,7 +74,7 @@ final class PeopleFlowTests: XCTestCase {
     private func personID(_ identifier: String, app: XCUIApplication) -> XCUIElement {
         let card = app.buttons[identifier]
         reveal(card, app: app)
-        XCTAssertTrue(card.waitForExistence(timeout: 5)); XCTAssertTrue(card.isHittable)
+        XCTAssertTrue(card.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(card, app), whyNotRevealed(card, app))
         return card
     }
     private func assertPeople(_ records: [String: String], ids: Set<String>, name: String? = nil, photoCount: Int? = nil) {
@@ -93,7 +82,7 @@ final class PeopleFlowTests: XCTestCase {
         for id in ids {
             guard let label = records[id] else { XCTFail("Missing person record \(id)"); continue }
             if let name { XCTAssertTrue(label.contains(name)) }
-            if let photoCount { XCTAssertTrue(label.contains("\(photoCount) confirmed photos")) }
+            if let photoCount { XCTAssertTrue(label.contains(photoCount == 1 ? "1 confirmed photo" : "\(photoCount) confirmed photos")) }
         }
     }
     private func mergeResultCount(app: XCUIApplication) -> Int {
@@ -138,16 +127,16 @@ final class PeopleFlowTests: XCTestCase {
         assertPeople(records, ids: Set([firstID]).union(secondIDs), name: "Fixture A", photoCount: 1)
         personID(firstID, app: app).tap()
         XCTAssertTrue(app.staticTexts["person-confirmed-count"].waitForExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photos")
-        let rename = app.textFields["rename-person-name"]; rename.tap()
-        rename.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Fixture A".count) + "Fixture B")
+        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photo")
+        let rename = app.textFields["rename-person-name"]
+        clearAndType(rename, "Fixture B", app)
         tap("save-person-name", app: app)
         XCTAssertTrue(app.staticTexts["Fixture B"].waitForExistence(timeout: 5))
         tap("correct-face", app: app); tap("unassign-face", app: app)
         expectation(for: NSPredicate(format: "label == '0 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
         waitForExpectations(timeout: 5)
         tap("decision-undo", app: app)
-        expectation(for: NSPredicate(format: "label == '1 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
+        expectation(for: NSPredicate(format: "label == '1 confirmed photo'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
         waitForExpectations(timeout: 5)
         XCTAssertFalse(app.staticTexts["decision-error"].exists)
     }
@@ -196,8 +185,10 @@ final class PeopleFlowTests: XCTestCase {
     func testCommittedNamingDismissesDespiteRefreshFailureAndPersistsOnce() {
         let app = catalog(extraArguments: ["--uitest-fail-people-refresh-after-decision"])
         tap("unidentified-face", app: app)
-        tap("save-selected-face", app: app)
-        XCTAssertTrue(app.staticTexts["decision-error"].waitForExistence(timeout: 5))
+        // An empty name is invalid input: Save is disabled up front, so no error can be provoked.
+        XCTAssertTrue(app.buttons["save-selected-face"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["save-selected-face"].isEnabled)
+        XCTAssertTrue(app.staticTexts["name-hint"].exists)
         tap("cancel-face-form", app: app)
         XCTAssertFalse(app.staticTexts["decision-error"].exists)
         tap("unidentified-face", app: app); name("Fixture A", app: app)
@@ -220,9 +211,9 @@ final class PeopleFlowTests: XCTestCase {
         let preview = app.images["Photo preview"].firstMatch
         reveal(preview, app: app, passive: true); XCTAssertTrue(preview.waitForExistence(timeout: 10))
         let phase = app.staticTexts["scan-phase"]
-        reveal(phase, app: app, passive: true); XCTAssertEqual(phase.label, "Completed")
+        reveal(phase, app: app, passive: true); XCTAssertEqual(phase.value as? String, "completed")
         XCTAssertTrue(app.staticTexts["scan-counts"].label.contains("Processed 3"))
-        XCTAssertEqual(app.staticTexts["source-status"].label, "Folder selected · cached last verified previews")
+        XCTAssertEqual(app.staticTexts["source-status"].label, "Folder selected · cached previews")
         XCTAssertFalse(app.staticTexts["setup-error"].exists)
         navigate("People", app: app)
         let warning = app.staticTexts["people-refresh-warning"]
@@ -239,8 +230,8 @@ final class PeopleFlowTests: XCTestCase {
         let savedID = person("Fixture A", app: app).identifier
         personID(savedID, app: app).tap()
         let field = app.textFields["rename-person-name"]
-        reveal(field, app: app); field.tap()
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Fixture A".count) + "Fixture B")
+        reveal(field, app: app)
+        clearAndType(field, "Fixture B", app)
         tap("save-person-name", app: app)
         expectation(for: NSPredicate(format: "value == 'Fixture B'"), evaluatedWith: field); waitForExpectations(timeout: 5)
         tap("decision-undo", app: app)
@@ -286,14 +277,14 @@ final class PeopleFlowTests: XCTestCase {
         let targetID = String(survivorID.dropFirst("person-".count))
         personID(sourceID, app: app).tap(); tap("correct-face", app: app)
         tap("existing-person", app: app)
-        let target = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fixture B ·")).firstMatch
+        let target = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fixture B")).firstMatch
         XCTAssertTrue(target.waitForExistence(timeout: 5)); target.tap()
         tap("reject-selected-person", app: app)
         tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
         XCTAssertTrue(app.buttons["apply-merge"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["apply-merge"].isEnabled)
         tap("cancel-merge", app: app)
-        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photos")
+        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photo")
         tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
         let confirmation = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'merge-confirm-'" )).firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()

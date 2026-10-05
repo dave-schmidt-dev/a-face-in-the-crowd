@@ -311,16 +311,21 @@ final class CatalogPrivacyService: ObservableObject {
     }
 }
 
+/// Routine local privacy actions (clear previews, disconnect the source) and their results.
+/// Whole-catalog deletion is a separate destructive group placed last in Settings.
 struct PrivacySettingsActions: View {
     @ObservedObject var privacy: CatalogPrivacyService
+    @Environment(\.tokens) private var tokens
     init(services: AppServices) { privacy = services.privacy }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Local privacy actions").font(.headline)
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+            Text("Local data").font(.headline).accessibilityAddTraits(.isHeader)
             Text("These actions leave originals on your drive and existing exported backups untouched.")
-            Button("Delete local catalog", role: .destructive) { privacy.request(.catalog) }.frame(minHeight: 48).disabled(!privacy.canRequest).accessibilityIdentifier("delete-local-catalog")
-            Button("Clear cached previews") { privacy.request(.cache) }.disabled(!privacy.canRequest).accessibilityIdentifier("clear-cached-previews")
-            Button("Disconnect source") { privacy.request(.disconnect) }.disabled(!privacy.canRequest).accessibilityIdentifier("disconnect-source")
+                .foregroundStyle(tokens.textSecondary)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.s) { routineButtons }
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { routineButtons }
+            }
             if privacy.busy { ProgressView("Finishing privacy action") }
             if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("privacy-operation-message") }
             if privacy.completedCleanup != "None" { Text("Completed cleanup: " + privacy.completedCleanup).accessibilityIdentifier("privacy-completed-cleanup") }
@@ -329,7 +334,7 @@ struct PrivacySettingsActions: View {
             Text(privacy.state.rawValue).font(.caption).accessibilityIdentifier("privacy-operation-state")
             #endif
             if [.cleanupRequired, .retryRequired].contains(privacy.state) {
-                Button("Retry privacy action", action: privacy.retry).disabled(privacy.busy).accessibilityIdentifier("retry-privacy-action")
+                Button("Retry privacy action", action: privacy.retry).buttonStyle(.capsule).disabled(privacy.busy).accessibilityIdentifier("retry-privacy-action")
             }
             #if DEBUG
             Text(privacy.probe).font(.caption).accessibilityIdentifier("privacy-operation-probe")
@@ -342,8 +347,37 @@ struct PrivacySettingsActions: View {
                 Button("Clean owned synthetic copies") { privacy.verifyDeletionFixture(cleanup: true) }.disabled(privacy.busy).accessibilityIdentifier("cleanup-deletion-fixture")
             }
             #endif
-        }.buttonStyle(.bordered).controlSize(.large)
+        }
+        .card()
         .modifier(PrivacyConfirmation(privacy: privacy, person: false))
+    }
+
+    @ViewBuilder private var routineButtons: some View {
+        Button("Clear cached previews") { privacy.request(.cache) }.buttonStyle(.capsuleSecondary)
+            .disabled(!privacy.canRequest).accessibilityIdentifier("clear-cached-previews")
+        Button("Disconnect source") { privacy.request(.disconnect) }.buttonStyle(.capsuleSecondary)
+            .disabled(!privacy.canRequest).accessibilityIdentifier("disconnect-source")
+    }
+}
+
+/// The only destructive group in Settings, always last. Confirmation is unchanged.
+struct CatalogDeletionSection: View {
+    @ObservedObject var privacy: CatalogPrivacyService
+    @Environment(\.tokens) private var tokens
+    init(services: AppServices) { privacy = services.privacy }
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+            Label("Delete catalog", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline).foregroundStyle(tokens.destructive).accessibilityAddTraits(.isHeader)
+            Text("Removes names, decisions, cached previews and saved settings from this iPad. Original photos and exported backups stay. Back up first if you may want these names again.")
+                .foregroundStyle(tokens.textSecondary)
+            Button("Delete local catalog", role: .destructive) { privacy.request(.catalog) }
+                .buttonStyle(.capsuleDestructive).disabled(!privacy.canRequest)
+                .accessibilityIdentifier("delete-local-catalog")
+        }
+        .card()
+        .overlay(RoundedRectangle(cornerRadius: DesignTokens.Radius.card, style: .continuous)
+            .strokeBorder(tokens.destructive.opacity(0.5), lineWidth: 1))
     }
 }
 struct PrivacyConfirmation: ViewModifier {

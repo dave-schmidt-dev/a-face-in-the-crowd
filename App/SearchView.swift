@@ -17,8 +17,7 @@ struct SearchView: View {
         nonmutating set { presentation.setSearch(mode: newValue) }
     }
     @State private var viewer: PhotoIdentity?
-    @Environment(\.colorScheme) private var scheme
-    private var tokens: DesignTokens { DesignTokens(scheme: scheme) }
+    @Environment(\.tokens) private var tokens
     private func title(_ mode: SearchMode) -> String {
         switch mode { case .together: return "Together"; case .any: return "Any selected"; case .only: return "Only selected" }
     }
@@ -57,24 +56,28 @@ struct SearchView: View {
         case .only: return "Photos with only \(list) among resolved detected faces. Detection can miss people."
         }
     }
+    @ViewBuilder private var modeButtons: some View {
+        ForEach([SearchMode.together, .any, .only], id: \.self) { value in
+            Button { mode = value } label: { Text(title(value)).lineLimit(1).minimumScaleFactor(0.8) }
+                .buttonStyle(CapsuleButtonStyle(prominent: mode == value, minHeight: 44))
+                .accessibilityIdentifier("search-mode-\(value.rawValue)")
+                .accessibilityAddTraits(mode == value ? .isSelected : [])
+        }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Confirmed people").font(.headline)
             if !services.hasLoadedPeopleSnapshot { Text("People unavailable. Refresh People before searching.") }
             PersonChips(people: activePeople, selected: chipSelection)
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach([SearchMode.together, .any, .only], id: \.self) { value in
-                    Button { mode = value } label: {
-                        Label(title(value), systemImage: mode == value ? "checkmark.circle.fill" : "circle")
-                            .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-                    }.accessibilityIdentifier("search-mode-\(value.rawValue)")
-                        .accessibilityAddTraits(mode == value ? .isSelected : [])
-                }
+            // One segmented choice, not three stacked rows; wraps to a column at large text sizes.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.xs) { modeButtons }
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) { modeButtons }
             }
-            Text(sentence).accessibilityIdentifier("query-sentence")
+            Text(sentence).font(.subheadline).accessibilityIdentifier("query-sentence")
             if selectionUnavailable {
                 Button("Clear unavailable selections") { selected = Set(selected.filter { canonicalID($0) != nil }) }
-                    .frame(minHeight: 44).accessibilityIdentifier("clear-unavailable-selections")
+                    .buttonStyle(.capsuleSecondary).accessibilityIdentifier("clear-unavailable-selections")
             }
             #if DEBUG
             if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-hold-read") ||
@@ -85,28 +88,33 @@ struct SearchView: View {
             Text("Only confirmed identities included. Possible matches unavailable.")
                 .font(.caption).foregroundStyle(tokens.secondary).accessibilityIdentifier("possible-unavailable")
             Button("Show photos") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
-                .frame(minHeight: 48).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
+                .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+                .disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
                 .accessibilityIdentifier("show-photos")
             if controller.searching { ProgressView("Searching").accessibilityIdentifier("searching") }
             if let error = controller.error { Text(error).accessibilityIdentifier("search-error") }
             if let snapshot = controller.snapshot {
                 Text("\(snapshot.totalCount) \(snapshot.totalCount == 1 ? "photo" : "photos")").font(.headline).accessibilityIdentifier("search-result-count")
-                Text(snapshot.selectedPeople.isEmpty ? "All catalog photos" : "Confirmed: " + snapshot.selectedPeople.map(\.displayName).joined(separator: ", "))
-                    .font(.caption).accessibilityIdentifier("search-snapshot")
+                // With people selected the chips above already say who was searched; this caption
+                // only says what an empty selection means.
+                if snapshot.selectedPeople.isEmpty {
+                    Text("All catalog photos").font(.footnote).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("search-snapshot")
+                }
                 Button("Refresh results") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
-                    .frame(minHeight: 44).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
+                    .buttonStyle(.capsuleSecondary).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
                     .accessibilityIdentifier("refresh-search")
                 if snapshot.query.mode == .only {
                     Text("\(snapshot.coverage.unresolvedCandidatePhotoCount) candidate \(snapshot.coverage.unresolvedCandidatePhotoCount == 1 ? "photo" : "photos") withheld for unresolved faces; \(snapshot.coverage.extraPeopleCandidatePhotoCount) \(snapshot.coverage.extraPeopleCandidatePhotoCount == 1 ? "photo has" : "photos have") extra people.")
                         .accessibilityIdentifier("only-coverage")
                 }
                 if snapshot.totalCount == 0 { Text("No photos match these confirmed people and this mode.").accessibilityIdentifier("search-empty") }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180))], spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: DesignTokens.Spacing.s)], spacing: DesignTokens.Spacing.s) {
                     ForEach(controller.visibleResults, id: \.photo.id) { result in
                         Button { viewer = result.photo } label: {
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                                 SearchPreview(services: services, url: services.previewURL(result.photo))
-                                Text(result.photo.relativePath).font(.caption).lineLimit(2)
+                                Text((result.photo.relativePath as NSString).lastPathComponent)
+                                    .font(.caption).foregroundStyle(tokens.textSecondary).lineLimit(1)
                             }
                         }.presentationAnchor(result.photo.id, section: "Search")
                             .accessibilityIdentifier("search-photo-\(result.photo.id.uuidString)")
@@ -114,7 +122,7 @@ struct SearchView: View {
                     }
                 }
                 if controller.visibleResults.count < snapshot.totalCount {
-                    Button("Load more photos") { controller.nextPage(); presentation.requestedPage() }.frame(minHeight: 48).disabled(presentation.preferences.search.requestedPages >= 64).accessibilityIdentifier("search-next-page")
+                    Button("Load more photos") { controller.nextPage(); presentation.requestedPage() }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(presentation.preferences.search.requestedPages >= 64).accessibilityIdentifier("search-next-page")
                     if presentation.preferences.search.requestedPages >= 64 { Text("Refine this search to view more photos.").foregroundStyle(tokens.secondary) }
                 }
             }
@@ -134,7 +142,8 @@ private struct SearchPreview: View {
         Group {
             if let image { Image(uiImage: image).resizable().scaledToFit() }
             else { Text(released ? "Preview released for memory" : "Cached preview unavailable") }
-        }.frame(maxWidth: .infinity).frame(height: 160)
+        }.frame(maxWidth: .infinity).frame(height: 200)
+            .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
             .task(id: url) {
                 guard let operation = services.catalogSession.begin("search-preview") else { image = nil; return }
                 defer { services.catalogSession.finish(operation) }
