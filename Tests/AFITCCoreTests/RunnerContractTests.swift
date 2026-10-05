@@ -364,7 +364,7 @@ final class RunnerContractTests: XCTestCase {
         exec(compile(functions, str(root / 'tools/verify.sh'), 'exec'), namespace)
         assert namespace['ui_budget_seconds']('phase3') == 2700
         assert namespace['ui_budget_seconds']('phase5') == 2700
-        assert namespace['ui_budget_seconds']('phase6') == 4500
+        assert namespace['ui_budget_seconds']('phase6') == 6300
         assert namespace['UI_FINALIZATION_GRACE_SECONDS'] == 60
         assert namespace['UI_STOP_GRACE_SECONDS'] == 60
         namespace.update(UI_FINALIZATION_GRACE_SECONDS=0.15, UI_STOP_GRACE_SECONDS=0.4)
