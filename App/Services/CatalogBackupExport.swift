@@ -8,12 +8,14 @@ actor CatalogBackupExport {
     enum Failure: Error { case unsafe, collision, write, changed, cleanup }
     private var output: URL?
     private var identity: stat?
+    private var scopedParent: URL?
     private var created: [String: stat] = [:]
     func write(_ backup: PreparedCatalogBackup, to parent: URL, name: String,
                progress: @escaping @Sendable (CatalogOperationProgress) -> Void) throws -> URL {
         let scoped = parent.startAccessingSecurityScopedResource()
         defer { if scoped { parent.stopAccessingSecurityScopedResource() } }
         guard parent.isFileURL, name == URL(fileURLWithPath: name).lastPathComponent else { throw Failure.unsafe }
+        scopedParent = parent
         progress(CatalogOperationProgress(phase: "Waiting for selected folder", completed: 0, total: nil, unit: "operations"))
         var coordinationError: NSError?, result: Result<URL, Error>?
         NSFileCoordinator().coordinate(writingItemAt: parent, options: [], error: &coordinationError) { selected in
@@ -119,6 +121,9 @@ actor CatalogBackupExport {
     }
     /// Retains ownership on failed cleanup for explicit retry, never deletes foreign identities.
     func cleanup() throws {
+        let parent = scopedParent
+        let scoped = parent?.startAccessingSecurityScopedResource() ?? false
+        defer { if scoped { parent?.stopAccessingSecurityScopedResource() } }
         guard let output, let identity else { return }
         let fd = Darwin.open(output.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw Failure.cleanup }; defer { Darwin.close(fd) }

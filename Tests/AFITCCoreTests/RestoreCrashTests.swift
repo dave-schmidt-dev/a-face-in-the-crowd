@@ -7,8 +7,9 @@ import SQLite3
 
 /// Host-only child instrumentation: mapped assertions run in the parent, never in killed helpers.
 final class RestoreCrashTests: XCTestCase {
-    private let evidence = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent(".logs/verification/phase5.durable-matrix-execution-corrected-20261003")
+    private let evidence = ProcessInfo.processInfo.environment["AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE"].flatMap {
+        $0.isEmpty ? nil : URL(fileURLWithPath: $0).appendingPathComponent("restore-crash")
+    } ?? FileManager.default.temporaryDirectory.appendingPathComponent("afitc-restore-crash-evidence")
     fileprivate struct Child { let reason: Process.TerminationReason; let status: Int32 }
     private func ownedRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("afitc-crash-" + UUID().uuidString)

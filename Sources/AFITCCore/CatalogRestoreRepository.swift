@@ -18,7 +18,7 @@ public actor CatalogRestoreRepository {
     /// Only the startup reservation sweeps crash-orphaned stages; live and suspension sessions never do.
     private let sweepsOrphans: Bool
     /// Fixed count of recognised leftovers the startup sweep could not remove; no names or paths.
-    private(set) var skippedOrphans = 0
+    public private(set) var skippedOrphans = 0
     private var freshCandidate: CatalogRepository?
     private var files: CatalogRestoreFiles?
     private var retained: (RestoreFileStage, RestoreMarker)?

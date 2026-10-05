@@ -45,6 +45,8 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Contracts for preserving originals, local sensitive data, human confirmation, truthful search and recoverable catalogs.
 
 ### Changed
+- The catalog database now opens with full SQLite `secure_delete`, so deleted names and decisions are overwritten in the file instead of relying on the platform default.
+- `tools/verify.sh` strips File Provider extended attributes from reused build products before building, so codesign no longer fails when the project lives in a synced Documents folder.
 - `tools/verify.sh <phase> --headless` runs an accumulated phase's Core tests and iPad compile without the simulator UI suite; the full UI gate is reserved for release milestones.
 - `tools/verify.sh` gives every Core test run a fresh runner-owned `synthetic-evidence/` directory as `AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE`, preserving a caller-exported value, and records it in the run summary.
 - Accumulated native gates retain both UI and runtime-unit cases, report their actual counts and stage durations, and use a 45-minute watchdog for phase 5 and a 75-minute watchdog for phase 6 with bounded cleanup.
@@ -53,6 +55,8 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Separated synthetic core checks and simulator compilation from native UI, physical compatibility and M4 performance acceptance.
 
 ### Fixed
+- Cleaning up a failed backup export now reopens access to the chosen folder, so the cleanup can succeed without a relaunch before privacy actions are available again.
+- Restore leftovers that startup could not remove are now counted in the diagnostic log (count only, no names or paths).
 - Deleting the local catalog now checks the whole catalog before erasing anything, and accepts the app’s own leftovers (an import folder after relaunch, previews left by restoring an older backup, interrupted backup or restore stages, temporary marker and preview files), so deletion no longer stops partway.
 - Backup and restore stages left by an interrupted run are removed at the next launch instead of keeping catalog copies on disk.
 - A photo whose original became oversized or unsafe while its preview was missing no longer keeps its earlier confirmed faces in search.

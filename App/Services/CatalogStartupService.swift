@@ -32,7 +32,11 @@ final class CatalogStartupService {
             }
             do {
                 guard services.sessionIsCurrent(operation.session), services.protection.admitsWork, !Task.isCancelled else { return }
-                if returned == nil { returned = try await recovery.open() }
+                if returned == nil {
+                    returned = try await recovery.open()
+                    let skipped = await recovery.skippedOrphans
+                    if skipped > 0 { await services.diagnostics.record(.orphansSkipped, count: skipped) }
+                }
                 guard let repo = returned else { throw CatalogRecoveryError.recoveryRequired }
                 let photos = try await repo.photos(), checkpoint = try await repo.checkpoint()
                 #if DEBUG

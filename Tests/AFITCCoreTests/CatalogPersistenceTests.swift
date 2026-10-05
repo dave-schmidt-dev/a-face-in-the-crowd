@@ -189,6 +189,20 @@ final class CatalogPersistenceTests: XCTestCase {
         let records = try await repo.photos(); XCTAssertEqual(records, [photo])
     }
 
+    func testCatalogConnectionUsesFullSecureDelete() async throws {
+        let folder = try directory()
+        let repo = try CatalogRepository(directory: folder.appendingPathComponent("db"), cacheDirectory: folder.appendingPathComponent("cache"))
+        // Apple's SQLite defaults to 2 (FAST), which can leave deleted bytes on overflow and freelist pages.
+        let mode = try await repo.peopleTransaction { db -> Int32 in
+            var statement: OpaquePointer?
+            guard sqlite3_prepare_v2(db, "PRAGMA secure_delete", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
+            defer { sqlite3_finalize(statement) }
+            guard sqlite3_step(statement) == SQLITE_ROW else { throw ScanError.database }
+            return sqlite3_column_int(statement, 0)
+        }
+        XCTAssertEqual(mode, 1)
+    }
+
     private func fixtureSQL(_ file: URL, _ sql: String) throws {
         var handle: OpaquePointer?
         XCTAssertEqual(sqlite3_open(file.path, &handle), SQLITE_OK)

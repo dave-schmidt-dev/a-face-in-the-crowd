@@ -441,6 +441,16 @@ for target, config in targets.items():
             if file not in pm.get(target, set()):
                 reject(f'{file} is not a SwiftPM source member of {target}')
 
+# File Provider metadata on reused build products breaks codesign; strip it before each build.
+def clear_build_xattrs():
+    products = [path for path in (root / 'build/swift', root / 'build/DerivedData/Build/Products') if path.exists()]
+    for path in products:
+        subprocess.run(['xattr', '-cr', str(path)], check=False)
+    if products:
+        print('[verify] Cleared build-product xattrs', flush=True)
+
+clear_build_xattrs()
+
 # Batch changed-target selectors but require actual passing evidence for each.
 selection = '|'.join(re.escape(selector) for selector in filters)
 output = run(['swift', 'test', '--disable-sandbox', '--scratch-path', 'build/swift',
@@ -452,6 +462,8 @@ for selector in filters:
     if not re.search(pattern, output):
         reject(f'Zero passing tests actually executed for {selector}')
     counts[selector] = 1
+
+clear_build_xattrs()
 
 # Builds app, framework and both test bundles without simulator startup or UI execution.
 output = run(['xcodebuild', 'build-for-testing', '-project', 'AFITC.xcodeproj',

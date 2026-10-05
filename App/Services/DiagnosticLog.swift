@@ -4,7 +4,7 @@ import Darwin
 /// Bounded diagnostics accepts only fixed categories and nonnegative aggregate counts.
 /// Names, paths, images, vectors and arbitrary error descriptions cannot enter this API.
 public actor DiagnosticLog {
-    public enum Event: String, Sendable { case shellOpened, operationUnavailable, operationFailed }
+    public enum Event: String, Sendable { case shellOpened, operationUnavailable, operationFailed, orphansSkipped }
     public enum Severity: String, Sendable { case warning, debug }
     private let directory: URL
     private let debugEnabled: Bool

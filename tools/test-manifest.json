@@ -3124,6 +3124,7 @@
             "AFITCCoreTests.CatalogPersistenceTests/testPreviewOverwriteDoesNotEvictUnrelatedCachedRecord",
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryBuildsOnceForHundredWritesAndReconstructsAfterRestart",
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryReplacementEvictionAndOSRemovalStayWithinBudget",
+            "AFITCCoreTests.CatalogPersistenceTests/testCatalogConnectionUsesFullSecureDelete",
             "AFITCCoreTests.SourceRecoveryTests/testTrustedRevisionSkipsReadDecodeAndInferenceAcrossRestart",
             "AFITCCoreTests.SourceRecoveryTests/testWeakMetadataHashesAfterCachedPreviewAndChangedBytesInvalidateFaces",
             "AFITCCoreTests.SourceRecoveryTests/testStorageAndLockPauseChangedGenerationAndResumeWithoutOldFaces",
