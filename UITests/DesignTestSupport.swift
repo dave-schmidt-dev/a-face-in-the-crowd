@@ -73,12 +73,23 @@ extension XCTestCase {
         let bars = app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex
         // A bar item (Done, Cancel, gear) lives inside its bar; only content scrolled under a bar is rejected.
         if bars.contains(where: { $0.frame.intersects(frame) && !$0.frame.insetBy(dx: -1, dy: -1).contains(frame) }) { return false }
+        // Scrolled content under the bottom status inset is covered even when hittable: in a short
+        // landscape window a tap there lands on the inset's own controls.
+        if !Self.bottomInsetIDs.contains(id) {
+            let inset = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN %@", Self.bottomInsetIDs)).allElementsBoundByIndex
+            if let top = inset.map({ $0.frame.minY }).filter({ $0.isFinite }).min(), frame.maxY > top + 1 { return false }
+        }
         if !viewport.frame.contains(frame),
            !(frame.height > viewport.frame.height * 0.8 && viewport.frame.contains(CGPoint(x: frame.midX, y: frame.midY))) {
             return false
         }
         return element.isHittable
     }
+
+    /// Rows RootView pins in each screen's bottom safe-area inset (save status, retry, test controls).
+    static let bottomInsetIDs = ["presentation-save-warning", "presentation-save-status", "retry-presentation-save",
+                                 "presentation-persistence-probe", "flush-presentation-inputs",
+                                 "presentation-save-fixture-probe", "block-presentation-save", "repair-presentation-save"]
 
     /// One-line geometry report for assertion messages: why an element was not revealed.
     func whyNotRevealed(_ element: XCUIElement, _ app: XCUIApplication) -> String {
@@ -92,10 +103,22 @@ extension XCTestCase {
     /// The one shared reveal: swipes (bounded, both directions) until the element is fully
     /// revealed. Lazy rows that do not exist yet are created by the scrolling.
     func revealElement(_ element: XCUIElement, _ app: XCUIApplication) {
+        if !isRevealed(element, app) { dismissKeyboard(app) }
         // `identifier` queries the element, which fails for a lazy row that is not rendered yet.
         let id = element.exists ? element.identifier : ""
         for _ in 0..<12 { if isRevealed(element, app) { return }; scrollPage(app, towardEnd: true, containing: id) }
         for _ in 0..<16 { if isRevealed(element, app) { return }; scrollPage(app, towardEnd: false, containing: id) }
+    }
+
+    /// Puts the software keyboard away with its own hide key. A real iPad shows the software
+    /// keyboard (a simulator with a hardware keyboard does not), and drags in a short landscape
+    /// window above it do not reach controls below the fold.
+    func dismissKeyboard(_ app: XCUIApplication) {
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.exists else { return }
+        let hide = keyboard.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'hide keyboard' OR identifier CONTAINS[c] 'hide keyboard' OR label CONTAINS[c] 'dismiss'")).firstMatch
+        if hide.exists { hide.tap() }
+        _ = keyboard.waitForNonExistence(timeout: 3)
     }
 
     /// Scrolls the scroll view holding `id` (else the front-most one) by a mid-screen drag. Never a
