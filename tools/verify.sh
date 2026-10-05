@@ -118,14 +118,15 @@ if len(args) == 3 and args[0] == '--select-simulator':
 started = time.monotonic()
 validate_only = len(args) == 3 and args[1] == '--validate-manifest'
 native = len(args) == 1 and args[0].startswith('phase')
+phase_headless = len(args) == 2 and args[0].startswith('phase') and args[1] == '--headless'
 runtime_admission = len(args) == 2 and args == ['task2.runtime-admission', '--runtime-admission']
 if not (validate_only or native or runtime_admission or (len(args) == 2 and args[1] == '--headless')):
-    reject('Usage: tools/verify.sh <task> --headless | <phase> | <task> --validate-manifest <file> | task2.runtime-admission --runtime-admission')
+    reject('Usage: tools/verify.sh <task> --headless | <phase> [--headless] | <task> --validate-manifest <file> | task2.runtime-admission --runtime-admission')
 task_id = args[0]
 if task_id == 'task2.runtime-admission' and any(os.environ.get(key) for key in ('ORT_POD_LOCAL_PATH', 'ORT_EXTENSIONS_POD_LOCAL_PATH')):
     reject('Local ORT archive overrides are not admitted')
 root = Path.cwd()
-logs = root / '.logs' / 'verification' / task_id
+logs = root / '.logs' / 'verification' / (task_id + '.headless' if phase_headless else task_id)
 if not re.fullmatch(r'[A-Za-z0-9_.-]+', task_id):
     reject('Invalid task identifier')
 logs.mkdir(parents=True, exist_ok=True)
@@ -278,7 +279,7 @@ def run(command, name, stream=True, watchdog=False, owned_child_receipt=None):
 
 try:
     manifest = json.loads(Path(args[2] if validate_only else 'tools/test-manifest.json').read_text())
-    task_ids = manifest['phases'][task_id] if native else [task_id]
+    task_ids = manifest['phases'][task_id] if native or phase_headless else [task_id]
     targets = {}
     for identifier in task_ids:
         task = manifest['tasks'][identifier]

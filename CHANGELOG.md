@@ -45,6 +45,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Contracts for preserving originals, local sensitive data, human confirmation, truthful search and recoverable catalogs.
 
 ### Changed
+- `tools/verify.sh <phase> --headless` runs an accumulated phase's Core tests and iPad compile without the simulator UI suite; the full UI gate is reserved for release milestones.
 - `tools/verify.sh` gives every Core test run a fresh runner-owned `synthetic-evidence/` directory as `AFITC_SYNTHETIC_DIAGNOSTIC_EVIDENCE`, preserving a caller-exported value, and records it in the run summary.
 - Accumulated native gates retain both UI and runtime-unit cases, report their actual counts and stage durations, and use a 45-minute watchdog for phase 5 and a 75-minute watchdog for phase 6 with bounded cleanup.
 - App-created macOS backup, validation and restore outputs use descriptor backup exclusion; iOS and live catalog protection retain Foundation. Strict source checks and immutable recovery evidence remain enforced. Full software integration is being verified; native UI and physical-device acceptance remain pending.
