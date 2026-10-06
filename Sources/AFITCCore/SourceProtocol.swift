@@ -67,6 +67,9 @@ import Darwin
 /// Security-scoped, coordinated read-only folder access. Never follows symbolic links.
 public actor FolderPhotoSource: PhotoSource {
     private let root: URL
+    /// The caller's URL instance. iOS attaches the security scope to it; a standardized copy can lose it.
+    private let scopeURL: URL
+    nonisolated var securityScopeURL: URL { scopeURL }
     private let granted: Bool?
     private var scoped = false
     private var openedIdentity: String?
@@ -78,8 +81,8 @@ public actor FolderPhotoSource: PhotoSource {
         func get() -> Bool { lock.lock(); defer { lock.unlock() }; return failed }
     }
     private var enumerationError = EnumerationFailure()
-    public init(root: URL) { self.root = root.standardizedFileURL; granted = nil }
-    init(root: URL, grantForTesting: Bool) { self.root = root.standardizedFileURL; granted = grantForTesting }
+    public init(root: URL) { self.root = root.standardizedFileURL; scopeURL = root; granted = nil }
+    init(root: URL, grantForTesting: Bool) { self.root = root.standardizedFileURL; scopeURL = root; granted = grantForTesting }
     #if DEBUG
     /// Runtime-generated synthetic app-container fixtures only; never used for user folders.
     public static func syntheticFixture(root: URL) -> FolderPhotoSource {
@@ -87,7 +90,7 @@ public actor FolderPhotoSource: PhotoSource {
     }
     #endif
     public func open() async throws {
-        scoped = granted ?? root.startAccessingSecurityScopedResource()
+        scoped = granted ?? scopeURL.startAccessingSecurityScopedResource()
         guard scoped else { throw ScanError.denied }
         let values: URLResourceValues
         do { values = try root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isReadableKey]) }
@@ -201,7 +204,7 @@ public actor FolderPhotoSource: PhotoSource {
     }
     public func close() async {
         enumerator = nil
-        if scoped, granted == nil { root.stopAccessingSecurityScopedResource() }
+        if scoped, granted == nil { scopeURL.stopAccessingSecurityScopedResource() }
         scoped = false
     }
     public func identity() async throws -> String? {
@@ -215,6 +218,6 @@ public actor FolderPhotoSource: PhotoSource {
     public func permissionBookmark() async throws -> Data? { try bookmark() }
     public func bookmark() throws -> Data {
         // Bookmark remains private in the protected catalog container; never exported.
-        try root.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+        try scopeURL.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 }

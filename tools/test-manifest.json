@@ -75,6 +75,7 @@
           ],
           "selectors": [
             "AFITCCoreTests.SourceRecoveryTests/testIncrementalPreviewBeforeEnumerationAndTruthfulCounts",
+            "AFITCCoreTests.SourceRecoveryTests/testSecurityScopeUsesTheCallersURL",
             "AFITCCoreTests.SourceRecoveryTests/testNestedReadOnlySourceDeniedUnavailableAndSymlinkEscape",
             "AFITCCoreTests.SourceRecoveryTests/testMalformedOversizedOrientationAndDecodeBound",
             "AFITCCoreTests.SourceRecoveryTests/testCancellationAndSecondScanPreserveCheckpoint",

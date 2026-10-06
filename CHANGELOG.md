@@ -55,6 +55,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Separated synthetic core checks and simulator compilation from native UI, physical compatibility and M4 performance acceptance.
 
 ### Fixed
+- Choosing a real photo folder on iPad no longer fails with "Folder access denied": folder access now uses the exact folder link the picker returned.
 - Cleaning up a failed backup export now reopens access to the chosen folder, so the cleanup can succeed without a relaunch before privacy actions are available again.
 - Restore leftovers that startup could not remove are now counted in the diagnostic log (count only, no names or paths).
 - Deleting the local catalog now checks the whole catalog before erasing anything, and accepts the app’s own leftovers (an import folder after relaunch, previews left by restoring an older backup, interrupted backup or restore stages, temporary marker and preview files), so deletion no longer stops partway.

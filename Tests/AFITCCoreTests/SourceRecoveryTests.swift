@@ -65,6 +65,15 @@ final class SourceRecoveryTests: XCTestCase {
         XCTAssertEqual(Set(records.map(\.id)).count, 3)
         XCTAssertTrue(records.allSatisfy { $0.analysis.status == .successful && $0.analysis.faces.isEmpty && $0.contentVersion == $0.analysis.contentVersion })
     }
+    /// Regression: a picked folder failed with "Folder access denied" on iPad because the scope was
+    /// requested on a standardized copy, which can lose the security scope iOS attaches to the URL.
+    func testSecurityScopeUsesTheCallersURL() {
+        let picked = URL(fileURLWithPath: "/private/var/mobile/./Picked/photos", isDirectory: true)
+        let source = FolderPhotoSource(root: picked)
+        XCTAssertEqual(source.securityScopeURL.absoluteString, picked.absoluteString)
+        XCTAssertNotEqual(source.securityScopeURL.absoluteString, picked.standardizedFileURL.absoluteString)
+    }
+
     func testNestedReadOnlySourceDeniedUnavailableAndSymlinkEscape() async throws {
         let folder = try directory(), outside = try directory()
         let nested = folder.appendingPathComponent("nested")
