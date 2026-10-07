@@ -157,6 +157,7 @@ struct ProducerHarness {
     static let detectorVersion = "vision-test-r3"
     /// Vision box (normalized, lower-left origin) that uniquely overlaps the default YuNet face.
     static let primaryRect: [Double] = [0.25, 0.2, 0.5, 0.6]
+    let root: URL
     let catalog: CatalogRepository
     let store = TransientFaceEmbeddingStore()
     let bytes: Data
@@ -170,7 +171,13 @@ struct ProducerHarness {
                                             cacheDirectory: root.appendingPathComponent("Cache"))
         _ = try await catalog.acquireSource(identity: sourceIdentity, confirmed: true)
         let bytes = try jpeg(width: 96, height: 64)
-        return ProducerHarness(catalog: catalog, bytes: bytes, hash: sha256(bytes))
+        return ProducerHarness(root: root, catalog: catalog, bytes: bytes, hash: sha256(bytes))
+    }
+
+    /// Reopens the same on-disk catalog; durable analysis must survive relaunch.
+    func reopen() throws -> CatalogRepository {
+        try CatalogRepository(directory: root.appendingPathComponent("Catalog"),
+                              cacheDirectory: root.appendingPathComponent("Cache"))
     }
 
     static func sha256(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
@@ -294,7 +301,7 @@ final class TransientFaceEmbeddingProducerTests: XCTestCase {
         let mixed = try await h.savePhoto(rects: [[0.0, 0.85, 0.1, 0.1], ProducerHarness.primaryRect], path: "m.jpg")
         try await h.producer(loader).enrich(h.request(mixed)) { _ in }
         let rows = try XCTUnwrap(h.store.latestBatch?.rows)
-        XCTAssertEqual(rows.map(\.visionFaceID), h.store.latestBatch?.fence.faces.map(\.geometry.id), "fence order")
+        XCTAssertEqual(rows.map(\.visionFaceID), h.store.latestBatch?.fence.faces.map(\.id), "fence order")
         let byID = Dictionary(uniqueKeysWithValues: rows.map { ($0.visionFaceID, $0.outcome) })
         XCTAssertEqual(byID[mixed.analysis.faces[0].id], .unavailable(.association(.noPositiveIoU)))
         guard case .embedded = byID[mixed.analysis.faces[1].id] else { return XCTFail("Unique face not embedded") }
@@ -320,12 +327,13 @@ final class TransientFaceEmbeddingProducerTests: XCTestCase {
         XCTAssertNil(h.store.latestBatch); XCTAssertEqual(yuNet.calls, 0)
     }
 
-    func testPhotoManualSourceAndSessionChangesDuringHeldInferenceAreStale() async throws {
+    func testGenerationSourceAndSessionChangesDuringHeldInferenceAreStale() async throws {
         let mutations: [(String, (ProducerHarness, PhotoIdentity) async throws -> Void)] = [
-            ("photo", { h, p in var changed = p; changed.metadata = SourceMetadata(revision: "r2", size: 1)
+            ("generation", { h, p in let changed = PhotoIdentity(id: p.id, relativePath: p.relativePath, contentVersion: p.contentVersion + 1,
+                analysis: FaceAnalysisState(status: .successful, detectorVersion: p.analysis.detectorVersion,
+                                            contentVersion: p.contentVersion + 1, faces: p.analysis.faces),
+                contentHash: String(repeating: "a", count: 64))
                 try await h.catalog.save(changed, progress: ScanProgress()) }),
-            ("manual", { h, p in _ = try await h.catalog.applyDecision(
-                .name(face: FaceKey(photo: p, face: p.analysis.faces[0]), displayName: "Pat")) }),
             ("source", { h, _ in _ = try await h.catalog.acquireSource(identity: "volume:other", confirmed: true) }),
             ("session", { h, _ in h.store.invalidate() })
         ]
@@ -343,6 +351,26 @@ final class TransientFaceEmbeddingProducerTests: XCTestCase {
             XCTAssertTrue(yuNet.trace.events.contains("yunet-returned"), "\(name): runtime drained before stale")
             if name == "session" { XCTAssertEqual(sFace.calls, 0, name) }
         }
+    }
+
+    /// Human naming is not in the minimal persistence fence: model results that were already
+    /// computed for the same geometry, content and source stay usable.
+    func testManualNamingDuringHeldInferenceKeepsUsableModelResults() async throws {
+        let h = try await ProducerHarness.make(self)
+        let photo = try await h.savePhoto(rects: [ProducerHarness.primaryRect])
+        let gate = ProducerHoldGate(), yuNet = ProducerYuNetBackend(gate: gate), sFace = ProducerSFaceBackend()
+        let producer = h.producer(ProducerFakeLoader(yuNet: yuNet, sFace: sFace))
+        let run = Task { try await producer.enrich(h.request(photo)) { _ in } }
+        try await gate.waitEntered()
+        _ = try await h.catalog.applyDecision(
+            .name(face: FaceKey(photo: photo, face: photo.analysis.faces[0]), displayName: "Pat"))
+        await gate.release()
+        try await run.value
+        let batch = try XCTUnwrap(h.store.latestBatch, "naming must not discard usable model results")
+        XCTAssertEqual(batch.rows.map(\.visionFaceID), photo.analysis.faces.map(\.id))
+        guard case .embedded = batch.rows[0].outcome else { return XCTFail("Not embedded") }
+        XCTAssertEqual(sFace.calls, 1)
+        try await batch.revalidate(in: h.catalog, verifiedContentHash: h.hash)
     }
 
     func testProgressIsVisibleOrderedAndFreeOfImplementationDetail() async throws {

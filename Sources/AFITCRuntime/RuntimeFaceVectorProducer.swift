@@ -1,25 +1,26 @@
 import AFITCCore
 import Foundation
 
-/// Adapts the existing per-scan transient producer to `FaceVectorProducing`. It runs the unchanged
-/// producer, then reads the store's single retained batch only when that batch belongs to exactly
-/// this request's photo, content version, verified hash and SFace manifest.
+/// Adapts a scan enrichment (the durable persistent producer, or the bare transient producer)
+/// to `FaceVectorProducing`. It runs the wrapped enrichment, then reads the store's single
+/// retained batch only when that batch belongs to exactly this request's photo, content
+/// version, verified hash and SFace manifest.
 public struct RuntimeFaceVectorProducer: FaceVectorProducing {
-    private let producer: TransientFaceEmbeddingProducer
+    private let enrichment: any ScanEnrichment
     private let store: TransientFaceEmbeddingStore
     public let manifest: ModelManifest
 
-    /// Wraps one scan's producer and the store it publishes to.
-    public init(producer: TransientFaceEmbeddingProducer, store: TransientFaceEmbeddingStore,
+    /// Wraps one scan's enrichment and the store its pinned producer publishes to.
+    public init(enrichment: any ScanEnrichment, store: TransientFaceEmbeddingStore,
                 manifest: ModelManifest = .openCVSFace2021December) {
-        self.producer = producer; self.store = store; self.manifest = manifest
+        self.enrichment = enrichment; self.store = store; self.manifest = manifest
     }
 
-    /// Runs the wrapped producer, then maps matching embedded rows to vectors keyed by face ID.
+    /// Runs the wrapped enrichment, then maps matching embedded rows to vectors keyed by face ID.
     /// Producer staleness or a batch for any other photo, version, hash or model is `.stale`.
     public func produce(_ request: ScanEnrichmentRequest,
                         progress: @escaping ScanEnrichmentProgress) async throws -> FaceVectorProduction {
-        do { try await producer.enrich(request, progress: progress) }
+        do { try await enrichment.enrich(request, progress: progress) }
         catch TransientFaceEmbeddingError.stale { throw FaceVectorProductionError.stale }
         guard let batch = store.latestBatch, batch.photoID == request.photo.id,
               batch.contentVersion == request.photo.contentVersion, batch.fence.contentHash == request.contentHash,
@@ -39,6 +40,17 @@ public struct RuntimeFaceVectorProducer: FaceVectorProducing {
                                     contentHash: request.contentHash, vectors: vectors)
     }
 
+    /// Forwards the catch-up admission question to the wrapped enrichment.
+    public func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool {
+        await enrichment.needsAdmittedRead(photo)
+    }
+
     /// Drops the wrapped producer's model handles after the owning scan has returned.
-    public func release() async { await producer.release() }
+    public func release() async {
+        if let persistent = enrichment as? PersistentFaceAnalysisProducer {
+            await persistent.release()
+        } else if let producer = enrichment as? TransientFaceEmbeddingProducer {
+            await producer.release()
+        }
+    }
 }

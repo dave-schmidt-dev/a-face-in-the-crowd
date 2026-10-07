@@ -148,7 +148,9 @@ extension CatalogRepository {
             let projection = try FacePipelinePhoto(current)
             guard current.contentVersion == captured.contentVersion,
                   current.contentHash == captured.contentHash,
-                  current.analysis.detectorVersion == captured.analysis.detectorVersion else {
+                  current.analysis.detectorVersion == captured.analysis.detectorVersion,
+                  current.relativePath == captured.relativePath,
+                  current.analysis.faces == captured.analysis.faces else {
                 throw FacePipelineFenceError.ineligible
             }
             return FaceAnalysisPersistenceFence(actorOwnerID: owner.id, photoID: current.id,

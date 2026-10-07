@@ -210,6 +210,14 @@ final class SuggestionService: ObservableObject {
         while dirty {
             dirty = false
             guard isEnabled, let index else { publish(nil, revision: nil); break }
+            // An empty index after relaunch or a drop reloads the durable current vectors from
+            // disk; no source is read and no inference runs. Before the first scan there is no
+            // retained catalog, so suggestions stay unavailable exactly as before.
+            if index.count == 0, let services,
+               let (catalog, _, operation) = services.beginBackupAdmission("saved-face-details") {
+                await services.faceEmbedding.reloadDurableVectors(into: index, catalog: catalog)
+                services.catalogSession.finish(operation)
+            }
             let started = generation, people = snapshot
             let value = await Task.detached(priority: .utility) {
                 SuggestionEngine.suggestions(snapshot: people, index: index)

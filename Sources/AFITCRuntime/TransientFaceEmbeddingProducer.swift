@@ -19,10 +19,11 @@ public struct TransientFaceEmbeddingRow: Equatable, Sendable {
     public let outcome: TransientFaceEmbeddingOutcome
 }
 
-/// Latest single-photo result, held only in RAM. Deliberately not Codable: it is never
-/// persisted, cached, matched, labeled or treated as confirmation or identity.
+/// Latest single-photo result, held only in RAM. Deliberately not Codable: the batch itself is
+/// never persisted, cached, labeled or treated as confirmation or identity; durable copies of
+/// the vectors go only through the repository's fenced persistence transaction.
 public struct TransientFaceEmbeddingBatch: Sendable {
-    public let fence: CatalogFacePipelineFence
+    public let fence: FaceAnalysisPersistenceFence
     public let sourceIdentity: String?
     public let operationID: UUID
     public let sessionEpoch: UInt64
@@ -35,8 +36,8 @@ public struct TransientFaceEmbeddingBatch: Sendable {
     /// The publication fence proved one transaction instant. Any later use must revalidate
     /// against caller-verified bytes; success grants no persisted-write authority.
     public func revalidate(in repository: CatalogRepository, verifiedContentHash: String) async throws {
-        try await repository.validateFacePipelineFence(fence, sourceIdentity: sourceIdentity,
-                                                       verifiedContentHash: verifiedContentHash)
+        try await repository.validateFaceAnalysisPersistenceFence(fence, sourceIdentity: sourceIdentity,
+                                                                  verifiedContentHash: verifiedContentHash)
     }
 }
 
@@ -132,7 +133,9 @@ struct LocalFacePipelineModelLoader: FacePipelineModelLoader {
 
 /// Production per-scan producer: canonical oriented RGB, fixed-640 BGR tensor, pinned YuNet
 /// heads, strict decode and inverse geometry, unique association to existing Vision UUIDs,
-/// SFace five-point crop and raw 128-value output. It never writes the catalog.
+/// SFace five-point crop and raw 128-value output. It never writes the catalog. Freshness is the
+/// minimal geometry/content/source persistence fence, so human naming during in-flight
+/// inference does not discard usable model results; generation, source and session changes do.
 public actor TransientFaceEmbeddingProducer: ScanEnrichment {
     private let repository: CatalogRepository
     private let store: TransientFaceEmbeddingStore
@@ -151,6 +154,17 @@ public actor TransientFaceEmbeddingProducer: ScanEnrichment {
 
     /// Drops model handles after the owning scan has returned; later requests are stale.
     public func release() { models = nil; released = true }
+
+    /// Prepares the pinned model sessions before a missing-analysis source read is admitted.
+    /// No source bytes are read; failed preparation remains unavailable for this scan.
+    public func prepareForCatchUp(_ photo: PhotoIdentity) async -> Bool {
+        do {
+            try admit { store.isCurrent(token) }
+            if !photo.analysis.faces.isEmpty { _ = try await preparedModels() }
+            try admit { store.isCurrent(token) }
+            return true
+        } catch { return false }
+    }
 
     public func enrich(_ request: ScanEnrichmentRequest, progress: @escaping ScanEnrichmentProgress) async throws {
         let store = self.store, token = self.token
@@ -172,16 +186,16 @@ public actor TransientFaceEmbeddingProducer: ScanEnrichment {
     private func produce(_ request: ScanEnrichmentRequest, current: @escaping @Sendable () -> Bool,
                          report: ScanEnrichmentProgress) async throws {
         try admit(current)
-        let fence: CatalogFacePipelineFence
+        let fence: FaceAnalysisPersistenceFence
         do {
-            fence = try await repository.captureFacePipelineFence(photo: request.photo,
-                                                                  sourceIdentity: request.sourceIdentity)
+            fence = try await repository.captureFaceAnalysisPersistenceFence(photo: request.photo,
+                                                                             sourceIdentity: request.sourceIdentity)
         } catch FacePipelineFenceError.ineligible { throw TransientFaceEmbeddingError.ineligible }
         guard fence.contentHash == request.contentHash else { throw TransientFaceEmbeddingError.stale }
         let vision = try fence.faces.map { face -> FaceAlignmentVisionFace in
-            let r = face.geometry.rectangle
+            let r = face.rectangle
             guard r.count == 4 else { throw TransientFaceEmbeddingError.ineligible }
-            return FaceAlignmentVisionFace(faceID: face.geometry.id,
+            return FaceAlignmentVisionFace(faceID: face.id,
                 box: FaceAlignmentNormalizedBox(x: r[0], y: r[1], width: r[2], height: r[3]))
         }
         guard !vision.isEmpty else {
@@ -260,12 +274,12 @@ public actor TransientFaceEmbeddingProducer: ScanEnrichment {
 
     /// Revalidates the saved domain with the same verified hash after every await, then
     /// publishes only if the App token is still current at that synchronous instant.
-    private func publish(_ fence: CatalogFacePipelineFence, _ request: ScanEnrichmentRequest,
+    private func publish(_ fence: FaceAnalysisPersistenceFence, _ request: ScanEnrichmentRequest,
                          rows: [TransientFaceEmbeddingRow], models: FacePipelineModels?,
                          current: @Sendable () -> Bool) async throws {
         try admit(current)
-        try await repository.validateFacePipelineFence(fence, sourceIdentity: request.sourceIdentity,
-                                                       verifiedContentHash: request.contentHash)
+        try await repository.validateFaceAnalysisPersistenceFence(fence, sourceIdentity: request.sourceIdentity,
+                                                                   verifiedContentHash: request.contentHash)
         try admit(current)
         let batch = TransientFaceEmbeddingBatch(
             fence: fence, sourceIdentity: request.sourceIdentity, operationID: token.operationID,

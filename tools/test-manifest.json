@@ -3474,7 +3474,8 @@
             "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testComposedPipelineReturnsExactRawOutputAndProvenanceForVisionUUID",
             "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testZeroFacesSkipModelsAndAmbiguousOrUnmatchedFacesSkipEmbedding",
             "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testHashMismatchAndIneligiblePhotoPublishNothing",
-            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testPhotoManualSourceAndSessionChangesDuringHeldInferenceAreStale",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testGenerationSourceAndSessionChangesDuringHeldInferenceAreStale",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testManualNamingDuringHeldInferenceKeepsUsableModelResults",
             "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testProgressIsVisibleOrderedAndFreeOfImplementationDetail",
             "AFITCCoreTests.FacePipelineLifecycleAdapterTests/testMainActorClearDuringHeldFinalInferenceSynchronouslyDropsAndPreventsLatePublish",
             "AFITCCoreTests.FacePipelineLifecycleAdapterTests/testLatestSinglePhotoBatchReplacesPreviousAndIsNotEncodable",
@@ -3730,6 +3731,64 @@
           ]
         }
       }
+    },
+    "task7.3": {
+      "description": "Analyze once during scan and reuse: persisted analysis, one admitted catch-up read, no detector rerun",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/PersistentFaceScanTests.swift",
+            "Tests/AFITCCoreTests/ScanEmbeddingEnrichmentTests.swift",
+            "Tests/AFITCCoreTests/TransientFaceEmbeddingProducerTests.swift",
+            "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift",
+            "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.PersistentFaceScanTests/testTwoUnchangedScansAndReopenReuseOneInferenceResult",
+            "AFITCCoreTests.PersistentFaceScanTests/testNamingAfterPersistedScanCausesZeroReadsAndNoInference",
+            "AFITCCoreTests.PersistentFaceScanTests/testCatchUpPreservesExistingFaceKeysGeometryContentVersionAndManualIdentityWithoutDetectorCalls",
+            "AFITCCoreTests.PersistentFaceScanTests/testSuppressionDuringHeldInferencePreventsVectorInsertion",
+            "AFITCCoreTests.PersistentFaceScanTests/testChangedGenerationDuringHeldInferencePersistsNothing",
+            "AFITCCoreTests.PersistentFaceScanTests/testCancelledEnrichmentPersistsNothing",
+            "AFITCCoreTests.PersistentFaceScanTests/testSourceRebindRefusesReuseAndPrunesStaleBindingRows",
+            "AFITCCoreTests.PersistentFaceScanTests/testStaleCallerGeometryRefusesReuse",
+            "AFITCCoreTests.PersistentFaceScanTests/testNamingAndDeletionDuringHeldInferenceRespectDurablePublication",
+            "AFITCCoreTests.PersistentFaceScanTests/testZeroFacePhotoRecordsEmptySuccessWithoutModelLoads",
+            "AFITCCoreTests.PersistentFaceScanTests/testPipelineFailureRecordsExplicitFailureState",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testEnrichmentReusesTheSingleVerifiedReadBytesHashEntryAndSource",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTrustedFastPathMalformedBytesAndNilDefaultMakeZeroCallbacks",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testAcceptedPhotoIsSavedAndPublishedBeforeHeldCallback",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testCallbackFailurePreservesAcceptedAnalysisAndManualStateAndReportsUnavailable",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testProducerStageProgressReachesExistingScanSurfaceAndStopsAfterCancelRequest",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testCancellationDrainsHeldActualRuntimeThenClosesSourceThenFinishesOnce",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testComposedPipelineReturnsExactRawOutputAndProvenanceForVisionUUID",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testZeroFacesSkipModelsAndAmbiguousOrUnmatchedFacesSkipEmbedding",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testHashMismatchAndIneligiblePhotoPublishNothing",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testGenerationSourceAndSessionChangesDuringHeldInferenceAreStale",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testManualNamingDuringHeldInferenceKeepsUsableModelResults",
+            "AFITCCoreTests.TransientFaceEmbeddingProducerTests/testProgressIsVisibleOrderedAndFreeOfImplementationDetail",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testContentChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testManualStateChangeDuringJobDiscardsResult",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testInvalidateDuringJobPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testDisabledGateAndThermalPauseSkipWithoutFailure",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testCancellationDrainsThenPublishesNothing",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testWithinSessionRescanSkipsInferenceWhenIndexed",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testPhotoWithIneligibleFaceIsNotReinferredWithinSession",
+            "AFITCCoreTests.FaceJobCoordinatorTests/testJobStatsRecordDurationsOnly",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testZeroFaceDurableJobRecordsEmptySuccessWithoutModelWork",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testReboundSourcePrunesAllStaleRowsBeforeCapacityAdmission",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testUnavailableModelsAdmitZeroCatchUpReads",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testPauseOrCancellationDuringModelPreparationAdmitsNoRead",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testFailedAnalysisDoesNotInferAgainFromOrdinaryReadBytes",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testExplicitRetryAdmitsOneAttemptAndLeavesManualIdentityIntact",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testOldSourceSuppressionDoesNotSuppressReboundSourceGeneration",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testModelsUnavailableLeavesAnalysisMissingForLaterRetry",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testFailedAndCapacityFullAreExplicitRetryStates",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testPausedSuggestionGateAdmitsNoCatchUpRead"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -3834,7 +3893,8 @@
         "Sources/AFITCCore/FaceAnalysisEncoding.swift",
         "Sources/AFITCCore/FaceGrouping.swift",
         "Sources/AFITCCore/FaceGroupDecisions.swift",
-        "Sources/AFITCCore/FaceAnalysisSQL.swift"
+        "Sources/AFITCCore/FaceAnalysisSQL.swift",
+        "Sources/AFITCCore/FaceAnalysisReuse.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -3895,7 +3955,9 @@
         "Tests/AFITCCoreTests/FaceAnalysisPersistenceTests.swift",
         "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift",
         "Tests/AFITCCoreTests/FaceGroupingTests.swift",
-        "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift"
+        "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift",
+        "Tests/AFITCCoreTests/PersistentFaceScanTests.swift",
+        "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift"
       ]
     },
     "UITests": {
@@ -3928,7 +3990,8 @@
         "Sources/AFITCRuntime/YuNetCPUBackend.swift",
         "Sources/AFITCRuntime/YuNetRuntime.swift",
         "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift",
-        "Sources/AFITCRuntime/RuntimeFaceVectorProducer.swift"
+        "Sources/AFITCRuntime/RuntimeFaceVectorProducer.swift",
+        "Sources/AFITCRuntime/PersistentFaceAnalysisProducer.swift"
       ]
     }
   },

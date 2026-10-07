@@ -4,9 +4,11 @@ import AFITCCore
 import AFITCRuntime
 
 /// Thin MainActor facade over the runtime face-detail lifecycle. It owns no pipeline logic:
-/// the runtime store builds the per-scan producer, and the latest batch stays in RAM only.
-/// When evaluation suggestions are on, the same producer is wrapped in a `FaceJobCoordinator`
-/// that feeds the RAM-only suggestion index; when off, nothing extra is constructed.
+/// the runtime store builds the per-scan producer, and every scan's verified analysis is
+/// persisted through the durable producer, so later scans of unchanged bytes reuse it without
+/// reads or inference. When evaluation suggestions are on, the same durable producer is wrapped
+/// in a `FaceJobCoordinator` that feeds the RAM-only suggestion index; when off, nothing extra
+/// is constructed.
 @MainActor
 final class FaceEmbeddingCoordinator {
     private let store = TransientFaceEmbeddingStore()
@@ -15,8 +17,12 @@ final class FaceEmbeddingCoordinator {
     weak var suggestions: SuggestionService?
     /// Runtime producers owned by in-flight suggestion jobs, released in `finishScan`.
     private var runtimeProducers: [ObjectIdentifier: RuntimeFaceVectorProducer] = [:]
+    /// Catalog of the most recent scan; durable vector reloads read it. Cleared by `invalidate`.
+    private var repository: CatalogRepository?
+    private let analysisResources = FaceJobResources()
 
     init() {
+        analysisResources.isEnabled = true
         // Memory pressure closes the suggestion gate first, then drops the retained batch and
         // the suggestion index synchronously so no publication can slip in between.
         observer = NotificationCenter.default.addObserver(
@@ -24,6 +30,7 @@ final class FaceEmbeddingCoordinator {
         ) { [weak self, store] _ in
             MainActor.assumeIsolated {
                 self?.suggestions?.resources.latchMemoryWarning()
+                self?.analysisResources.latchMemoryWarning()
                 store.invalidate()
                 self?.suggestions?.dropIndex()
             }
@@ -34,16 +41,20 @@ final class FaceEmbeddingCoordinator {
 
     /// Called by `startScan` after its operation is registered. Synthetic fixtures get nil, or in DEBUG
     /// with `--uitest-synthetic-suggestions` a job around the fixed synthetic vector producer.
-    /// With suggestions off the store's producer is returned unchanged.
+    /// Durable persistence is always on; with suggestions off the durable producer is returned alone.
     func beginScan(repository: CatalogRepository, operation: CatalogSessionLifecycle.Operation,
                    syntheticFixture: Bool) -> (any ScanEnrichment)? {
+        self.repository = repository
+        analysisResources.clearMemoryWarning()
         let producer = store.makeEnrichment(repository: repository, operationID: operation.id,
                                             sessionEpoch: operation.session, syntheticFixture: syntheticFixture)
         #if DEBUG
         if syntheticFixture { return syntheticSuggestionJob(repository: repository) }
         #endif
-        guard let producer, let jobs = suggestions?.prepareJob() else { return producer }
-        let runtime = RuntimeFaceVectorProducer(producer: producer, store: store)
+        guard let producer else { return nil }
+        let persistent = PersistentFaceAnalysisProducer(producer: producer, repository: repository, store: store, gate: analysisResources)
+        guard let jobs = suggestions?.prepareJob() else { return persistent }
+        let runtime = RuntimeFaceVectorProducer(enrichment: persistent, store: store)
         let job = FaceJobCoordinator(repository: repository, producer: runtime, index: jobs.index,
                                      gate: jobs.gate, stats: jobs.stats)
         runtimeProducers[ObjectIdentifier(job)] = runtime
@@ -58,12 +69,35 @@ final class FaceEmbeddingCoordinator {
             await runtime?.release()
             return
         }
+        if let persistent = enrichment as? PersistentFaceAnalysisProducer {
+            await persistent.release()
+            return
+        }
         await (enrichment as? TransientFaceEmbeddingProducer)?.release()
+    }
+
+    /// Reloads durable current vectors into the suggestion index after relaunch or a dropped
+    /// index. Nothing is recomputed and no source is read: only already persisted vectors of
+    /// the current source binding, current faces and current content load, photo by photo.
+    func reloadDurableVectors(into index: any FaceVectorIndex, catalog: CatalogRepository? = nil) async {
+        guard let repository = catalog ?? repository else { return }
+        let manifest = ModelManifest.openCVSFace2021December
+        guard let rows = try? await repository.currentDurableFaceVectors(manifest: manifest),
+              !rows.isEmpty else { return }
+        let epoch = index.epoch
+        var byPhoto: [UUID: [(face: FaceKey, vector: EmbeddingVector, contentHash: String)]] = [:]
+        for row in rows { byPhoto[row.face.photoID, default: []].append(row) }
+        for (photoID, entries) in byPhoto {
+            guard let hash = entries.first?.contentHash else { continue }
+            _ = try? index.insert(entries.map { (face: $0.face, vector: $0.vector) },
+                                  photoID: photoID, contentHash: hash, manifest: manifest, epoch: epoch)
+        }
     }
 
     /// Synchronous: invalidates the operation token and drops the retained batch and the index.
     func invalidate() {
         store.invalidate()
+        repository = nil
         suggestions?.dropIndex()
     }
 }

@@ -167,17 +167,38 @@ extension CatalogRepository {
             }
 
             try FaceAnalysisSQL.deleteStaleGenerations(db, photoID: fence.photoID, currentVersion: fence.contentVersion)
+            // Vectors from another source binding are stale derived generations of this photo.
+            try PeopleSQL.run(db, "DELETE FROM face_vectors WHERE photo_id=? AND source_binding != ?",
+                              strings: [fence.photoID.uuidString, fence.sourceIdentity ?? ""])
+            let catalogPhotos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
+            let hashes = Dictionary(uniqueKeysWithValues: catalogPhotos.filter { $0.missing != true }.compactMap { photo in
+                photo.contentHash.map { (photo.id, $0) }
+            })
+            let currentFaces: [FaceKey] = try PeopleSQL.rows(db, "SELECT payload FROM current_faces")
+            let currentKeys = Set(currentFaces)
+            for row in try FaceAnalysisSQL.allVectors(db) where !currentKeys.contains(row.faceKey) ||
+                row.sourceBinding != fence.sourceIdentity || hashes[row.photoID] != row.contentHash ||
+                row.modelIdentifier != manifest.identifier || row.preprocessingVersion != manifest.preprocessingVersion {
+                try FaceAnalysisSQL.deleteVector(db, faceKey: row.faceKey.storageKey)
+            }
+            let suppressed = try Self.currentSuppressedKeys(db, source: fence.sourceIdentity, hashes: hashes)
             let currentCount = try FaceAnalysisSQL.countCurrentVectors(db)
             var newKeys: [FaceKey] = []
             var normalizedVectors: [([Float], FaceGeometry, FaceKey)] = []
 
+            var submitted = Set<UUID>()
             for entry in vectors {
+                guard submitted.insert(entry.faceID).inserted else { return .stale }
                 guard let geometry = fence.faces.first(where: { $0.id == entry.faceID }) else {
                     return .stale
                 }
                 let norm = try entry.vector.normalized(using: manifest).values
                 let key = FaceKey(photoID: fence.photoID, contentVersion: fence.contentVersion,
                                   detectorVersion: fence.detectorVersion, faceID: entry.faceID)
+                // Suppression is rechecked inside this transaction before capacity counting and
+                // insertion, so a human deletion during in-flight inference cannot reinsert the
+                // suppressed biometric vector.
+                if suppressed.contains(key) { continue }
                 if try FaceAnalysisSQL.existingSequence(db, faceKey: key.storageKey) == nil {
                     newKeys.append(key)
                 }
@@ -214,38 +235,7 @@ extension CatalogRepository {
                                              modelIdentifier: manifest.identifier, preprocessingVersion: manifest.preprocessingVersion,
                                              status: .completed, reason: reason)
             try FaceAnalysisSQL.recordPhotoStatus(db, record: record)
-            return .inserted(vectors.count)
-        }
-    }
-
-    public func satisfiesAnalysisReuse(photo: PhotoIdentity, manifest: ModelManifest) throws -> Bool {
-        try peopleRead { db in
-            guard let hash = photo.contentHash, !hash.isEmpty else { return false }
-            if let record = try FaceAnalysisSQL.readPhotoStatus(db, photoID: photo.id, contentVersion: photo.contentVersion,
-                                                                contentHash: hash, model: manifest.identifier,
-                                                                prep: manifest.preprocessingVersion) {
-                if record.status == .completed || record.status == .emptySuccess {
-                    return true
-                }
-            }
-            if !photo.analysis.faces.isEmpty {
-                let allSuppressed = try photo.analysis.faces.allSatisfy { face in
-                    let key = FaceKey(photo: photo, face: face)
-                    return try FaceAnalysisSQL.isSuppressed(db, faceKey: key.storageKey)
-                }
-                if allSuppressed { return true }
-            }
-            return false
-        }
-    }
-
-    public func photoAnalysisStatus(photoID: UUID, contentVersion: Int, contentHash: String,
-                                    manifest: ModelManifest) throws -> PhotoAnalysisStatus? {
-        try peopleRead { db in
-            let record = try FaceAnalysisSQL.readPhotoStatus(db, photoID: photoID, contentVersion: contentVersion,
-                                                            contentHash: contentHash, model: manifest.identifier,
-                                                            prep: manifest.preprocessingVersion)
-            return record?.status
+            return .inserted(normalizedVectors.count)
         }
     }
 

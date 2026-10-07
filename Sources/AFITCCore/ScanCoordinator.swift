@@ -30,6 +30,14 @@ public typealias ScanEnrichmentProgress = @Sendable (String) async -> Void
 /// Optional awaited per-photo work after an accepted save. Ordinary errors never change saved state.
 public protocol ScanEnrichment: Sendable {
     func enrich(_ request: ScanEnrichmentRequest, progress: @escaping ScanEnrichmentProgress) async throws
+    /// True when this trusted unchanged photo deserves exactly one admitted catch-up read so
+    /// enrichment can complete missing durable analysis from verified bytes.
+    func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool
+}
+
+extension ScanEnrichment {
+    /// Default: enrichment without durable analysis never admits an extra source read.
+    public func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool { false }
 }
 /// Serial pull pipeline. Cached verified records precede any source integrity reads.
 public actor ScanCoordinator {
@@ -111,6 +119,24 @@ public actor ScanCoordinator {
                     let trustworthy = entry.metadata?.revision != nil && entry.metadata?.revision == photo.metadata?.revision
                     if trustworthy, acceptedAnalysis, previewAvailable {
                         photo.missing = false; photo.verifiedAt = Date()
+                        if let enrichment {
+                            // One honest catch-up read for missing durable analysis; an accepted
+                            // current analysis causes zero reads and zero inference here.
+                            do {
+                                if let admitted = try await admittedRead(enrichment, source: source,
+                                                                         entry: entry, photo: photo,
+                                                                         generation: generation, progress: &progress) {
+                                    readBytes = admitted.bytes; readHash = admitted.hash
+                                }
+                            } catch is CancellationError { throw CancellationError() }
+                            catch let error as ScanError where error == .paused || error == .staleLease { throw error }
+                            catch {
+                                // The admitted read is opportunistic: accepted analysis is
+                                // preserved and the catch-up retries on a later scan.
+                                progress.message = "Saved face details remain incomplete. The verified photo will be analyzed on a later scan."
+                                await publish(progress, nil)
+                            }
+                        }
                     } else {
                         let bytes = try await source.read(entry)
                         readBytes = bytes
@@ -242,7 +268,8 @@ public actor ScanCoordinator {
                 }
                 try await repository.save(photo, progress: progress, lease: generation)
                 await publish(progress, photo)
-                // Only this iteration's verified bytes qualify; the trusted no-read path never enriches.
+                // Only this iteration's verified bytes qualify: an ordinary read or the single
+                // admitted catch-up read. The trusted no-read path never enriches.
                 if let enrichment, let bytes = readBytes, let hash = readHash,
                    photo.analysis.status == .successful, photo.contentHash == hash {
                     try await enrich(enrichment, ScanEnrichmentRequest(photo: photo, entry: entry,
@@ -294,6 +321,29 @@ public actor ScanCoordinator {
         await source.close(); await publish(progress, nil)
         return progress
     }
+    /// One admitted catch-up read of a trusted unchanged photo whose durable analysis is missing
+    /// or source-stale. The verified bytes flow through the same enrichment dispatch as an
+    /// ordinary read; a hash mismatch discards them and keeps the accepted analysis.
+    private func admittedRead(_ enrichment: any ScanEnrichment, source: any PhotoSource,
+                               entry: SourceEntry, photo: PhotoIdentity, generation: Int,
+                               progress: inout ScanProgress) async throws -> (bytes: Data, hash: String)? {
+        try checkStop()
+        try await repository.requireLease(generation)
+        progress.message = "Checking saved face details and on-device model readiness."
+        await publish(progress, nil)
+        guard await enrichment.needsAdmittedRead(photo) else { return nil }
+        try checkStop()
+        try await repository.requireLease(generation)
+        progress.message = "Reading one unchanged photo to complete saved face details."
+        await publish(progress, nil)
+        let bytes = try await source.read(entry)
+        let hash = try digest(bytes)
+        guard hash == photo.contentHash else { return nil }
+        progress.message = "Completing saved face details from the verified unchanged photo."
+        await publish(progress, nil)
+        return (bytes, hash)
+    }
+
     /// Awaits enrichment to its actual return; cancellation propagates only after that drain.
     /// Stage messages are published, never checkpointed, and ordinary failure is reported only.
     private func enrich(_ enrichment: any ScanEnrichment, _ request: ScanEnrichmentRequest,

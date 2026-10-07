@@ -23,6 +23,13 @@ public protocol FaceVectorProducing: Sendable {
     var manifest: ModelManifest { get }
     /// Returns vectors for `request.photo`, or throws `FaceVectorProductionError.stale` when superseded.
     func produce(_ request: ScanEnrichmentRequest, progress: @escaping ScanEnrichmentProgress) async throws -> FaceVectorProduction
+    /// True when this photo deserves one admitted catch-up read of unchanged bytes.
+    func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool
+}
+
+extension FaceVectorProducing {
+    /// Default: producers without durable analysis never admit an extra source read.
+    public func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool { false }
 }
 
 /// Fixed user-facing reasons a suggestion job skipped a photo. Skips never fail the scan.
@@ -142,6 +149,14 @@ public actor FaceJobCoordinator: ScanEnrichment {
         self.gate = gate; self.stats = stats; self.clock = clock
     }
 
+    /// The suggestion gate also governs the one admitted catch-up read: a paused or disabled job
+    /// never starts source work. Naming and group viewing cause zero reads and zero inference.
+    public func needsAdmittedRead(_ photo: PhotoIdentity) async -> Bool {
+        guard gate.pauseReason() == nil else { return false }
+        let admitted = await producer.needsAdmittedRead(photo)
+        return admitted && !Task.isCancelled && gate.pauseReason() == nil
+    }
+
     /// Skips (closed gate, already indexed, stale) return normally; cancellation drains the producer
     /// and then throws without indexing; other producer errors are counted and rethrown so the scan
     /// reports its existing per-photo unavailable text.
@@ -157,7 +172,14 @@ public actor FaceJobCoordinator: ScanEnrichment {
         catch { stats.update { $0.discarded += 1 }; return }
         guard fence.contentHash == request.contentHash else { stats.update { $0.discarded += 1 }; return }
         let manifest = producer.manifest
-        if fence.faces.isEmpty { stats.update { $0.skippedNoFaces += 1 }; return }
+        if fence.faces.isEmpty {
+            // A durable producer records empty-success using the already verified bytes;
+            // legacy/synthetic producers retain their zero-work path.
+            if await producer.needsAdmittedRead(request.photo) {
+                _ = try await producer.produce(request, progress: progress)
+            }
+            stats.update { $0.skippedNoFaces += 1 }; return
+        }
         if index.wasAttempted(photoID: fence.photoID, contentHash: request.contentHash, manifest: manifest) {
             stats.update { $0.skippedAlreadyIndexed += 1 }; return
         }
