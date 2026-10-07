@@ -52,14 +52,16 @@ final class RestoreInspection {
         // cell_size_check catches malformed b-tree pages in the untrusted file; sqlite3_db_config is variadic and unavailable here.
         try CatalogSchema.execute(db, "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA cell_size_check=ON; PRAGMA mmap_size=0")
         try Task.checkCancellation()
-        guard try CatalogSchema.version(db) == 3 else { throw ScanError.unsupportedSchema }
-        guard try Self.schema(db) == Self.canonicalSchema() else { throw RestoreValidationError.schema }
+        let dbVersion = try CatalogSchema.version(db)
+        guard dbVersion == manifest.schemaVersion else { throw RestoreValidationError.schema }
+        guard dbVersion == 3 || dbVersion == 4 else { throw ScanError.unsupportedSchema }
+        guard try Self.schema(db) == Self.canonicalSchema(version: dbVersion) else { throw RestoreValidationError.schema }
         work.stage = .integrity
-        do { try BackupFiles.validate(db) } catch { try Task.checkCancellation(); throw RestoreValidationError.schema }
+        do { try BackupFiles.validate(db, expectedVersion: dbVersion) } catch { try Task.checkCancellation(); throw RestoreValidationError.schema }
         let (revision, counts) = try BackupFiles.summary(db)
         guard revision == manifest.revision, counts == manifest.counts else { throw RestoreValidationError.domain }
         work.stage = .domain
-        try RestoreDomain.validate(db, revision: revision, work: work)
+        try RestoreDomain.validate(db, revision: revision, version: dbVersion, work: work)
         try Task.checkCancellation()
     }
     private static func schema(_ db: OpaquePointer) throws -> [String: String] {
@@ -73,10 +75,12 @@ final class RestoreInspection {
         }
         guard status == SQLITE_DONE else { try Task.checkCancellation(); throw RestoreValidationError.schema }; return result
     }
-    private static func canonicalSchema() throws -> [String: String] {
+    private static func canonicalSchema(version: Int) throws -> [String: String] {
         var handle: OpaquePointer?; guard sqlite3_open(":memory:", &handle) == SQLITE_OK, let db = handle else { throw ScanError.database }
         var closed = false; defer { if !closed { sqlite3_close(db) } }
-        for migration in CatalogSchema.migrations { try CatalogSchema.execute(db, migration.sql) }
+        for migration in CatalogSchema.migrations where migration.version <= version {
+            try CatalogSchema.execute(db, migration.sql)
+        }
         let value = try schema(db)
         guard sqlite3_close(db) == SQLITE_OK else { throw CatalogLifetimeError.closeBusy }; closed = true
         return value
@@ -186,7 +190,7 @@ enum RestoreDomain {
               person.displayName.count <= 120, !person.displayName.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { throw RestoreValidationError.domain }
         if let cover = person.cover { try key(cover) }
     }
-    static func validate(_ db: OpaquePointer, revision: Int, work: RestoreSQLWork) throws {
+    static func validate(_ db: OpaquePointer, revision: Int, version: Int = 3, work: RestoreSQLWork) throws {
         let personRows: [(String, String?, PersonRecord)] = try rows(db, "SELECT payload,id,NULL FROM people", context: "person", work: work)
         var people: [UUID: PersonRecord] = [:]
         for (id, _, record) in personRows {
@@ -303,6 +307,45 @@ enum RestoreDomain {
         } else if status != SQLITE_DONE { throw RestoreValidationError.domain }
         guard try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM scan_lease WHERE singleton=1 AND generation>=0") == 1,
               try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM catalog_revision WHERE singleton=1 AND revision>=0") == 1 else { throw RestoreValidationError.domain }
+        if version >= 4 {
+            guard try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM face_vectors") == 0,
+                  try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM photo_analysis_records") == 0 else { throw RestoreValidationError.domain }
+            try validateSuppressionAndSeparation(db, work: work)
+        }
+    }
+    private static func validateSuppressionAndSeparation(_ db: OpaquePointer, work: RestoreSQLWork) throws {
+        let suppStmt = try PeopleSQL.statement(db, "SELECT face_key, photo_id, content_version, content_hash, created_at FROM face_suppression")
+        defer { sqlite3_finalize(suppStmt) }
+        var suppStatus = sqlite3_step(suppStmt)
+        while suppStatus == SQLITE_ROW {
+            try work.row()
+            guard sqlite3_column_text(suppStmt, 0) != nil,
+                  let photoIDText = sqlite3_column_text(suppStmt, 1),
+                  UUID(uuidString: String(cString: photoIDText)) != nil,
+                  sqlite3_column_int(suppStmt, 2) > 0,
+                  let hashText = sqlite3_column_text(suppStmt, 3),
+                  String(cString: hashText).utf8.count == 64,
+                  sqlite3_column_double(suppStmt, 4).isFinite else {
+                throw RestoreValidationError.domain
+            }
+            suppStatus = sqlite3_step(suppStmt)
+        }
+        guard suppStatus == SQLITE_DONE else { throw RestoreValidationError.domain }
+
+        let sepStmt = try PeopleSQL.statement(db, "SELECT face_key_a, face_key_b, created_at FROM group_separations")
+        defer { sqlite3_finalize(sepStmt) }
+        var sepStatus = sqlite3_step(sepStmt)
+        while sepStatus == SQLITE_ROW {
+            try work.row()
+            guard let keyAText = sqlite3_column_text(sepStmt, 0),
+                  let keyBText = sqlite3_column_text(sepStmt, 1),
+                  String(cString: keyAText) != String(cString: keyBText),
+                  sqlite3_column_double(sepStmt, 2).isFinite else {
+                throw RestoreValidationError.domain
+            }
+            sepStatus = sqlite3_step(sepStmt)
+        }
+        guard sepStatus == SQLITE_DONE else { throw RestoreValidationError.domain }
     }
     static func pairs(_ db: OpaquePointer, _ sql: String, work: RestoreSQLWork) throws -> Set<String> {
         let statement = try PeopleSQL.statement(db, sql); defer { sqlite3_finalize(statement) }

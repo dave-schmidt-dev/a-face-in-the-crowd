@@ -135,4 +135,82 @@ extension CatalogRepository {
             } catch FacePipelineFenceError.ineligible { throw FacePipelineFenceError.stale }
         }
     }
+
+    /// Captures the minimal geometry/content/source persistence fence for model analysis.
+    public func captureFaceAnalysisPersistenceFence(photo captured: PhotoIdentity,
+                                                    sourceIdentity: String?) throws -> FaceAnalysisPersistenceFence {
+        try peopleRead { db in
+            try Task.checkCancellation()
+            let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
+            guard bindings.count == 1, bindings[0] == sourceIdentity else { throw FacePipelineFenceError.ineligible }
+            let photos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos WHERE id=?", strings: [captured.id.uuidString])
+            guard photos.count == 1, let current = photos.first, current.id == captured.id else { throw FacePipelineFenceError.ineligible }
+            let projection = try FacePipelinePhoto(current)
+            guard current.contentVersion == captured.contentVersion,
+                  current.contentHash == captured.contentHash,
+                  current.analysis.detectorVersion == captured.analysis.detectorVersion else {
+                throw FacePipelineFenceError.ineligible
+            }
+            return FaceAnalysisPersistenceFence(actorOwnerID: owner.id, photoID: current.id,
+                                                relativePath: projection.path, contentVersion: projection.version,
+                                                contentHash: projection.hash, detectorVersion: projection.detector,
+                                                sourceIdentity: bindings[0], faces: projection.geometry)
+        }
+    }
+
+    public func validateFaceAnalysisPersistenceFence(_ fence: FaceAnalysisPersistenceFence, sourceIdentity: String?,
+                                                     verifiedContentHash: String) throws {
+        try peopleRead { db in
+            try validateFaceAnalysisPersistenceFence(db, fence: fence, sourceIdentity: sourceIdentity,
+                                                     verifiedContentHash: verifiedContentHash)
+        }
+    }
+
+    func validateFaceAnalysisPersistenceFence(_ db: OpaquePointer, fence: FaceAnalysisPersistenceFence,
+                                             sourceIdentity: String?, verifiedContentHash: String) throws {
+        try Task.checkCancellation()
+        guard fence.actorOwnerID == owner.id, sourceIdentity == fence.sourceIdentity,
+              !verifiedContentHash.isEmpty, verifiedContentHash == fence.contentHash else {
+            throw FacePipelineFenceError.stale
+        }
+        let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
+        guard bindings.count == 1, bindings[0] == sourceIdentity else { throw FacePipelineFenceError.stale }
+        let photos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos WHERE id=?", strings: [fence.photoID.uuidString])
+        guard photos.count == 1, let current = photos.first, current.id == fence.photoID else { throw FacePipelineFenceError.stale }
+        do {
+            let projection = try FacePipelinePhoto(current)
+            guard projection.id == fence.photoID,
+                  projection.version == fence.contentVersion,
+                  projection.hash == fence.contentHash,
+                  projection.detector == fence.detectorVersion,
+                  projection.geometry == fence.faces else {
+                throw FacePipelineFenceError.stale
+            }
+        } catch {
+            throw FacePipelineFenceError.stale
+        }
+    }
+}
+
+/// Minimal geometry/content/source persistence fence.
+/// Human naming must not discard unchanged in-flight model analysis.
+public struct FaceAnalysisPersistenceFence: Sendable, Equatable {
+    public let actorOwnerID: UUID
+    public let photoID: UUID
+    public let relativePath: String
+    public let contentVersion: Int
+    public let contentHash: String
+    public let detectorVersion: String
+    public let sourceIdentity: String?
+    public let faces: [FaceGeometry]
+
+    public init(actorOwnerID: UUID, photoID: UUID, relativePath: String,
+                contentVersion: Int, contentHash: String, detectorVersion: String,
+                sourceIdentity: String?, faces: [FaceGeometry]) {
+        self.actorOwnerID = actorOwnerID; self.photoID = photoID
+        self.relativePath = relativePath; self.contentVersion = contentVersion
+        self.contentHash = contentHash; self.detectorVersion = detectorVersion
+        self.sourceIdentity = sourceIdentity
+        self.faces = faces.sorted { $0.id.uuidString < $1.id.uuidString }
+    }
 }

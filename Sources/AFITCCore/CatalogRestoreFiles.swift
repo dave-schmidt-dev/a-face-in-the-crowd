@@ -180,7 +180,7 @@ actor CatalogRestoreFiles {
     func copyPackage(from source: URL, manifest: BackupManifest, into stage: RestoreFileStage,
                      slot: RestoreSnapshotSlot) throws -> RestoreSnapshotReference {
         try Task.checkCancellation(); guard !retained.contains(stage.transaction), source.isFileURL,
-              manifest.formatVersion == 1, manifest.schemaVersion == 3 else { throw RestoreFileError.invalidMarker }
+              manifest.formatVersion == 1, (manifest.schemaVersion == 3 || manifest.schemaVersion == 4) else { throw RestoreFileError.invalidMarker }
         let sourceFD = Darwin.open(source.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard sourceFD >= 0 else { throw RestoreFileError.syscall(errno) }; defer { Darwin.close(sourceFD) }
         guard try names(sourceFD) == ["manifest.json", "catalog.sqlite"] else { throw RestoreFileError.unsafeEntry }
@@ -228,7 +228,7 @@ actor CatalogRestoreFiles {
         }
         try sync(folder, role, directory: true); try sync(destination, .stage, directory: true); try sync(rootFD, .ancestor, directory: true)
         return RestoreSnapshotReference(path: stage.name + "/" + slot.rawValue, catalogBytes: catalog.0, catalogSHA256: catalog.1,
-            manifestBytes: metadata.0, manifestSHA256: metadata.1, schemaVersion: 3)
+            manifestBytes: metadata.0, manifestSHA256: metadata.1, schemaVersion: manifest.schemaVersion)
     }
     private func verify(_ reference: RestoreSnapshotReference, transaction: UUID) throws {
         let stage = try openDir(rootFD, "restore-" + transaction.uuidString, .stage); defer { Darwin.close(stage) }

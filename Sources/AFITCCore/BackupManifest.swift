@@ -60,8 +60,13 @@ enum BackupFiles {
                 manualFaceStates: count("manual_faces"), negativePairs: count("pair_negatives"),
                 deferrals: count("deferrals"), decisionEvents: count("decisions")))
     }
-    static func validate(_ db: OpaquePointer) throws {
-        guard try CatalogSchema.version(db) == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+    static func validate(_ db: OpaquePointer, expectedVersion: Int? = nil) throws {
+        let v = try CatalogSchema.version(db)
+        if let expectedVersion {
+            guard v == expectedVersion else { throw ScanError.unsupportedSchema }
+        } else {
+            guard v == 3 || v == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+        }
         let statement = try PeopleSQL.statement(db, "PRAGMA integrity_check")
         defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW, let text = sqlite3_column_text(statement, 0),
@@ -112,7 +117,7 @@ struct RestoreMarker: Codable, Sendable, Equatable {
         guard version == 1 else { throw RestoreFileError.invalidMarker }
         for (slot, reference) in [("old", old), ("new", new)] {
             guard reference.path == stageName + "/" + slot,
-                  reference.schemaVersion == CatalogSchema.currentVersion,
+                  (reference.schemaVersion == 3 || reference.schemaVersion == CatalogSchema.currentVersion),
                   reference.catalogBytes > 0, reference.catalogBytes <= BackupManifest.maximumCatalogBytes,
                   reference.manifestBytes > 0, reference.manifestBytes <= BackupManifest.maximumManifestBytes else { throw RestoreFileError.invalidMarker }
             try BackupFiles.checkLengths(catalog: reference.catalogBytes, manifest: reference.manifestBytes, options: BackupOptions())

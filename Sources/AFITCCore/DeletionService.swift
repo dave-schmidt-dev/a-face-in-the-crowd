@@ -44,12 +44,21 @@ extension CatalogRepository {
             for person in people where try canonical(person.id) == survivor { family.insert(person.id) }
             let states: [ManualFaceState] = try PeopleSQL.rows(db, "SELECT payload FROM manual_faces ORDER BY key")
             var changed = 0
+            var unassignedFaces: [FaceKey] = []
             for var state in states {
                 try Task.checkCancellation()
                 let before = state
-                if state.personID.map({ family.contains($0) }) == true { state.personID = nil; state.isAnchor = false }
+                if state.personID.map({ family.contains($0) }) == true {
+                    state.personID = nil; state.isAnchor = false
+                    unassignedFaces.append(state.key)
+                }
                 state.rejectedPeople.subtract(family); state.deferredPeople.subtract(family)
                 if state != before { try PeopleSQL.writeFace(db, state); changed += 1 }
+            }
+            if try CatalogSchema.version(db) >= 4 {
+                for key in unassignedFaces {
+                    try? FaceAnalysisSQL.deleteVector(db, faceKey: key.storageKey)
+                }
             }
             if fault == .afterFaces { throw DeletionError.injectedFailure }
             for person in family { try Task.checkCancellation(); try PeopleSQL.run(db, "DELETE FROM people WHERE id=?", strings: [person.uuidString]) }

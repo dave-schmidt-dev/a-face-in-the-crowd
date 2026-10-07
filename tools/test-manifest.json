@@ -3614,6 +3614,32 @@
           ]
         }
       }
+    },
+    "task7.1": {
+      "description": "Persist versioned face analysis and strict v3/v4 backup restore compatibility",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceAnalysisPersistenceTests.swift",
+            "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testReopenPreservesFaceVectorsAndRecords",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testStaleBatchRejectionOnContentVersionAdvance",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testStaleGenerationsCleanedOnNewWrite",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testEmptyAttemptsAndStatusTracking",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testFaceCapacityLimit",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testMigrationFromV3ToV4",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testFenceIndependenceFromManualNaming",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testFaceSuppressionAndGroupSeparations",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testExportDropsDerivedVectorsAndZeroRawMarkerBytesRemain",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testDisconnectedRestorePreservesHumanDecisionsAndReportsRecomputationNeeded",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testV3ToV4RestoreRoundTrip",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testInterruptedV3RestoreRecovery"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -3713,7 +3739,9 @@
         "Sources/AFITCCore/FaceVectorIndex.swift",
         "Sources/AFITCCore/SuggestionEngine.swift",
         "Sources/AFITCCore/FaceJobCoordinator.swift",
-        "Sources/AFITCCore/ReviewQueue.swift"
+        "Sources/AFITCCore/ReviewQueue.swift",
+        "Sources/AFITCCore/FaceAnalysisRepository.swift",
+        "Sources/AFITCCore/FaceAnalysisEncoding.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -3770,7 +3798,9 @@
         "Tests/AFITCCoreTests/TransientFaceEmbeddingProducerTests.swift",
         "Tests/AFITCCoreTests/SuggestionStateTests.swift",
         "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift",
-        "Tests/AFITCCoreTests/ReviewQueueTests.swift"
+        "Tests/AFITCCoreTests/ReviewQueueTests.swift",
+        "Tests/AFITCCoreTests/FaceAnalysisPersistenceTests.swift",
+        "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift"
       ]
     },
     "UITests": {

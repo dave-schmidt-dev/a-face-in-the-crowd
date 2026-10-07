@@ -3,7 +3,7 @@ import SQLite3
 
 /// Central ordered registry. SQLite transactional DDL provides atomic rollback.
 public enum CatalogSchema {
-    public static let currentVersion = 3
+    public static let currentVersion = 4
     public struct Migration {
         public let version: Int
         public let sql: String
@@ -19,7 +19,8 @@ public enum CatalogSchema {
         CREATE TABLE source_binding(singleton INTEGER PRIMARY KEY CHECK(singleton=1), payload BLOB NOT NULL);
         CREATE TABLE scan_lease(singleton INTEGER PRIMARY KEY CHECK(singleton=1), generation INTEGER NOT NULL);
         INSERT INTO scan_lease VALUES(1,0);
-        """), Migration(version: 3, sql: PeopleSQL.schema, backfill: PeopleSQL.backfill)]
+        """), Migration(version: 3, sql: PeopleSQL.schema, backfill: PeopleSQL.backfill),
+        Migration(version: 4, sql: FaceAnalysisSQL.schema)]
     public static func execute(_ db: OpaquePointer, _ sql: String) throws {
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw failure(db) }
     }

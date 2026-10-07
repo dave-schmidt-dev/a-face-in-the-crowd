@@ -103,12 +103,24 @@ final class CatalogRestorePreparation {
                 } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
             }
         }
+        func migrateIfNeeded(_ handle: RestoreInspection) throws -> Int {
+            try handle.withHandle { db in
+                let current = try CatalogSchema.version(db)
+                if current < CatalogSchema.currentVersion {
+                    try CatalogSchema.migrate(db, target: CatalogSchema.currentVersion)
+                    return CatalogSchema.currentVersion
+                }
+                return current
+            }
+        }
+        let oldVersion = try migrateIfNeeded(a)
+        let newVersion = try migrateIfNeeded(b)
         try write(a, people: oldPeople); try write(b, people: newPeople); try close()
         try permission(old, writable: false); try permission(new, writable: false)
-        func manifest(_ input: BackupManifest) -> BackupManifest {
-            BackupManifest(formatVersion: input.formatVersion, schemaVersion: input.schemaVersion, createdAt: input.createdAt,
+        func manifest(_ input: BackupManifest, version: Int) -> BackupManifest {
+            BackupManifest(formatVersion: input.formatVersion, schemaVersion: version, createdAt: input.createdAt,
                 revision: revision, counts: input.counts, catalogBytes: input.catalogBytes, catalogSHA256: input.catalogSHA256)
         }
-        return (manifest(oldManifest), manifest(newManifest))
+        return (manifest(oldManifest, version: oldVersion), manifest(newManifest, version: newVersion))
     }
 }

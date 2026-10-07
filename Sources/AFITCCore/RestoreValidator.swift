@@ -132,7 +132,7 @@ public actor RestoreValidator {
         try RestoreDomain.shape(manifestData, context: "manifest")
         let manifest = try JSONDecoder().decode(BackupManifest.self, from: manifestData)
         guard manifest.formatVersion == 1 else { throw RestoreValidationError.unsupportedFormat }
-        guard manifest.schemaVersion == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+        guard manifest.schemaVersion == 3 || manifest.schemaVersion == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
         guard manifest.revision >= 0, manifest.createdAt.timeIntervalSince1970.isFinite,
               manifest.catalogSHA256.utf8.count == 64,
               manifest.catalogSHA256.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw RestoreValidationError.malformed }

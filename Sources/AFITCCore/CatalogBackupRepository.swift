@@ -62,7 +62,16 @@ extension CatalogRepository {
             catch { try? CatalogSchema.execute(source, "ROLLBACK"); throw error }
         } else { pinnedRevision = try peopleRead(copy) }
         progress(BackupProgress(operation: .validating, completed: 0, total: nil))
-        try Task.checkCancellation(); try BackupFiles.validate(target)
+        try Task.checkCancellation()
+        if try CatalogSchema.version(target) >= 4 {
+            try CatalogSchema.execute(target, """
+                PRAGMA secure_delete=ON;
+                DELETE FROM face_vectors;
+                DELETE FROM photo_analysis_records;
+                VACUUM;
+            """)
+        }
+        try BackupFiles.validate(target)
         let (revision, counts) = try BackupFiles.summary(target)
         guard revision == pinnedRevision else { throw ScanError.database }
         guard sqlite3_close(target) == SQLITE_OK else { throw ScanError.database }; closed = true; reserved?.closed()

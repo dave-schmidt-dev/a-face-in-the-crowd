@@ -72,8 +72,12 @@ public actor CatalogRepository {
               let handle = opening else { throw ScanError.database }
         do {
             try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;")
+            let existingVersion = try CatalogSchema.version(handle)
             if requireExisting {
-                guard try CatalogSchema.version(handle) == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+                guard existingVersion <= CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+                if existingVersion < CatalogSchema.currentVersion {
+                    try CatalogSchema.migrate(handle)
+                }
             } else { try CatalogSchema.migrate(handle) }
             try Self.protectLiveArtifacts(self.directory)
             try beforePublication?(handle)

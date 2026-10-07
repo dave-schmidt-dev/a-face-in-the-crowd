@@ -7,6 +7,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 ## [Unreleased]
 
 ### Added
+- Store versioned face analysis in the protected catalog, with atomic stale-result guards, capacity limits and migration from schema 3. Backups retain human decisions and omit derived face vectors.
 - Added a local match-quality evaluation against the Gallagher research dataset, using the bundled face models and the app's suggestion rule; the dataset stays private and is never committed.
 - Applied the approved design system across Library, People, Person, Verify, Search, Settings and the photo viewer: brand palette and lockup, a dense photo grid, circular people cards, one compact status per screen in plain language, destructive actions grouped last, pinch-to-zoom and date taken in the viewer, pull to refresh, and layouts that stay reachable at the largest text size on 9.7-inch iPads. Save warnings and retry rows no longer cover the last control.
 - Verify offers evaluation suggestions, off by default: after Find face details, unidentified faces are compared in memory with faces you confirmed, and one possible match at a time is shown for Yes, Not this person, Unsure, Not a person or Skip. Suggestions never confirm themselves, close calls are not shown, and an answer on a card that changed elsewhere is refused until you choose Show latest. Recognition is not qualified; face details are kept in memory only and must be found again after relaunch.
