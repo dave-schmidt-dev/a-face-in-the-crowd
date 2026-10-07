@@ -57,6 +57,14 @@ extension XCTestCase {
         isOnScreen(element, app) && element.isHittable
     }
 
+    /// Finds the scroll view containing this exact descendant identifier.
+    /// Predicate matching avoids truncation for long FaceKey identifiers.
+    private func scrollViewContaining(identifier: String, in app: XCUIApplication) -> XCUIElement? {
+        guard !identifier.isEmpty else { return nil }
+        let exactIdentifier = NSPredicate(format: "identifier == %@", identifier)
+        return app.scrollViews.containing(exactIdentifier).allElementsBoundByIndex.last
+    }
+
     /// Fully inside its scroll view and clear of navigation and tab bars, then hittable. A control
     /// taller than the viewport only needs its centre on screen. Works at any window size.
     func isRevealed(_ element: XCUIElement, _ app: XCUIApplication) -> Bool {
@@ -67,7 +75,7 @@ extension XCTestCase {
         if keyboard.exists, keyboard.frame.intersects(frame) { return false }
         let id = element.identifier
         // Not scrolled content (a bar item or a pinned inset): hittable is the whole question.
-        guard !id.isEmpty, let viewport = app.scrollViews.containing(.any, identifier: id).allElementsBoundByIndex.last else {
+        guard let viewport = scrollViewContaining(identifier: id, in: app) else {
             return element.isHittable
         }
         let bars = app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex
@@ -96,7 +104,7 @@ extension XCTestCase {
         guard element.exists else { return "missing" }
         let bars = (app.navigationBars.allElementsBoundByIndex + app.tabBars.allElementsBoundByIndex).map { "\(Int($0.frame.minY))-\(Int($0.frame.maxY))" }
         let id = element.identifier
-        let viewport = app.scrollViews.containing(.any, identifier: id).allElementsBoundByIndex.last?.frame
+        let viewport = scrollViewContaining(identifier: id, in: app)?.frame
         return "frame=\(element.frame) viewport=\(String(describing: viewport)) hittable=\(isOnScreen(element, app) && element.isHittable) window=\(app.windows.firstMatch.frame) bars=\(bars) onScreen=\(isOnScreen(element, app))"
     }
 
@@ -126,7 +134,7 @@ extension XCTestCase {
     /// and collapses the sidebar.
     func scrollPage(_ app: XCUIApplication, towardEnd: Bool, containing id: String = "") {
         var view: XCUIElement?
-        if !id.isEmpty { view = app.scrollViews.containing(.any, identifier: id).allElementsBoundByIndex.last }
+        if !id.isEmpty { view = scrollViewContaining(identifier: id, in: app) }
         if view == nil { view = app.scrollViews.allElementsBoundByIndex.last { $0.frame.height > 100 } }
         dragScroll(view ?? app.windows.firstMatch, towardEnd: towardEnd)
     }

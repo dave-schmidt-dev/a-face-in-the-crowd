@@ -23,7 +23,10 @@ final class AccessibilityFlowTests: XCTestCase {
         }
         XCTAssertFalse(app.buttons["show-photos"].exists)
         XCTAssertTrue(app.staticTexts["query-sentence"].exists)
-        XCTAssertTrue(app.staticTexts["possible-unavailable"].exists)
+        let coverage = app.staticTexts["only-coverage"]
+        XCTAssertTrue(coverage.waitForExistence(timeout: 5))
+        XCTAssertTrue(coverage.label.contains("withheld for unresolved faces"))
+        XCTAssertTrue(coverage.label.contains("extra people"))
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Synthetic compact XXXL search semantic controls"; attachment.lifetime = .keepAlways; add(attachment)
         // This case checks rendered labels and target sizes; it does not operate VoiceOver or a hardware keyboard.
         XCTAssertEqual(app.buttons["search-mode-only"].label, "Only selected")

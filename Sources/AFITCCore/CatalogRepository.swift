@@ -64,10 +64,17 @@ public actor CatalogRepository {
                 if let probe { sqlite3_close(probe) }; throw ScanError.database
             }
             defer { sqlite3_close(probe) }
-            let version = try CatalogSchema.version(probe)
+            let version: Int
+            do { version = try CatalogSchema.version(probe) }
+            catch {
+                // Only SQLite's specific hot-journal failure permits writable rollback.
+                // Admit the fixed database header first; SQLite alone interprets the journal.
+                guard sqlite3_extended_errcode(probe) == SQLITE_READONLY | (3 << 8) else { throw error }
+                version = try CatalogSchema.recoveryHeaderVersion(self.directory.appendingPathComponent("catalog.sqlite"))
+            }
             guard version == 3 || version == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
         }
-        // The read-only probe above admitted this checked file before any protection change.
+        // Read-only admission (or the supported hot-journal header) precedes protection changes.
         try Self.protect(self.directory, directory: true)
         try Self.protect(self.cacheDirectory, directory: true)
         let file = self.directory.appendingPathComponent("catalog.sqlite")

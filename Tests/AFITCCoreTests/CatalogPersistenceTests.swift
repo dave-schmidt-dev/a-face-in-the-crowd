@@ -335,4 +335,94 @@ final class CatalogPersistenceTests: XCTestCase {
         }
     }
 
+    /// Copy only a synthetic, deliberately interrupted SQLite pair while its writer is held.
+    private func hotJournalFixture(version: Int, pendingVersion: Int? = nil) throws -> (URL, URL, Data) {
+        let root = try directory(), original = root.appendingPathComponent("writer.sqlite")
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open(original.path, &handle), SQLITE_OK)
+        let db = try XCTUnwrap(handle); defer { sqlite3_close(db) }
+        try CatalogSchema.migrate(db, target: version == 3 ? 3 : 4)
+        try CatalogSchema.execute(db, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA cache_size=1; PRAGMA user_version=\(version); CREATE TABLE recovery_metadata(value TEXT); INSERT INTO recovery_metadata VALUES('\"accepted\"'); CREATE TABLE spill(value BLOB); WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<128) INSERT INTO spill SELECT zeroblob(4000) FROM n;")
+        let personID = UUID(uuidString: "00000000-0000-0000-0000-000000000010")!
+        try PeopleSQL.writePerson(db, PersonRecord(id: personID, displayName: "Accepted synthetic name"))
+        let committedBytes = try Data(contentsOf: original)
+        try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
+        try PeopleSQL.writePerson(db, PersonRecord(id: personID, displayName: "Uncommitted name"))
+        if let pendingVersion { try CatalogSchema.execute(db, "PRAGMA user_version=\(pendingVersion)") }
+        try CatalogSchema.execute(db, "UPDATE recovery_metadata SET value='\"uncommitted\"'; UPDATE spill SET value=randomblob(4000);")
+        XCTAssertEqual(sqlite3_db_cacheflush(db), SQLITE_OK)
+        let journalBytes = try Data(contentsOf: URL(fileURLWithPath: original.path + "-journal"))
+        XCTAssertEqual(Array(journalBytes.prefix(8)), [0xd9, 0xd5, 0x05, 0xf9, 0x20, 0xa1, 0x63, 0xd7])
+        let target = root.appendingPathComponent("db")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        let file = target.appendingPathComponent("catalog.sqlite")
+        try Data(contentsOf: original).write(to: file)
+        try journalBytes.write(to: URL(fileURLWithPath: file.path + "-journal"))
+        try CatalogSchema.execute(db, "ROLLBACK")
+        var probe: OpaquePointer?
+        XCTAssertEqual(sqlite3_open_v2(file.path, &probe, SQLITE_OPEN_READONLY, nil), SQLITE_OK)
+        let readonly = try XCTUnwrap(probe); defer { sqlite3_close(readonly) }
+        XCTAssertThrowsError(try CatalogSchema.execute(readonly, "SELECT value FROM recovery_metadata"))
+        XCTAssertEqual(sqlite3_extended_errcode(readonly), SQLITE_READONLY | (3 << 8), "Fixture must require real SQLite rollback")
+        return (root, target, committedBytes)
+    }
+
+    func testCheckedHotJournalRecoversSupportedV3AndV4AndRetainsCommittedMetadata() async throws {
+        for version in [3, 4] {
+            let (root, target, _) = try hotJournalFixture(version: version)
+            let file = target.appendingPathComponent("catalog.sqlite")
+            try FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: file.path)
+            let catalog = try CatalogRepository(directory: target, cacheDirectory: root.appendingPathComponent("cache"), reservation: nil, requireExisting: true)
+            let retained: [String] = try await catalog.peopleRead { try PeopleSQL.rows($0, "SELECT value FROM recovery_metadata") }
+            XCTAssertEqual(retained, ["accepted"])
+            let people = try await catalog.peopleSnapshot()
+            XCTAssertEqual(people.people.map { $0.person.displayName }, ["Accepted synthetic name"])
+            XCTAssertFalse(FileManager.default.fileExists(atPath: file.path + "-journal"))
+            let photo = PhotoIdentity(relativePath: "after-recovery.jpg")
+            try await catalog.save(photo, progress: ScanProgress())
+            let photos = try await catalog.photos(); XCTAssertEqual(photos, [photo])
+            let schema = try await catalog.peopleRead { try CatalogSchema.version($0) }
+            XCTAssertEqual(schema, CatalogSchema.currentVersion)
+        }
+    }
+
+    func testCheckedHotJournalRejectsUnsupportedVersionsWithoutMutatingPair() throws {
+        for version in [0, 1, 2, 5] {
+            let (root, target, _) = try hotJournalFixture(version: version)
+            let file = target.appendingPathComponent("catalog.sqlite"), journal = URL(fileURLWithPath: file.path + "-journal")
+            try FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: file.path)
+            let before = try [file, journal].map { try Data(contentsOf: $0) }
+            let permissions = try [file, journal].map { try FileManager.default.attributesOfItem(atPath: $0.path)[.posixPermissions] as? NSNumber }
+            XCTAssertThrowsError(try CatalogRepository(directory: target, cacheDirectory: root.appendingPathComponent("cache"), reservation: nil, requireExisting: true)) {
+                XCTAssertEqual($0 as? ScanError, .unsupportedSchema)
+            }
+            XCTAssertEqual(try [file, journal].map { try Data(contentsOf: $0) }, before)
+            XCTAssertEqual(try [file, journal].map { try FileManager.default.attributesOfItem(atPath: $0.path)[.posixPermissions] as? NSNumber }, permissions)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("cache").path))
+        }
+    }
+
+    func testCheckedHotJournalRechecksRestoredSchemaBeforeMigrationOrPublication() throws {
+        // Adversarial header substitution cannot authorize SQLite's restored unknown schema.
+        // The journal is SQLite-created and includes the original schema5 page1.
+        let (root, target, committedBytes) = try hotJournalFixture(version: 5, pendingVersion: 3)
+        let file = target.appendingPathComponent("catalog.sqlite")
+        var substituted = try Data(contentsOf: file); substituted[63] = 3
+        try substituted.write(to: file)
+        XCTAssertEqual(try CatalogSchema.recoveryHeaderVersion(file), 3)
+        XCTAssertThrowsError(try CatalogRepository(directory: target, cacheDirectory: root.appendingPathComponent("cache"), reservation: nil, requireExisting: true)) {
+            XCTAssertEqual($0 as? ScanError, .unsupportedSchema)
+        }
+        var handle: OpaquePointer?
+        XCTAssertEqual(sqlite3_open_v2(file.path, &handle, SQLITE_OPEN_READONLY, nil), SQLITE_OK)
+        let db = try XCTUnwrap(handle); defer { sqlite3_close(db) }
+        XCTAssertEqual(try CatalogSchema.version(db), 5)
+        let metadata: [String] = try PeopleSQL.rows(db, "SELECT value FROM recovery_metadata")
+        XCTAssertEqual(metadata, ["accepted"])
+        let people: [PersonRecord] = try PeopleSQL.rows(db, "SELECT payload FROM people")
+        XCTAssertEqual(people.map(\.displayName), ["Accepted synthetic name"])
+        XCTAssertEqual(try Data(contentsOf: file), committedBytes)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path + "-journal"))
+    }
+
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SQLite3
+import Darwin
 
 /// Central ordered registry. SQLite transactional DDL provides atomic rollback.
 public enum CatalogSchema {
@@ -35,6 +36,22 @@ public enum CatalogSchema {
         defer { sqlite3_finalize(statement) }
         guard sqlite3_step(statement) == SQLITE_ROW else { throw ScanError.database }
         return Int(sqlite3_column_int(statement, 0))
+    }
+    /// Read SQLite's fixed 100-byte header only when a read-only probe needs rollback.
+    /// This preflight does not parse or replay a journal; the writable SQLite handle
+    /// must recheck the restored user_version before migration or publication.
+    static func recoveryHeaderVersion(_ file: URL) throws -> Int {
+        let descriptor = open(file.path, O_RDONLY | O_NOFOLLOW)
+        guard descriptor >= 0 else { throw ScanError.database }
+        defer { close(descriptor) }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG,
+              info.st_nlink == 1, info.st_size >= 100 else { throw ScanError.database }
+        var header = [UInt8](repeating: 0, count: 100)
+        guard read(descriptor, &header, header.count) == header.count,
+              Array(header.prefix(16)) == Array("SQLite format 3\0".utf8) else { throw ScanError.database }
+        // SQLite file-format user_version: a four-byte big-endian integer at offset60.
+        return Int(header[60...63].reduce(UInt32(0)) { ($0 << 8) | UInt32($1) })
     }
     public static func migrate(_ db: OpaquePointer, registry: [Migration] = migrations,
                                target: Int = currentVersion) throws {
