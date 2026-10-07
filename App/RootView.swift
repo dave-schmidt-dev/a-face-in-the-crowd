@@ -11,7 +11,8 @@ public struct RootView: View {
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selection: Section = .library
-    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
+    /// Sidebar and detail side by side, except at accessibility text sizes where detail gets the full width.
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var navigationPaths: [Section: [UUID]] = [:]
     @State private var settingsPresented = false
     /// Persisted anchors captured once per load that are waiting for their item to appear.
@@ -135,7 +136,7 @@ public struct RootView: View {
         .tint(primary)
         .onChange(of: protection.blocksContent) { if protection.blocksContent { settingsPresented = false } }
         .onAppear { if dynamicTypeSize.isAccessibilitySize { columnVisibility = .detailOnly } }
-        .onChange(of: dynamicTypeSize) { columnVisibility = dynamicTypeSize.isAccessibilitySize ? .detailOnly : .automatic }
+        .onChange(of: dynamicTypeSize) { columnVisibility = dynamicTypeSize.isAccessibilitySize ? .detailOnly : .all }
         .sheet(isPresented: $settingsPresented) {
             SettingsView(services: services, backup: services.backup)
         }
