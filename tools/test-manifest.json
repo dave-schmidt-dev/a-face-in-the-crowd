@@ -2487,6 +2487,7 @@
             "AFITCCoreTests.DeletionOwnershipTests/testRestoredOlderBackupStalePreviewsAndRelaunchImportLeftoverDelete",
             "AFITCCoreTests.DeletionOwnershipTests/testUnknownEntryBesideAppLeftoversFailsBeforeAnyErase",
             "AFITCCoreTests.DeletionOwnershipTests/testCrashOrphanStagesDeletedByDeletionAndSweptAtStartupOnlyWithoutMarker",
+            "AFITCCoreTests.DeletionOwnershipTests/testCrashOrphanImportStagesSweptAtStartupButLiveValidatorStageKept",
             "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
             "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
             "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",

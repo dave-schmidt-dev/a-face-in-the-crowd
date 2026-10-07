@@ -272,11 +272,49 @@ struct DeletionTree {
         if changed { _ = fsync(fd) }
         return skipped
     }
+    /// Startup-only sweep of crash-orphaned import stages under the cache's CatalogImport root. Never
+    /// touches a stage registered by a live validating owner and never removes the root itself.
+    /// Unrecognised shapes are left alone. Returns how many recognised leftovers failed capture or
+    /// removal; the count carries no names or paths.
+    @discardableResult static func sweepImportOrphans(_ cache: URL) -> Int {
+        let root = cache.appendingPathComponent(importRoot, isDirectory: true)
+        let fd = Darwin.open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard fd >= 0 else { return 0 }; defer { Darwin.close(fd) }
+        guard let names = try? listing(fd) else { return 0 }
+        var changed = false, skipped = 0
+        for name in names.sorted() {
+            guard childKind(.importRoot, name) == .directory(.importStage) else { continue }
+            guard let node = try? capture(root.appendingPathComponent(name, isDirectory: true), kind: .directory(.importStage)) else { skipped += 1; continue }
+            if ImportStageRegistry.shared.contains(device: node.device, inode: node.inode) { continue }
+            if (try? remove(node, in: fd)) != nil { changed = true } else { skipped += 1 }
+        }
+        if changed { _ = fsync(fd) }
+        return skipped
+    }
 }
 
 /// Process-wide identities of backup stages whose prepared owner is still alive.
 final class PreparedStageRegistry: @unchecked Sendable {
     static let shared = PreparedStageRegistry()
+    private let lock = NSLock()
+    private var live: [String: Int] = [:]
+    private static func key(_ device: Int64, _ inode: UInt64) -> String { "\(device):\(inode)" }
+    func register(device: Int64, inode: UInt64) {
+        lock.lock(); defer { lock.unlock() }; live[Self.key(device, inode), default: 0] += 1
+    }
+    func unregister(device: Int64, inode: UInt64) {
+        lock.lock(); defer { lock.unlock() }
+        let key = Self.key(device, inode)
+        if let count = live[key], count > 1 { live[key] = count - 1 } else { live.removeValue(forKey: key) }
+    }
+    func contains(device: dev_t, inode: ino_t) -> Bool {
+        lock.lock(); defer { lock.unlock() }; return live[Self.key(Int64(device), UInt64(inode))] != nil
+    }
+}
+
+/// Process-wide identities of import stages whose validating owner is still alive.
+final class ImportStageRegistry: @unchecked Sendable {
+    static let shared = ImportStageRegistry()
     private let lock = NSLock()
     private var live: [String: Int] = [:]
     private static func key(_ device: Int64, _ inode: UInt64) -> String { "\(device):\(inode)" }

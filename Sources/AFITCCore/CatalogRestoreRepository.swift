@@ -324,7 +324,10 @@ public actor CatalogRestoreRepository {
         progress(CatalogRestoreProgress(phase: .opening))
         if freshCandidate == nil {
             // No marker remains here (recovery finished or none existed); the sweep re-checks before any unlink.
-            if sweepsOrphans, live == nil, retained == nil { skippedOrphans = DeletionTree.sweepOrphans(directory) }
+            if sweepsOrphans, live == nil, retained == nil {
+                skippedOrphans = DeletionTree.sweepOrphans(directory)
+                skippedOrphans += DeletionTree.sweepImportOrphans(cache)
+            }
             try Self.restoreLiveWritability(directory)
             freshCandidate = try CatalogRepository(directory: directory, cacheDirectory: cache, reservation: reservation,
                 requireExisting: recovered || requireExistingOnFresh || protectedCloseAttempted)

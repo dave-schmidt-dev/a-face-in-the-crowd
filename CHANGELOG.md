@@ -83,3 +83,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Native verification selects an installed iPad from an available runtime’s supported device types, preventing incompatible device/runtime pairs and comparing runtime versions numerically.
 
 No functional app release exists yet.
+
+### Security
+- Backup copies left in Caches by an interrupted restore check are now removed at the next launch; a check still in progress is never touched.
+- Inspecting an untrusted backup now also checks for malformed database pages and avoids memory-mapped reads.

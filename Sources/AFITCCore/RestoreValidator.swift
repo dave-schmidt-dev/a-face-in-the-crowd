@@ -41,6 +41,8 @@ public actor RestoreValidator {
     private var rootRetiring = false
     private let owner = UUID()
     private var stages: [UUID: URL] = [:]
+    /// Registered stage identities still owned by this validator; a dropped validator releases them.
+    private var registeredStages: [UUID: (device: Int64, inode: UInt64)] = [:]
     private var stabilityObserver: (@Sendable (RestoreStabilityEvent) -> Void)?
     public init(stagingDirectory: URL) throws {
         root = stagingDirectory.standardizedFileURL
@@ -53,6 +55,11 @@ public actor RestoreValidator {
         self.stabilityObserver = stabilityObserver; self.readDiagnostics = readDiagnostics
         self.ownedProtection = ownedProtection
         rootOwnership = try RestoreStageRootOwnership(root, ownedProtection: ownedProtection)
+    }
+    deinit {
+        for identity in registeredStages.values {
+            ImportStageRegistry.shared.unregister(device: identity.device, inode: identity.inode)
+        }
     }
     public func validate(package: URL, progress: @escaping @Sendable (RestoreValidationProgress) -> Void = { _ in }) throws -> ValidatedCatalogBackup {
         try validate(package: package, progress: progress, fault: nil)
@@ -83,6 +90,9 @@ public actor RestoreValidator {
         try rootOwnership.validate()
         guard validated.owner == owner, stages[validated.token] == validated.directory else { throw BackupError.unsafeStage }
         try FileManager.default.removeItem(at: validated.directory); stages.removeValue(forKey: validated.token)
+        if let identity = registeredStages.removeValue(forKey: validated.token) {
+            ImportStageRegistry.shared.unregister(device: identity.device, inode: identity.inode)
+        }
     }
     private func stage(_ source: URL, progress: @escaping @Sendable (RestoreValidationProgress) -> Void,
                        fault: RestoreValidationFault?) throws -> ValidatedCatalogBackup {
@@ -101,7 +111,20 @@ public actor RestoreValidator {
         let token = UUID(); let destination = root.appendingPathComponent(token.uuidString, isDirectory: true)
         guard !FileManager.default.fileExists(atPath: destination.path) else { throw BackupError.unsafeStage }
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
-        var completed = false; defer { if !completed { try? FileManager.default.removeItem(at: destination) } }
+        var completed = false
+        defer {
+            if !completed {
+                try? FileManager.default.removeItem(at: destination)
+                if let identity = registeredStages.removeValue(forKey: token) {
+                    ImportStageRegistry.shared.unregister(device: identity.device, inode: identity.inode)
+                }
+            }
+        }
+        var created = stat()
+        guard lstat(destination.path, &created) == 0, created.st_mode & S_IFMT == S_IFDIR else { throw RestoreValidationError.unsafeEntry }
+        let identity = (device: Int64(created.st_dev), inode: UInt64(created.st_ino))
+        ImportStageRegistry.shared.register(device: identity.device, inode: identity.inode)
+        registeredStages[token] = identity
         try CatalogRepository.protect(destination, directory: true, ownedProtection: ownedProtection); parentSample(.afterDestination)
         let manifestCopy = try copy(descriptor, "manifest.json", destination, limit: BackupManifest.maximumManifestBytes, stage: .manifest, progress: progress)
         parentSample(.afterManifest)

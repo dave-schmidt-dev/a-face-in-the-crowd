@@ -211,6 +211,38 @@ final class DeletionOwnershipTests: XCTestCase {
         try Data("unknown".utf8).write(to: foreign.appendingPathComponent("extra.bin"))
         XCTAssertEqual(DeletionTree.sweepOrphans(otherDB), 1); XCTAssertTrue(exists(foreign.appendingPathComponent("extra.bin")))
     }
+    func testCrashOrphanImportStagesSweptAtStartupButLiveValidatorStageKept() async throws {
+        let f = try await DecisionFixture.make(self); _ = try await seed(f)
+        let db = f.root.appendingPathComponent("db"), cache = f.root.appendingPathComponent("cache")
+        let incoming = try await DecisionFixture.make(self), backup = try await incoming.catalog.prepareBackup()
+        let owner = try await f.catalog.prepareCatalogDeletion(); try await owner.retry()
+        XCTAssertEqual(try names(db), []); XCTAssertEqual(try names(cache), [])
+        // A crash-orphaned import stage lingers in Caches until the startup repository sweeps it.
+        let importRoot = cache.appendingPathComponent("CatalogImport")
+        let orphan = importRoot.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: orphan, withIntermediateDirectories: true)
+        try Data("fictional-manifest".utf8).write(to: orphan.appendingPathComponent("manifest.json"))
+        try Data("fictional-catalog".utf8).write(to: orphan.appendingPathComponent("catalog.sqlite"))
+        let startup = try CatalogRestoreRepository(directory: db, cacheDirectory: cache), reopened = try await startup.open()
+        XCTAssertFalse(exists(orphan))
+        let skipped = await startup.skippedOrphans; XCTAssertEqual(skipped, 0)
+        _ = try await reopened.peopleSnapshot()
+        // A stage registered by a live validator is never swept while its owner is alive.
+        let validator = try RestoreValidator(stagingDirectory: importRoot)
+        let validated = try await validator.validate(package: backup.directory)
+        XCTAssertEqual(DeletionTree.sweepImportOrphans(cache), 0)
+        XCTAssertTrue(exists(validated.directory.appendingPathComponent("manifest.json")))
+        XCTAssertTrue(exists(backup.directory.appendingPathComponent("catalog.sqlite")))
+        // A recognised stage with an unknown child is left in place and counted, never silently dropped.
+        let foreign = importRoot.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: foreign, withIntermediateDirectories: false)
+        try Data("fictional-manifest".utf8).write(to: foreign.appendingPathComponent("manifest.json"))
+        try Data("unknown".utf8).write(to: foreign.appendingPathComponent("extra.bin"))
+        XCTAssertEqual(DeletionTree.sweepImportOrphans(cache), 1)
+        XCTAssertTrue(exists(foreign.appendingPathComponent("extra.bin")))
+        XCTAssertTrue(exists(validated.directory.appendingPathComponent("manifest.json")))
+        withExtendedLifetime(validator) {}; withExtendedLifetime(f.catalog) {}
+    }
     func testDisconnectLinkAndHardlinkRejectWithoutDeletingTargetOrGrant() async throws {
         for hard in [false, true] {
             let f = try await DecisionFixture.make(self), victim = f.root.appendingPathComponent("sensitive-fixture")
