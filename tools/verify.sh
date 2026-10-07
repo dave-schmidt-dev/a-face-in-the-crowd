@@ -338,8 +338,13 @@ for obj in objects.values():
     membership[obj['name']] = files
     product_types[obj['name']] = obj['productType']
 
+# SwiftPM-only targets have no Xcode membership; the SwiftPM membership check below covers them.
+swiftpm_only = {target for target, config in manifest['targets'].items() if config.get('swiftpmOnly') is True}
+
 # Exact source sets catch test-file additions omitted from any task or target.
 for target, config in manifest['targets'].items():
+    if target in swiftpm_only:
+        continue
     if set(config.get('sources', [])) != membership.get(target, set()):
         reject(f'Manifest source membership drift for {target}')
 actual_tests = {str(p) for folder in ('Tests', 'UITests') for p in Path(folder).rglob('*.swift')}
@@ -372,16 +377,19 @@ declared = []
 for target, config in targets.items():
     expected_type = {'unit': 'com.apple.product-type.bundle.unit-test',
                      'ui': 'com.apple.product-type.bundle.ui-testing'}.get(config.get('type'))
-    if not expected_type or product_types.get(target) != expected_type:
+    xcode_target = target not in swiftpm_only
+    if target in swiftpm_only and config.get('type') != 'unit':
+        reject(f'SwiftPM-only test target must be a unit target: {target}')
+    if xcode_target and (not expected_type or product_types.get(target) != expected_type):
         reject(f'Target product type does not match manifest: {target}')
     files = config.get('testFiles', [])
     selectors = config.get('selectors', [])
     if not files or not selectors:
         reject(f'Empty test files or selectors for {target}')
-    if target not in testables:
+    if xcode_target and target not in testables:
         reject(f'{target} missing from scheme test action')
     for file in files:
-        if not Path(file).is_file() or file not in membership.get(target, set()):
+        if not Path(file).is_file() or (xcode_target and file not in membership.get(target, set())):
             reject(f'{file} is not a source member of {target}')
         declared.append(file)
     native_selectors = config.get('nativeUnitSelectors', [])
