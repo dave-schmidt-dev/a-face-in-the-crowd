@@ -104,7 +104,7 @@ extension CatalogRepository {
 
     static func currentSuppressedKeys(_ db: OpaquePointer, source: String?,
                                               hashes: [UUID: String]) throws -> Set<FaceKey> {
-        Set(try FaceAnalysisSQL.allSuppressions(db).filter {
+        Set(try FaceAnalysisSQL.allSuppressions(db, photoID: hashes.count == 1 ? hashes.keys.first : nil).filter {
             $0.sourceBinding == source && hashes[$0.photoID] == $0.contentHash &&
                 $0.contentVersion == $0.faceKey.contentVersion
         }.map(\.faceKey))
@@ -137,6 +137,24 @@ extension CatalogRepository {
                   record.sourceBinding == bindings[0], [.failed, .paused, .capacityFull].contains(record.status) else { return }
             try PeopleSQL.run(db, "DELETE FROM photo_analysis_records WHERE photo_id=? AND content_version=? AND content_hash=? AND model_identifier=? AND preprocessing_version=?", strings: [photo.id.uuidString, String(photo.contentVersion), hash, manifest.identifier, manifest.preprocessingVersion])
         }
+    }
+
+    /// Consistent pinned completion state shared by saved-group capture and restore messaging.
+    static func recomputationNeeded(_ db: OpaquePointer, modelIdentifier: String,
+                                    preprocessingVersion: String) throws -> Bool {
+        let photos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
+        let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
+        for photo in photos where photo.missing != true && photo.analysis.status == .successful &&
+            photo.analysis.contentVersion == photo.contentVersion {
+            guard let hash = photo.contentHash, !hash.isEmpty else { continue }
+            let suppressed = try Self.currentSuppressedKeys(db, source: bindings.first ?? nil, hashes: [photo.id: hash])
+            if !photo.analysis.faces.isEmpty && photo.analysis.faces.allSatisfy({ suppressed.contains(FaceKey(photo: photo, face: $0)) }) { continue }
+            guard bindings.count == 1,
+                  let record = try FaceAnalysisSQL.readPhotoStatus(db, photoID: photo.id,
+                    contentVersion: photo.contentVersion, contentHash: hash, model: modelIdentifier, prep: preprocessingVersion),
+                  record.sourceBinding == bindings[0], record.status == .completed || record.status == .emptySuccess else { return true }
+        }
+        return false
     }
 
 }

@@ -46,7 +46,7 @@ extension CatalogRepository {
             } else {
                 let value = capture.1
                 membership = try FaceGrouping.membership(snapshot: value.people, rows: value.rows,
-                    separations: value.separations, suppressions: value.suppressions)
+                    separations: value.separations, suppressions: value.suppressions, analysisIncomplete: value.analysisIncomplete)
             }
             return try Self.combineGroupSearch(confirmed: capture.0, membership: membership,
                                                 people: capture.1.people, photos: capture.2)

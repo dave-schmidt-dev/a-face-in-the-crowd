@@ -70,6 +70,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Separated synthetic core checks and simulator compilation from native UI, physical compatibility and M4 performance acceptance.
 
 ### Fixed
+- Analysis writes preserve valid temporarily missing photos and inspect only the admitted photo. Saved completion/group catch-up state now matches the pinned pipeline and source; checked existing opens reject unsupported versions without changing files. Restore regressions compare photo values and propagate crash-checkpoint errors while retaining strict kill witnesses.
 - Scan activity, all-photos Search and photo-viewer status show their message once; root-level filenames no longer repeat as an identical path. Existing native journeys assert single status values and group preservation around photo viewing.
 - Choosing a real photo folder on iPad no longer fails with "Folder access denied": folder access now uses the exact folder link the picker returned.
 - Cleaning up a failed backup export now reopens access to the chosen folder, so the cleanup can succeed without a relaunch before privacy actions are available again.

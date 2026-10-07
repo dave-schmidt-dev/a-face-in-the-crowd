@@ -157,7 +157,7 @@ final class RestoreCommitTests: XCTestCase {
         let fresh = try await session.restore(validated, progress: { trace.record($0) })
         let actualLedger = try await context.ledger(fresh), actualPhotos = try await fresh.photos()
         try context.equal(actualLedger, expectedLedger)
-        try context.equal(try JSONEncoder().encode(actualPhotos), try JSONEncoder().encode(expectedPhotos))
+        try context.equal(actualPhotos, expectedPhotos)
         let state = try await fresh.peopleRead { db in (try CatalogCounters.read(db, .revision), try CatalogCounters.read(db, .lease)) }
         try context.equal(state.0, 201); try context.equal(state.1, Int(Int32.max) + 11)
         let people = try await PeopleRepository(catalog: fresh).snapshot()
@@ -313,6 +313,30 @@ final class RestoreCommitTests: XCTestCase {
         }
 
     }
+    func testRenewWriteHookFailurePropagatesAndRollsBackBeforePublication() async throws {
+        #if DEBUG
+        enum Injected: Error, Equatable { case checkpoint }
+        let old = try await SearchFixture.make(self), new = try await SearchFixture.make(self)
+        _ = try await old.photo("old-fictional.jpg", [old.people[0]])
+        _ = try await new.photo("new-fictional.jpg", [new.people[0]])
+        let expected = try await old.catalog.photos()
+        let validated = try await incoming(new)
+        CatalogRestorePreparation.renewWriteHook = { throw Injected.checkpoint }
+        defer { CatalogRestorePreparation.renewWriteHook = nil }
+        let session = try await CatalogRestoreRepository.beginRestore(catalog: old.catalog)
+        do { _ = try await session.restore(validated); XCTFail("Checkpoint failure was swallowed") }
+        catch { XCTAssertEqual(error as? Injected, .checkpoint) }
+        CatalogRestorePreparation.renewWriteHook = nil
+        let preserved = await session.preservedCatalogAfterCleanup()
+        let live = try XCTUnwrap(preserved)
+        XCTAssertTrue(live === old.catalog)
+        let photos = try await live.photos()
+        XCTAssertEqual(photos, expected)
+        #else
+        throw XCTSkip("DEBUG crash instrumentation")
+        #endif
+    }
+
 }
 private final class RestoreTrace: @unchecked Sendable {
     private let lock = NSLock(); private var values: [CatalogRestoreProgress] = []

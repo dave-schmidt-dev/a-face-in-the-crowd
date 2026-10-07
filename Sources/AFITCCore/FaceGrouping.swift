@@ -132,10 +132,11 @@ public struct FaceGroupingCapture: Sendable {
     public let rows: [FaceVectorRow]
     public let separations: Set<FaceGroupPair>
     public let suppressions: Set<FaceKey>
+    public let analysisIncomplete: Bool
     public init(revision: Int, people: PeopleSnapshot, rows: [FaceVectorRow],
-                separations: Set<FaceGroupPair>, suppressions: Set<FaceKey>) {
+                separations: Set<FaceGroupPair>, suppressions: Set<FaceKey>, analysisIncomplete: Bool = false) {
         self.revision = revision; self.people = people; self.rows = rows
-        self.separations = separations; self.suppressions = suppressions
+        self.separations = separations; self.suppressions = suppressions; self.analysisIncomplete = analysisIncomplete
     }
 }
 
@@ -256,7 +257,8 @@ public enum FaceGrouping {
                                   separations: Set<FaceGroupPair> = [], suppressions: Set<FaceKey> = [],
                                   policy: SuggestionPolicy = .evaluationDefault,
                                   groupingPolicy: FaceGroupingPolicy = .evaluationDefault,
-                                  progress: (@Sendable (FaceGroupingProgress) -> Void)? = nil) throws -> FaceMembershipResult {
+                                  progress: (@Sendable (FaceGroupingProgress) -> Void)? = nil,
+                                  analysisIncomplete: Bool = false) throws -> FaceMembershipResult {
         var vectors: [FaceVectorKey: [Float]] = [:]
         var sequences: [FaceKey: Int] = [:]
         for row in rows {
@@ -264,14 +266,14 @@ public enum FaceGrouping {
             sequences[row.faceKey] = row.firstAnalysisSequence
         }
         return try membership(snapshot: snapshot, vectors: vectors, sequences: sequences, separations: separations,
-                              suppressions: suppressions, policy: policy, groupingPolicy: groupingPolicy, progress: progress)
+                              suppressions: suppressions, policy: policy, groupingPolicy: groupingPolicy, progress: progress, analysisIncomplete: analysisIncomplete)
     }
 
     static func membership(snapshot: PeopleSnapshot, vectors: [FaceVectorKey: [Float]],
                            sequences: [FaceKey: Int], separations: Set<FaceGroupPair>,
                            suppressions: Set<FaceKey>, policy: SuggestionPolicy,
                            groupingPolicy: FaceGroupingPolicy,
-                           progress: (@Sendable (FaceGroupingProgress) -> Void)?) throws -> FaceMembershipResult {
+                           progress: (@Sendable (FaceGroupingProgress) -> Void)?, analysisIncomplete: Bool = false) throws -> FaceMembershipResult {
         func vector(_ item: FaceItem) -> [Float]? {
             guard item.photo.missing != true, let hash = item.photo.contentHash, !hash.isEmpty else { return nil }
             return vectors[FaceVectorKey(face: item.key, modelIdentifier: policy.modelIdentifier,
@@ -305,7 +307,7 @@ public enum FaceGrouping {
         let people = anchors.keys.sorted { $0.uuidString < $1.uuidString }
         var compared = 0
         var scoreComparisons = grouping.compared
-        var incomplete = grouping.incomplete
+        var incomplete = grouping.incomplete || analysisIncomplete
         var ambiguous = 0
         var ambiguousFaces = Set<FaceKey>()
         var best: [String: (item: FaceItem, suggestion: Suggestion)] = [:]

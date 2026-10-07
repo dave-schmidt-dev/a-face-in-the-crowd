@@ -410,6 +410,22 @@ final class FaceGroupingTests: XCTestCase {
         XCTAssertEqual(after.faces.map(\.state), before.faces.map(\.state))
         XCTAssertEqual(after.undoID, before.undoID)
     }
+    func testSavedMembershipFlagsMissingPinnedAnalysisIncludingZeroFacePhotos() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        var zero = f.photos[1]
+        zero.analysis = FaceAnalysisState(status: .successful, detectorVersion: "det", faces: [])
+        try await f.catalog.save(zero, progress: ScanProgress())
+        try await f.persist([(f.keys[0], G.vector([0: 1]))], manifest: G.variant(identifier: "old-fictional-pipeline"))
+        let missing = try await f.catalog.faceMembership()
+        XCTAssertTrue(missing.incomplete)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        let stillMissing = try await f.catalog.faceMembership(); XCTAssertTrue(stillMissing.incomplete)
+        let fence = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: zero, sourceIdentity: "source-a")
+        _ = try await f.catalog.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: fence.contentHash,
+            vectors: [], manifest: f.manifest, status: .emptySuccess)
+        let complete = try await f.catalog.faceMembership(); XCTAssertFalse(complete.incomplete)
+    }
+
 }
 
 private final class GroupTestCounter: @unchecked Sendable {

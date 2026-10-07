@@ -122,4 +122,30 @@ final class FaceGroupSearchTests: XCTestCase {
         XCTAssertEqual(only.confirmed.totalCount, 0); XCTAssertEqual(only.possibleCount, 0)
     }
 
+    func testAnalysisCommitInvalidatesSharedSearchWithoutPhotoOrManualMutation() async throws {
+        let (f, person) = try await namedFixture()
+        let before = try await f.membership()
+        let old = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: .any, selectedPersonIDs: [person]), sharedMembership: before)
+        XCTAssertEqual(old.possibleCount, 2)
+        try await f.persist([(f.keys[1], G.vector([1: 1]))])
+        let after = try await f.catalog.faceGroupSearchSnapshot(query: old.confirmed.query, sharedMembership: before)
+        XCTAssertGreaterThan(after.revision, before.revision)
+        XCTAssertEqual(after.possibleCount, 1)
+        XCTAssertEqual(old.possibleCount, 2)
+    }
+
+    func testSourceRebindInvalidatesSharedMembershipButSameSourceReuseKeepsRevision() async throws {
+        let (f, person) = try await namedFixture()
+        let shared = try await f.membership()
+        let query = try PeopleQuery(mode: .any, selectedPersonIDs: [person])
+        _ = try await f.catalog.acquireSource(identity: "source-a", confirmed: false)
+        let reused = try await f.catalog.faceGroupSearchSnapshot(query: query, sharedMembership: shared)
+        XCTAssertEqual(reused.revision, shared.revision); XCTAssertEqual(reused.possibleCount, 2)
+        _ = try await f.catalog.acquireSource(identity: "different-fictional-source", confirmed: true)
+        let rebound = try await f.catalog.faceGroupSearchSnapshot(query: query, sharedMembership: shared)
+        XCTAssertGreaterThan(rebound.revision, shared.revision)
+        XCTAssertEqual(rebound.confirmed.totalCount, 1); XCTAssertEqual(rebound.possibleCount, 0)
+        XCTAssertTrue(rebound.membership.incomplete)
+    }
+
 }

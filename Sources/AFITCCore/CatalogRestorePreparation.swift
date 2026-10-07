@@ -9,7 +9,7 @@ final class CatalogRestorePreparation {
     init(reservation: CatalogExclusiveReservation) { self.reservation = reservation }
     #if DEBUG
     /// Synthetic crash tests only: runs inside the open renew transaction after its first row write.
-    static var renewWriteHook: (() -> Void)?
+    static var renewWriteHook: (() throws -> Void)?
     #endif
     func close() throws { for handle in handles { try handle.close() }; handles.removeAll() }
     func verify(_ file: URL, manifest: BackupManifest,
@@ -93,7 +93,7 @@ final class CatalogRestorePreparation {
                     try Task.checkCancellation()
                     try CatalogCounters.set(db, .revision, revision); didWrite()
                     #if DEBUG
-                    Self.renewWriteHook?()
+                    try Self.renewWriteHook?()
                     #endif
                     try Task.checkCancellation()
                     try CatalogCounters.set(db, .lease, lease); didWrite()

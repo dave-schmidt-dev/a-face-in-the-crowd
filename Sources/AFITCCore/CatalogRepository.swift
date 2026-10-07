@@ -57,7 +57,17 @@ public actor CatalogRepository {
             var info = stat()
             guard lstat(self.directory.appendingPathComponent("catalog.sqlite").path, &info) == 0,
                   info.st_mode & S_IFMT == S_IFREG, info.st_nlink == 1, info.st_size > 0 else { throw CatalogRecoveryError.recoveryRequired }
+            var probe: OpaquePointer?
+            let result = sqlite3_open_v2(self.directory.appendingPathComponent("catalog.sqlite").path,
+                &probe, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil)
+            guard result == SQLITE_OK, let probe else {
+                if let probe { sqlite3_close(probe) }; throw ScanError.database
+            }
+            defer { sqlite3_close(probe) }
+            let version = try CatalogSchema.version(probe)
+            guard version == 3 || version == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
         }
+        // The read-only probe above admitted this checked file before any protection change.
         try Self.protect(self.directory, directory: true)
         try Self.protect(self.cacheDirectory, directory: true)
         let file = self.directory.appendingPathComponent("catalog.sqlite")
@@ -71,10 +81,12 @@ public actor CatalogRepository {
         guard sqlite3_open_v2(file.path, &opening, SQLITE_OPEN_READWRITE | (requireExisting ? 0 : SQLITE_OPEN_CREATE) | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
               let handle = opening else { throw ScanError.database }
         do {
-            try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;")
             let existingVersion = try CatalogSchema.version(handle)
             if requireExisting {
-                guard existingVersion <= CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+                guard existingVersion == 3 || existingVersion == CatalogSchema.currentVersion else { throw ScanError.unsupportedSchema }
+            }
+            try CatalogSchema.execute(handle, "PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON; PRAGMA secure_delete=ON;")
+            if requireExisting {
                 if existingVersion < CatalogSchema.currentVersion {
                     try CatalogSchema.migrate(handle)
                 }
@@ -183,6 +195,9 @@ public actor CatalogRepository {
                 if errno == ENOENT { continue }; throw ScanError.database
             }
             guard info.st_mode & S_IFMT == S_IFREG, info.st_nlink == 1 else { throw ScanError.database }
+            // Supported controlled files may be 0400; make owned artifacts writable before
+            // Foundation sets backup exclusion and before SQLite acquires a writable handle.
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             try protect(url)
         }
     }
@@ -337,13 +352,14 @@ public actor CatalogRepository {
         guard let db else { throw ScanError.database }
         try CatalogSchema.execute(db, "BEGIN IMMEDIATE")
         do {
-            try bindSource(identity: identity, confirmed: confirmed)
+            let changed = try bindSource(identity: identity, confirmed: confirmed)
             let generation = try CatalogCounters.advance(db, .lease)
+            if changed { try CatalogCounters.advance(db, .revision) }
             try CatalogSchema.execute(db, "COMMIT")
             return generation
         } catch { try? CatalogSchema.execute(db, "ROLLBACK"); throw error }
     }
-    private func bindSource(identity: String?, confirmed: Bool) throws {
+    private func bindSource(identity: String?, confirmed: Bool) throws -> Bool {
         guard let db else { throw ScanError.database }
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, "SELECT payload FROM source_binding WHERE singleton=1", -1, &statement, nil) == SQLITE_OK else { throw ScanError.database }
@@ -354,7 +370,9 @@ public actor CatalogRepository {
         if exists || hasRecords {
             guard (identity != nil && previous == identity) || confirmed else { throw ScanError.sourceConfirmationRequired }
         }
+        guard !exists || previous != identity else { return false }
         try write("INSERT OR REPLACE INTO source_binding(singleton,payload) VALUES(1,?)", strings: [], payload: JSONEncoder().encode(identity))
+        return true
     }
     public func markMissing(except paths: Set<String>, progress: ScanProgress, lease: Int) throws -> [PhotoIdentity] {
         let ticket = try operationTicket(); defer { withExtendedLifetime(ticket) {} }

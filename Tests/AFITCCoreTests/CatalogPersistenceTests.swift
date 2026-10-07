@@ -274,4 +274,65 @@ final class CatalogPersistenceTests: XCTestCase {
         let builds = await repo.cacheInventoryBuilds; XCTAssertEqual(builds, 1)
     }
 
+    func testCheckedExistingOpenRejectsUnsupportedVersionsWithoutMutation() throws {
+        for version in [0, 1, 2, 5] {
+            let root = try directory(), dbRoot = root.appendingPathComponent("db")
+            try FileManager.default.createDirectory(at: dbRoot, withIntermediateDirectories: true)
+            let file = dbRoot.appendingPathComponent("catalog.sqlite")
+            var handle: OpaquePointer?
+            XCTAssertEqual(sqlite3_open(file.path, &handle), SQLITE_OK)
+            let db = try XCTUnwrap(handle)
+            try CatalogSchema.execute(db, "CREATE TABLE preserved(value TEXT); INSERT INTO preserved VALUES('fictional'); PRAGMA user_version=\(version)")
+            XCTAssertEqual(sqlite3_close(db), SQLITE_OK)
+            let bytes = try Data(contentsOf: file)
+            let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+            XCTAssertThrowsError(try CatalogRepository(directory: dbRoot, cacheDirectory: root.appendingPathComponent("cache"), reservation: nil, requireExisting: true)) {
+                XCTAssertEqual($0 as? ScanError, .unsupportedSchema)
+            }
+            XCTAssertEqual(try Data(contentsOf: file), bytes)
+            let after = try FileManager.default.attributesOfItem(atPath: file.path)
+            XCTAssertEqual(after[.posixPermissions] as? NSNumber, attributes[.posixPermissions] as? NSNumber)
+            XCTAssertFalse(FileManager.default.fileExists(atPath: root.appendingPathComponent("cache").path))
+        }
+    }
+
+    func testSourceBindingRevisionOverflowRollsBackBindingAndLease() async throws {
+        let f = try await GroupFixture.make(self, photos: 1)
+        try await f.catalog.peopleRead { db in try CatalogCounters.set(db, .revision, Int.max) }
+        let sameLease = try await f.catalog.acquireSource(identity: "source-a", confirmed: false)
+        let sameRevision = try await f.catalog.peopleSnapshot().revision
+        XCTAssertEqual(sameRevision, Int.max)
+        do { _ = try await f.catalog.acquireSource(identity: "source-b", confirmed: true); XCTFail("Source mutation survived exhausted revision") }
+        catch { XCTAssertEqual(error as? CounterError, .exhausted) }
+        let after = try await f.catalog.peopleRead { db -> ([String?], Int) in
+            (try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1"), try CatalogCounters.read(db, .lease))
+        }
+        XCTAssertEqual(after.0, ["source-a"]); XCTAssertEqual(after.1, sameLease)
+    }
+
+    func testCheckedSupportedReadOnlyV3AndV4ReopenAndWrite() async throws {
+        for version in [3, 4] {
+            do {
+                let root = try directory(), dbRoot = root.appendingPathComponent("db")
+                try FileManager.default.createDirectory(at: dbRoot, withIntermediateDirectories: true)
+                let file = dbRoot.appendingPathComponent("catalog.sqlite")
+                var handle: OpaquePointer?
+                XCTAssertEqual(sqlite3_open(file.path, &handle), SQLITE_OK)
+                let db = try XCTUnwrap(handle)
+                try CatalogSchema.migrate(db, target: version)
+                XCTAssertEqual(sqlite3_close(db), SQLITE_OK)
+                try FileManager.default.setAttributes([.posixPermissions: 0o400], ofItemAtPath: file.path)
+                let catalog = try CatalogRepository(directory: dbRoot, cacheDirectory: root.appendingPathComponent("cache"), reservation: nil, requireExisting: true)
+                let photo = PhotoIdentity(relativePath: "fictional.jpg")
+                try await catalog.save(photo, progress: ScanProgress())
+                let photos = try await catalog.photos()
+                XCTAssertEqual(photos, [photo])
+                let schema = try await catalog.peopleRead { try CatalogSchema.version($0) }
+                XCTAssertEqual(schema, CatalogSchema.currentVersion)
+                let permissions = try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? NSNumber
+                XCTAssertEqual(permissions?.intValue, 0o600)
+            } catch { XCTFail("Supported schema \(version) read-only reopen/write failed: \(error)") }
+        }
+    }
+
 }

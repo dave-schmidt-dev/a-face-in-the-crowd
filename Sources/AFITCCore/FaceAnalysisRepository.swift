@@ -149,6 +149,8 @@ extension CatalogRepository {
             }
 
             if status == .emptySuccess {
+                guard fence.faces.isEmpty, vectors.isEmpty else { return .stale }
+                try FaceAnalysisSQL.deleteVectorsForPhoto(db, photoID: fence.photoID)
                 let record = PhotoAnalysisRecord(photoID: fence.photoID, contentVersion: fence.contentVersion,
                                                  contentHash: fence.contentHash, sourceBinding: fence.sourceIdentity,
                                                  modelIdentifier: manifest.identifier, preprocessingVersion: manifest.preprocessingVersion,
@@ -170,19 +172,19 @@ extension CatalogRepository {
             // Vectors from another source binding are stale derived generations of this photo.
             try PeopleSQL.run(db, "DELETE FROM face_vectors WHERE photo_id=? AND source_binding != ?",
                               strings: [fence.photoID.uuidString, fence.sourceIdentity ?? ""])
-            let catalogPhotos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
-            let hashes = Dictionary(uniqueKeysWithValues: catalogPhotos.filter { $0.missing != true }.compactMap { photo in
-                photo.contentHash.map { (photo.id, $0) }
-            })
-            let currentFaces: [FaceKey] = try PeopleSQL.rows(db, "SELECT payload FROM current_faces")
-            let currentKeys = Set(currentFaces)
-            for row in try FaceAnalysisSQL.allVectors(db) where !currentKeys.contains(row.faceKey) ||
-                row.sourceBinding != fence.sourceIdentity || hashes[row.photoID] != row.contentHash ||
-                row.modelIdentifier != manifest.identifier || row.preprocessingVersion != manifest.preprocessingVersion {
+            // Preserve unrelated and temporarily missing photos. Only the admitted photo's
+            // indexed rows are decoded/cleaned; the retained-row capacity check is a scalar SQL count.
+            let hashes = [fence.photoID: fence.contentHash]
+            let currentKeys = Set(fence.faces.map { FaceKey(photoID: fence.photoID,
+                contentVersion: fence.contentVersion, detectorVersion: fence.detectorVersion, faceID: $0.id) })
+            for row in try FaceAnalysisSQL.allVectors(db, photoID: fence.photoID) where
+                !currentKeys.contains(row.faceKey) || row.contentHash != fence.contentHash ||
+                row.sourceBinding != fence.sourceIdentity || row.modelIdentifier != manifest.identifier ||
+                row.preprocessingVersion != manifest.preprocessingVersion {
                 try FaceAnalysisSQL.deleteVector(db, faceKey: row.faceKey.storageKey)
             }
             let suppressed = try Self.currentSuppressedKeys(db, source: fence.sourceIdentity, hashes: hashes)
-            let currentCount = try FaceAnalysisSQL.countCurrentVectors(db)
+            var currentCount = try FaceAnalysisSQL.countCurrentVectors(db)
             var newKeys: [FaceKey] = []
             var normalizedVectors: [([Float], FaceGeometry, FaceKey)] = []
 
@@ -205,6 +207,10 @@ extension CatalogRepository {
                 normalizedVectors.append((norm, geometry, key))
             }
 
+            if currentCount + newKeys.count > capacity {
+                try FaceAnalysisSQL.pruneIncompatibleForCapacity(db, source: fence.sourceIdentity, manifest: manifest)
+                currentCount = try FaceAnalysisSQL.countCurrentVectors(db)
+            }
             if currentCount + newKeys.count > capacity {
                 let record = PhotoAnalysisRecord(photoID: fence.photoID, contentVersion: fence.contentVersion,
                                                  contentHash: fence.contentHash, sourceBinding: fence.sourceIdentity,
@@ -292,28 +298,8 @@ extension CatalogRepository {
 
     public func recomputationNeeded() throws -> Bool {
         try peopleRead { db in
-            let photos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
-            for photo in photos {
-                guard photo.missing != true,
-                      photo.analysis.status == .successful,
-                      photo.analysis.contentVersion == photo.contentVersion,
-                      let hash = photo.contentHash, !hash.isEmpty else { continue }
-                let statusCount = try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM photo_analysis_records WHERE photo_id=? AND content_version=? AND content_hash=? AND (status='completed' OR status='emptySuccess')",
-                                                      strings: [photo.id.uuidString, "\(photo.contentVersion)", hash])
-                if statusCount == 0 {
-                    let hasFaces = !photo.analysis.faces.isEmpty
-                    if hasFaces {
-                        let allSuppressed = try photo.analysis.faces.allSatisfy { face in
-                            let key = FaceKey(photo: photo, face: face)
-                            return try FaceAnalysisSQL.isSuppressed(db, faceKey: key.storageKey)
-                        }
-                        if !allSuppressed { return true }
-                    } else {
-                        return true
-                    }
-                }
-            }
-            return false
+            try Self.recomputationNeeded(db, modelIdentifier: ModelManifest.openCVSFace2021December.identifier,
+                                         preprocessingVersion: ModelManifest.openCVSFace2021December.preprocessingVersion)
         }
     }
 
@@ -359,7 +345,9 @@ extension CatalogRepository {
             }.map(\.faceKey))
             let separations = Set(try FaceAnalysisSQL.allSeparations(db).map { FaceGroupPair($0.faceKeyA, $0.faceKeyB) })
             return FaceGroupingCapture(revision: snapshot.revision, people: snapshot, rows: rows,
-                                       separations: separations, suppressions: suppressions)
+                                       separations: separations, suppressions: suppressions,
+                                       analysisIncomplete: try Self.recomputationNeeded(db, modelIdentifier: modelIdentifier,
+                                                                                       preprocessingVersion: preprocessingVersion))
     }
 
     /// The production possible-membership result for Verify and group surfaces. The capture is a
@@ -372,7 +360,8 @@ extension CatalogRepository {
         let worker = Task.detached {
             try FaceGrouping.membership(snapshot: capture.people, rows: capture.rows,
                                         separations: capture.separations, suppressions: capture.suppressions,
-                                        policy: policy, groupingPolicy: groupingPolicy, progress: progress)
+                                        policy: policy, groupingPolicy: groupingPolicy, progress: progress,
+                                        analysisIncomplete: capture.analysisIncomplete)
         }
         return try await withTaskCancellationHandler {
             try await worker.value

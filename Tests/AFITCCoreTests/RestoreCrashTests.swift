@@ -348,7 +348,7 @@ final class RestoreCrashTests: XCTestCase {
         let trace = try CrashTrace(root: root, point: env["AFITC_CRASH_POINT"] ?? "", nonce: nonce, diagnostics: diagnostics)
         defer { do { try trace.checkpoint() } catch { XCTFail("bounded crash diagnostic export failed") } }
         if role == "restore", env["AFITC_CRASH_POINT"] == Self.renewJournalPoint {
-            CatalogRestorePreparation.renewWriteHook = { try? trace.kill(Self.renewJournalPoint) }
+            CatalogRestorePreparation.renewWriteHook = { try trace.kill(Self.renewJournalPoint) }
         }
         if role == "restore" || role == "trace" {
             let old = try await seeded("old-fictional.jpg", root: root), new = try await seeded("new-fictional.jpg", root: root)

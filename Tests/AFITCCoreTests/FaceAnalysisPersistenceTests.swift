@@ -274,6 +274,114 @@ final class FaceAnalysisPersistenceTests: XCTestCase {
         let observed264 = try await repo.areGroupSeparated(faceKeyA: k1, faceKeyB: k2)
         XCTAssertFalse(observed264)
     }
+    func testMissingPhotoKeepsVectorsWhileOtherPhotoIsAnalyzedAndReopensReusable() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        let before = try await f.catalog.faceVectorRows()
+        var missing = f.photos[0]; missing.missing = true
+        try await f.catalog.save(missing, progress: ScanProgress())
+        try await f.persist([(f.keys[1], G.vector([1: 1]))])
+        let preserved = try await f.catalog.faceVectorRows().filter { $0.photoID == missing.id }
+        XCTAssertEqual(preserved, before)
+        try await f.catalog.save(f.photos[0], progress: ScanProgress())
+        let owner = try await CatalogSuspensionRepository.beginSuspension(catalog: f.catalog)
+        try await owner.suspend()
+        let reopened = try await owner.reopen().catalog
+        let reuse = try await reopened.satisfiesAnalysisReuse(photo: f.photos[0], manifest: f.manifest)
+        let rows = try await reopened.faceVectorRows().filter { $0.photoID == missing.id }
+        XCTAssertTrue(reuse); XCTAssertEqual(rows, before)
+    }
+    func testOtherPhotoMalformedDerivedRowIsNotDecodedByPerPhotoWrite() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        try await f.catalog.peopleTransaction { db in
+            try PeopleSQL.run(db, "UPDATE face_vectors SET vector=?2 WHERE photo_id=?1", strings: [f.photos[0].id.uuidString], data: Data(repeating: 0xff, count: 512))
+        }
+        do { _ = try await f.catalog.faceVectorRows(); XCTFail("Malformed fixture was not actually decoded") }
+        catch { }
+        try await f.persist([(f.keys[1], G.vector([1: 1]))])
+        let untouched = try await f.catalog.peopleRead { db in
+            try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM face_vectors WHERE photo_id=? AND hex(vector)=?", strings: [f.photos[0].id.uuidString, String(repeating: "FF", count: 512)])
+        }
+        XCTAssertEqual(untouched, 1)
+    }
+    func testReuseReadKeepsRevisionAndAnalysisCommitAdvancesIt() async throws {
+        let f = try await GroupFixture.make(self, photos: 1)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        let first = try await f.catalog.peopleSnapshot().revision
+        let reuse = try await f.catalog.satisfiesAnalysisReuse(photo: f.photos[0], manifest: f.manifest)
+        XCTAssertTrue(reuse)
+        let reused = try await f.catalog.peopleSnapshot().revision
+        XCTAssertEqual(reused, first)
+        try await f.persist([(f.keys[0], G.vector([1: 1]))])
+        let changed = try await f.catalog.peopleSnapshot().revision
+        XCTAssertGreaterThan(changed, first)
+    }
+    func testRecomputationBindsCompletionToPinnedPipelineAndCurrentSource() async throws {
+        let f = try await GroupFixture.make(self, photos: 1)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))], manifest: G.variant(identifier: "old-fictional-pipeline"))
+        let stalePipeline = try await f.catalog.recomputationNeeded(); XCTAssertTrue(stalePipeline)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        let current = try await f.catalog.recomputationNeeded(); XCTAssertFalse(current)
+        _ = try await f.catalog.acquireSource(identity: "new-fictional-source", confirmed: true)
+        let rebound = try await f.catalog.recomputationNeeded(); XCTAssertTrue(rebound)
+        let fence = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: f.photos[0], sourceIdentity: "new-fictional-source")
+        _ = try await f.catalog.saveFixtureFaceBatch(vectors: [(f.keys[0], EmbeddingVector(modelIdentifier: f.manifest.identifier, values: G.vector([0: 1])))], fence: fence, manifest: f.manifest, reason: nil)
+        let recovered = try await f.catalog.recomputationNeeded(); XCTAssertFalse(recovered)
+    }
+
+    func testCapacityCleanupInvalidatesOldCompletionBeforeSourceReturns() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        try await f.persist(f.keys.map { ($0, G.vector([0: 1])) })
+        _ = try await f.catalog.acquireSource(identity: "source-new", confirmed: true)
+        let fence = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: f.photos[0], sourceIdentity: "source-new")
+        let result = try await f.catalog.saveFixtureFaceBatch(vectors: [(f.keys[0], EmbeddingVector(modelIdentifier: f.manifest.identifier, values: G.vector([0: 1])))], fence: fence, manifest: f.manifest, reason: nil, maxCapacity: 1)
+        XCTAssertEqual(result, .inserted(1))
+        _ = try await f.catalog.acquireSource(identity: "source-a", confirmed: true)
+        let reuse = try await f.catalog.satisfiesAnalysisReuse(photo: f.photos[1], manifest: f.manifest)
+        let admitted = try await f.catalog.needsAdmittedAnalysisRead(photo: f.photos[1], manifest: f.manifest)
+        XCTAssertFalse(reuse); XCTAssertTrue(admitted)
+        let second = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: f.photos[1], sourceIdentity: "source-a")
+        _ = try await f.catalog.saveFixtureFaceBatch(vectors: [(f.keys[1], EmbeddingVector(modelIdentifier: f.manifest.identifier, values: G.vector([0: 1])))], fence: second, manifest: f.manifest, reason: nil, maxCapacity: 1)
+        let recovered = try await f.catalog.satisfiesAnalysisReuse(photo: f.photos[1], manifest: f.manifest)
+        let rows = try await f.catalog.faceVectorRows()
+        XCTAssertTrue(recovered); XCTAssertEqual(rows.count, 1); XCTAssertEqual(rows.first?.photoID, f.photos[1].id)
+    }
+    func testValidMissingRowsStillEnforceRetainedStorageCap() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        var missing = f.photos[0]; missing.missing = true
+        try await f.catalog.save(missing, progress: ScanProgress())
+        let fence = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: f.photos[1], sourceIdentity: "source-a")
+        let result = try await f.catalog.saveFixtureFaceBatch(vectors: [(f.keys[1], EmbeddingVector(modelIdentifier: f.manifest.identifier, values: G.vector([0: 1])))], fence: fence, manifest: f.manifest, reason: nil, maxCapacity: 1)
+        XCTAssertEqual(result, .full)
+        let rows = try await f.catalog.faceVectorRows()
+        XCTAssertEqual(rows.count, 1); XCTAssertEqual(rows.first?.photoID, missing.id)
+        try await f.catalog.save(f.photos[0], progress: ScanProgress())
+        let reuse = try await f.catalog.satisfiesAnalysisReuse(photo: f.photos[0], manifest: f.manifest)
+        XCTAssertTrue(reuse)
+    }
+
+    func testZeroFaceReplacementDropsOnlyOwnObsoleteVectorsBeforeCapacityAdmission() async throws {
+        let f = try await GroupFixture.make(self, photos: 2)
+        try await f.persist([(f.keys[0], G.vector([0: 1]))])
+        let old = f.photos[0]
+        let zero = PhotoIdentity(id: old.id, relativePath: old.relativePath, dateAdded: old.dateAdded,
+            contentVersion: 2, analysis: FaceAnalysisState(status: .successful, detectorVersion: "det", contentVersion: 2, faces: []),
+            contentHash: String(repeating: "3", count: 64))
+        try await f.catalog.save(zero, progress: ScanProgress())
+        let emptyFence = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: zero, sourceIdentity: "source-a")
+        _ = try await f.catalog.saveFaceAnalysisBatch(fence: emptyFence, verifiedContentHash: emptyFence.contentHash,
+            vectors: [], manifest: f.manifest, status: .emptySuccess, capacity: 1)
+        let second = try await f.catalog.captureFaceAnalysisPersistenceFence(photo: f.photos[1], sourceIdentity: "source-a")
+        let result = try await f.catalog.saveFixtureFaceBatch(vectors: [(f.keys[1], EmbeddingVector(modelIdentifier: f.manifest.identifier, values: G.vector([0: 1])))], fence: second, manifest: f.manifest, reason: nil, maxCapacity: 1)
+        XCTAssertEqual(result, .inserted(1))
+        let rows = try await f.catalog.faceVectorRows()
+        XCTAssertEqual(rows.map(\.photoID), [f.photos[1].id])
+        let reuse = try await f.catalog.satisfiesAnalysisReuse(photo: zero, manifest: f.manifest)
+        XCTAssertTrue(reuse)
+    }
+
 }
 
 // Shared fixture adapter: tests supply full FaceKeys, while the public batch API admits face IDs.

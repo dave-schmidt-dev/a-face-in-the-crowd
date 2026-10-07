@@ -105,6 +105,16 @@ enum FaceAnalysisSQL {
         try PeopleSQL.run(db, sql, strings: strings, data: data)
     }
 
+    /// Only capacity pressure permits this SQL-only sweep of incompatible source/pipeline rows.
+    /// Their completion records must disappear too, so a returning source cannot claim reuse
+    /// after its vectors were discarded. Valid missing-photo rows and suppression survive.
+    static func pruneIncompatibleForCapacity(_ db: OpaquePointer, source: String?, manifest: ModelManifest) throws {
+        let predicate = "COALESCE(source_binding,'') != ? OR model_identifier != ? OR preprocessing_version != ?"
+        let values = [source ?? "", manifest.identifier, manifest.preprocessingVersion]
+        try PeopleSQL.run(db, "DELETE FROM face_vectors WHERE " + predicate, strings: values)
+        try PeopleSQL.run(db, "DELETE FROM photo_analysis_records WHERE " + predicate, strings: values)
+    }
+
     static func deleteStaleGenerations(_ db: OpaquePointer, photoID: UUID, currentVersion: Int) throws {
         try PeopleSQL.run(db, "DELETE FROM face_vectors WHERE photo_id=? AND content_version < ?",
                           strings: [photoID.uuidString, "\(currentVersion)"])
@@ -123,7 +133,7 @@ enum FaceAnalysisSQL {
         INSERT INTO photo_analysis_records(photo_id, content_version, content_hash, source_binding, model_identifier, preprocessing_version, status, reason)
         VALUES(?,?,?,?,?,?,?,?)
         ON CONFLICT(photo_id, content_version, content_hash, model_identifier, preprocessing_version)
-        DO UPDATE SET status=excluded.status, reason=excluded.reason
+        DO UPDATE SET status=excluded.status, reason=excluded.reason, source_binding=excluded.source_binding
         """
         let strings = [
             record.photoID.uuidString,
@@ -194,9 +204,9 @@ enum FaceAnalysisSQL {
         return try parseVector(stmt)
     }
 
-    static func allVectors(_ db: OpaquePointer) throws -> [FaceVectorRow] {
-        let sql = "SELECT face_key, photo_id, content_version, content_hash, source_binding, model_identifier, preprocessing_version, detector_version, first_analysis_sequence, vector FROM face_vectors ORDER BY first_analysis_sequence ASC"
-        let stmt = try PeopleSQL.statement(db, sql)
+    static func allVectors(_ db: OpaquePointer, photoID: UUID? = nil) throws -> [FaceVectorRow] {
+        let sql = "SELECT face_key, photo_id, content_version, content_hash, source_binding, model_identifier, preprocessing_version, detector_version, first_analysis_sequence, vector FROM face_vectors" + (photoID == nil ? "" : " WHERE photo_id=?") + " ORDER BY first_analysis_sequence ASC"
+        let stmt = try PeopleSQL.statement(db, sql, strings: photoID.map { [$0.uuidString] } ?? [])
         defer { sqlite3_finalize(stmt) }
         var result: [FaceVectorRow] = []
         while sqlite3_step(stmt) == SQLITE_ROW {
@@ -223,9 +233,9 @@ enum FaceAnalysisSQL {
         try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM face_suppression WHERE face_key=?", strings: [faceKey]) > 0
     }
 
-    static func allSuppressions(_ db: OpaquePointer) throws -> [FaceSuppressionRecord] {
-        let sql = "SELECT face_key, photo_id, content_version, content_hash, source_binding, created_at FROM face_suppression"
-        let stmt = try PeopleSQL.statement(db, sql)
+    static func allSuppressions(_ db: OpaquePointer, photoID: UUID? = nil) throws -> [FaceSuppressionRecord] {
+        let sql = "SELECT face_key, photo_id, content_version, content_hash, source_binding, created_at FROM face_suppression" + (photoID == nil ? "" : " WHERE photo_id=?")
+        let stmt = try PeopleSQL.statement(db, sql, strings: photoID.map { [$0.uuidString] } ?? [])
         defer { sqlite3_finalize(stmt) }
         var result: [FaceSuppressionRecord] = []
         while sqlite3_step(stmt) == SQLITE_ROW {

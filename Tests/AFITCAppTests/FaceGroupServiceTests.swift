@@ -210,4 +210,25 @@ final class FaceGroupServiceTests: XCTestCase {
         try await retire(services, root: root)
     }
 
+    @MainActor func testSavedGroupRefreshShowsCurrentAnalysisNeededWithoutSourceWork() async throws {
+        let (services, _, _) = try await fixture()
+        let repository = try XCTUnwrap(services.privacyContext()?.0)
+        let photo = try XCTUnwrap(services.photos.first)
+        let rows = try await repository.faceVectorRows()
+        let source = try XCTUnwrap(rows.first?.sourceBinding)
+        let fence = try await repository.captureFaceAnalysisPersistenceFence(photo: photo, sourceIdentity: source)
+        let before = try XCTUnwrap(services.faceGroups.result)
+        XCTAssertFalse(before.incomplete)
+        _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: fence.contentHash,
+            vectors: [], manifest: .openCVSFace2021December, status: .paused, reason: "fictional explicit retry")
+        await services.faceGroups.refresh()
+        let missing = try XCTUnwrap(services.faceGroups.result)
+        XCTAssertGreaterThan(missing.revision, before.revision)
+        XCTAssertTrue(missing.incomplete)
+        XCTAssertTrue(services.faceGroups.retryablePhotos.contains { $0.id == photo.id })
+        XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 1)
+        XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3)
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3)
+    }
+
 }
