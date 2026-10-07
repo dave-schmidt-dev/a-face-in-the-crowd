@@ -216,4 +216,16 @@ extension XCTestCase {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
+
+    func ensureEditingPersonName(_ app: XCUIApplication) {
+        let field = app.textFields["rename-person-name"]
+        if !field.waitForExistence(timeout: 1) {
+            let edit = app.buttons["edit-person-name"].firstMatch
+            if edit.waitForExistence(timeout: 2) {
+                revealElement(edit, app)
+                edit.tap()
+            }
+        }
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+    }
 }

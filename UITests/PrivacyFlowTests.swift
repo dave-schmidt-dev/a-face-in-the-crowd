@@ -48,6 +48,7 @@ final class PrivacyFlowTests: XCTestCase {
         navigate("People", app)
         let person = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).firstMatch
         reveal(person, app); XCTAssertTrue(person.waitForExistence(timeout: 10)); person.tap()
+        ensureEditingPersonName(app)
         XCTAssertTrue(app.textFields["rename-person-name"].waitForExistence(timeout: 10))
     }
     private func deletedProof(_ app: XCUIApplication, copies: Int = 0, originals: Int = 3) {

@@ -16,18 +16,21 @@ struct PersonDetailView: View {
     private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
     @State private var selectedFace: FaceItem?
     @State private var merging = false
+    @State private var editing = false
+    private var showsDraftEditor: Bool {
+        editing || presentation.drafts[personID]?.dirty == true || presentation.drafts[personID]?.conflict != nil
+    }
     var body: some View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.l) {
                 if let summary = services.peopleSnapshot.people.first(where: { $0.id == personID }) {
                     header(summary)
-                    if summary.person.mergedInto == nil || presentation.drafts[personID]?.dirty == true {
+                    if showsDraftEditor {
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { draftEditor(summary.person) }.card()
                     }
                     DecisionStatus(services: services)
-                    PillLabel(title: "Confirmed faces", selected: true)
-                        .accessibilityAddTraits(.isHeader)
+                    Text("Confirmed faces").font(.headline).foregroundStyle(tokens.textSecondary).accessibilityAddTraits(.isHeader)
                     let confirmed = services.peopleSnapshot.faces.filter { $0.state.personID == personID }
                     LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
                         ForEach(confirmed) { face in
@@ -46,7 +49,7 @@ struct PersonDetailView: View {
                     manage(summary)
                 } else {
                     Text("This person is no longer available.")
-                    if presentation.drafts[personID]?.dirty == true { draftEditor(nil) }
+                    if showsDraftEditor { draftEditor(nil) }
                 }
             }.id("person-top").padding(DesignTokens.Spacing.l).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
         }
@@ -94,9 +97,18 @@ struct PersonDetailView: View {
             }
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                 // Wrap, never truncate or clip: the name may be long and the type size large.
-                Text(summary.person.displayName).font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("person-name-heading")
+                HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+                    Text(summary.person.displayName).font(.largeTitle.bold()).accessibilityAddTraits(.isHeader)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("person-name-heading")
+                    Button { editing = true } label: {
+                        Image(systemName: "pencil")
+                            .frame(minWidth: DesignTokens.Layout.minimumHit, minHeight: DesignTokens.Layout.minimumHit)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("Edit name")
+                    .accessibilityIdentifier("edit-person-name")
+                }
                 Text(confirmedPhotoPhrase(summary.confirmedPhotoCount)).font(.headline)
                     .foregroundStyle(tokens.textSecondary).fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("person-confirmed-count")
@@ -153,11 +165,19 @@ struct PersonDetailView: View {
             Task {
                 if await services.decide(.rename(personID: personID, displayName: text)), services.sessionIsCurrent(session) {
                     presentation.acceptedCommit(personID, text: text)
+                    editing = false
                 }
             }
         }.buttonStyle(CapsuleButtonStyle(minHeight: 48))
             .disabled(person == nil || person?.mergedInto != nil || presentation.drafts[personID]?.conflict != nil || services.isSavingDecision || services.peopleRefreshWarning != nil)
             .accessibilityIdentifier("save-person-name")
+        Button("Cancel") {
+            presentation.discardDraft(personID)
+            if let person { presentation.ensureDraft(person) }
+            editing = false
+        }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
+            .disabled(services.isSavingDecision)
+            .accessibilityIdentifier("cancel-person-name")
     }
 
 }
@@ -194,12 +214,16 @@ struct ManualFaceView: View {
                 if let hint = nameHint {
                     Text(hint).font(.footnote).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("name-hint")
                 }
-                Picker("Choose existing person", selection: $personID) {
+                Picker(selection: $personID) {
                     Text("Create a new person").tag(nil as UUID?)
                     ForEach(activePeople) { person in
                         Text(PersonNames.label(person, among: activePeople)).tag(Optional(person.id))
                     }
-                }.accessibilityIdentifier("existing-person")
+                } label: {
+                    Text(selectedPersonLabel).fixedSize(horizontal: false, vertical: true)
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("existing-person")
                 if let personID {
                     Button("Not this person") { perform(.reject(face: face.key, personID: personID)) }
                         .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("reject-selected-person")
@@ -238,6 +262,12 @@ struct ManualFaceView: View {
         Task { if await services.decide(decision) { dismiss() } }
     }
     private var activePeople: [PersonRecord] { services.peopleSnapshot.people.map(\.person).filter { $0.mergedInto == nil } }
+    private var selectedPersonLabel: String {
+        if let personID, let person = activePeople.first(where: { $0.id == personID }) {
+            return PersonNames.label(person, among: activePeople)
+        }
+        return "Create a new person"
+    }
     private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
     /// Mirrors the core name rule (non-empty, at most 120, no control characters) so Save is only
     /// offered for input the catalog would accept.

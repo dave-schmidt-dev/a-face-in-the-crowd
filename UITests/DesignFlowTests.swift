@@ -36,8 +36,17 @@ final class DesignFlowTests: XCTestCase {
         let app = launchFixture(layout)
         scanFixture(app); nameFace("Fixture A", app); openFirstPerson(app)
         settle(app.staticTexts["person-confirmed-count"])
-        assertFits(["person-name-heading", "person-confirmed-count", "rename-person-name", "save-person-name"], app, label)
         XCTAssertEqual(app.staticTexts["person-name-heading"].label, "Fixture A")
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == 'Fixture A'")).count, 1)
+        XCTAssertFalse(app.textFields["rename-person-name"].exists)
+        tapButton("edit-person-name", app)
+        assertFits(["person-name-heading", "person-confirmed-count", "rename-person-name", "save-person-name"], app, label)
+        let field = app.textFields["rename-person-name"]
+        clearAndType(field, "Fixture B", app)
+        tapButton("save-person-name", app)
+        XCTAssertTrue(waitUntilTrue(5) { app.staticTexts["person-name-heading"].label == "Fixture B" })
+        tapToolbar("decision-undo", app)
+        XCTAssertTrue(waitUntilTrue(5) { app.staticTexts["person-name-heading"].label == "Fixture A" })
         attachScreenshot("person-detail-" + label, app)
     }
 
@@ -113,6 +122,7 @@ final class DesignFlowTests: XCTestCase {
         let app = launchFixture(extra: ["--uitest-presentation-controls", "--uitest-presentation-save-retry"])
         scanFixture(app); nameFace("Fixture A", app); openFirstPerson(app)
         tapButton("block-presentation-save", app)
+        ensureEditingPersonName(app)
         let field = app.textFields["rename-person-name"]
         XCTAssertTrue(field.waitForExistence(timeout: 10)); field.tap(); field.typeText(" draft")
         let retry = app.buttons["retry-presentation-save"].firstMatch

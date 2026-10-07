@@ -39,6 +39,7 @@ final class AcceptanceFlowTests: XCTestCase {
         navigate("People", app)
         let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).firstMatch
         reveal(card, app); XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
+        ensureEditingPersonName(app)
         XCTAssertTrue(app.textFields["rename-person-name"].waitForExistence(timeout: 5))
     }
     private func typeDraft(_ app: XCUIApplication) {
@@ -75,7 +76,9 @@ final class AcceptanceFlowTests: XCTestCase {
         tap("change-canonical-fixture", app); wait(app.staticTexts["name-draft-conflict"], contains: "changed")
         XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft); XCTAssertFalse(app.buttons["save-person-name"].isEnabled)
         tap("review-name-draft", app); XCTAssertTrue(app.buttons["save-person-name"].isEnabled); tap("save-person-name", app)
-        XCTAssertTrue(app.staticTexts["name-draft-conflict"].waitForNonExistence(timeout: 5)); XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft)
+        XCTAssertTrue(app.staticTexts["name-draft-conflict"].waitForNonExistence(timeout: 5))
+        ensureEditingPersonName(app)
+        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft)
     }
     func testCanonicalConflictUseCurrentDiscardsOnlyDraft() {
         let app = fixture(); openPerson(app); typeDraft(app); tap("change-canonical-fixture", app)

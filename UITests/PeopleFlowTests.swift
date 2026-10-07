@@ -128,6 +128,7 @@ final class PeopleFlowTests: XCTestCase {
         personID(firstID, app: app).tap()
         XCTAssertTrue(app.staticTexts["person-confirmed-count"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photo")
+        ensureEditingPersonName(app)
         let rename = app.textFields["rename-person-name"]
         clearAndType(rename, "Fixture B", app)
         tap("save-person-name", app: app)
@@ -229,14 +230,18 @@ final class PeopleFlowTests: XCTestCase {
         tap("unidentified-face", app: app); name("Fixture A", app: app)
         let savedID = person("Fixture A", app: app).identifier
         personID(savedID, app: app).tap()
+        ensureEditingPersonName(app)
         let field = app.textFields["rename-person-name"]
         reveal(field, app: app)
         clearAndType(field, "Fixture B", app)
         tap("save-person-name", app: app)
+        ensureEditingPersonName(app)
         expectation(for: NSPredicate(format: "value == 'Fixture B'"), evaluatedWith: field); waitForExpectations(timeout: 5)
         tap("decision-undo", app: app)
+        ensureEditingPersonName(app)
         expectation(for: NSPredicate(format: "value == 'Fixture A'"), evaluatedWith: field); waitForExpectations(timeout: 5)
         tap("save-person-name", app: app)
+        ensureEditingPersonName(app)
         XCTAssertEqual(field.value as? String, "Fixture A")
         app.terminate(); app.launch(); navigate("People", app: app)
         let records = peopleRecords(app: app)
