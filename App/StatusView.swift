@@ -67,8 +67,12 @@ struct StatusView: View {
 
     @ViewBuilder private var activity: some View {
         let cancelling = services.progress.phase == .cancelling
-        ProgressView(cancelling ? "Cancellation requested" : (services.progress.message ?? "Discovering JPEGs"))
-        Button(cancelling ? "Cancellation requested" : "Cancel scan", action: services.cancelScan)
+        HStack(spacing: DesignTokens.Spacing.xs) {
+            ProgressView().accessibilityLabel("Scan activity")
+            Text(services.progress.message ?? (cancelling ? "Cancellation requested" : "Discovering JPEGs"))
+                .accessibilityIdentifier("scan-message")
+        }
+        Button("Cancel scan", action: services.cancelScan)
             .buttonStyle(.capsuleSecondary)
             .accessibilityIdentifier("cancel-scan").disabled(cancelling)
     }
@@ -94,7 +98,9 @@ struct StatusView: View {
             if services.progress.phase != .completed {
                 Text(services.progress.enumerationFinished ? "Discovery complete" : "Total unknown until discovery completes")
             }
-            if services.progress.phase != .completed, let message = services.progress.message { Text(message) }
+            if !services.isScanning, services.progress.phase != .completed, let message = services.progress.message {
+                Text(message).accessibilityIdentifier("scan-message")
+            }
         }.font(.footnote).foregroundStyle(tokens.textSecondary)
     }
 

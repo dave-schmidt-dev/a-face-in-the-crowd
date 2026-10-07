@@ -29,6 +29,10 @@ final class ScanProgressTests: XCTestCase {
         app.buttons["start-scan"].tap(); app.alerts.buttons["Start scan"].tap()
         let preview = app.images["Photo preview"].firstMatch
         XCTAssertTrue(preview.waitForExistence(timeout: 10))
+        let message = app.staticTexts["scan-message"].firstMatch
+        XCTAssertTrue(message.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", message.label)).count, 1)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "scan-counts").count, 1)
         app.buttons["cancel-scan"].tap()
         let phase = app.staticTexts["scan-phase"]
         expectation(for: NSPredicate(format: "value == 'cancelled'"), evaluatedWith: phase)

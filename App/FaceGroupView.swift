@@ -11,6 +11,7 @@ struct FaceGroupView: View {
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 120
+    @State private var viewer: PhotoIdentity?
     @State private var name = ""
     @State private var labelPersonID: UUID?
     @State private var confirmingGroup = false
@@ -39,6 +40,7 @@ struct FaceGroupView: View {
             .id("face-group-top")
             .padding(DesignTokens.Spacing.l).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
         }
+        .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
         .modifier(PeoplePalette())
         .modifier(UndoToolbar(services: services))
         .confirmationDialog("Confirm reviewed group", isPresented: $confirmingGroup, titleVisibility: .visible) {
@@ -124,7 +126,12 @@ struct FaceGroupView: View {
             LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
                 ForEach(members) { face in
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                        FacePreview(services: services, face: face, wholePhoto: false, style: .tile)
+                        Button { viewer = face.photo } label: {
+                            FacePreview(services: services, face: face, wholePhoto: false, style: .tile)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("group-photo-\(face.photo.id.uuidString)-\(face.key.faceID.uuidString)")
+                        .accessibilityLabel("Open photo \(face.photo.relativePath)")
                         Text((face.photo.relativePath as NSString).lastPathComponent)
                             .font(.caption).foregroundStyle(tokens.textSecondary).lineLimit(1)
                         Button("Not in this group") {
@@ -136,7 +143,7 @@ struct FaceGroupView: View {
                     }.card()
                 }
             }
-            Text("Not in this group is a durable correction with Undo. It excludes this face from every member of the inspected group.")
+            Text("Not in this group keeps this face separate from the reviewed group. Undo restores it.")
                 .font(.footnote).foregroundStyle(tokens.textSecondary)
         }
     }

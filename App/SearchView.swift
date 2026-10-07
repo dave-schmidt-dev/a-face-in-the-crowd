@@ -118,11 +118,6 @@ struct SearchView: View {
             if let error = controller.error { Text(error).accessibilityIdentifier("search-error") }
             if let snapshot = controller.snapshot {
                 Text("\(snapshot.totalCount)\(snapshot.selectedPeople.isEmpty ? "" : " confirmed") \(snapshot.totalCount == 1 ? "photo" : "photos")").font(.headline).accessibilityIdentifier("search-result-count")
-                // With people selected the chips above already say who was searched; this caption
-                // only says what an empty selection means.
-                if snapshot.selectedPeople.isEmpty {
-                    Text("All catalog photos").font(.footnote).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("search-snapshot")
-                }
                 if snapshot.query.mode == .only {
                     Text("\(snapshot.coverage.unresolvedCandidatePhotoCount) candidate \(snapshot.coverage.unresolvedCandidatePhotoCount == 1 ? "photo" : "photos") withheld for unresolved faces; \(snapshot.coverage.extraPeopleCandidatePhotoCount) \(snapshot.coverage.extraPeopleCandidatePhotoCount == 1 ? "photo has" : "photos have") extra people.")
                         .accessibilityIdentifier("only-coverage")

@@ -181,8 +181,11 @@ struct PhotoViewer: View {
                             ZoomableImage(image: image) { zoomed = $0 }
                                 .accessibilityIdentifier("viewer-image")
                         } else if controller.status == "Opening photo" {
-                            ProgressView("Opening photo")
-                        } else { Text(controller.status).multilineTextAlignment(.center) }
+                            ProgressView().accessibilityLabel("Photo loading activity")
+                        } else {
+                            Image(systemName: "photo").font(.system(size: 48))
+                                .foregroundStyle(tokens.textSecondary).accessibilityHidden(true)
+                        }
                     }.frame(maxWidth: .infinity).frame(height: max(320, proxy.size.height * 0.8))
                     Text(controller.status).accessibilityIdentifier("viewer-status")
                     #if DEBUG
@@ -197,11 +200,12 @@ struct PhotoViewer: View {
                     #endif
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
                         Text((photo.relativePath as NSString).lastPathComponent)
-                            .font(.headline)
-                        Text(photo.relativePath)
-                            .font(.caption)
-                            .foregroundStyle(tokens.textSecondary)
-                            .textSelection(.enabled)
+                            .font(.headline).accessibilityIdentifier("viewer-filename")
+                        if photo.relativePath != (photo.relativePath as NSString).lastPathComponent {
+                            Text(photo.relativePath)
+                                .font(.caption).foregroundStyle(tokens.textSecondary)
+                                .textSelection(.enabled).accessibilityIdentifier("viewer-relative-path")
+                        }
                     }
                     if let date = photo.captureDate {
                         VStack(alignment: .leading, spacing: 2) {

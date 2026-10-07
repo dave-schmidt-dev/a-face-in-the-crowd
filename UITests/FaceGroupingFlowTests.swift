@@ -18,6 +18,20 @@ final class FaceGroupingFlowTests: XCTestCase {
         let heading = app.staticTexts["face-group-named-heading"]
         XCTAssertTrue(heading.waitForExistence(timeout: 10)); XCTAssertEqual(heading.label, "Fictional Ada")
         XCTAssertEqual(before.label, count, "Naming retains the inspected group's photos")
+        let photoButtons = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'group-photo-'"))
+        let memberIDs = Set(photoButtons.allElementsBoundByIndex.map(\.identifier))
+        let openPhoto = photoButtons.firstMatch
+        XCTAssertTrue(openPhoto.waitForExistence(timeout: 10)); revealElement(openPhoto, app); openPhoto.tap()
+        let viewerStatus = app.staticTexts["viewer-status"]
+        XCTAssertTrue(waitUntilTrue { viewerStatus.label == "Original" })
+        XCTAssertTrue(app.images["viewer-image"].exists)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", viewerStatus.label)).count, 1)
+        attachScreenshot("named-group-matching-photo-original", app)
+        app.buttons["close-viewer"].tap()
+        XCTAssertTrue(heading.waitForExistence(timeout: 10)); XCTAssertEqual(heading.label, "Fictional Ada")
+        XCTAssertEqual(before.label, count)
+        XCTAssertEqual(Set(photoButtons.allElementsBoundByIndex.map(\.identifier)), memberIDs)
+        attachScreenshot("named-group-after-photo-close", app)
         app.terminate(); app.launch()
         navigateTo("People", app)
         let person = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS 'Fictional Ada'")).firstMatch

@@ -7,6 +7,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 ## [Unreleased]
 
 ### Added
+- Group photo crops now open their matching original through the existing guarded read-only viewer and retain the group on close.
 - Search now separates confirmed and possible named matches using one captured catalog revision, independent counts/pages and the same saved grouping engine. Together and Any include provisional matches; Only remains confirmed and unresolved-safe. Explicit reviewed-group confirmation validates the full inspected batch and records atomic Undo, including backup/restore. Synthetic service tests show no added source reads or inference.
 - People now opens saved unnamed groups, names a cover in place while retaining its photos, and separates confirmed from possible photos. Verify shares the same durable membership without a toggle or rescan. Explicit unfinished-analysis retry uses guarded photo admission; labels and navigation cause no source/model work. Portable AppServices tests measure fictional scan/read/inference reuse and reopening. Recognition and owner acceptance remain separate.
 - Scans now persist face analysis durably and reuse it: two unchanged scans and a relaunch reuse one inference result with zero extra reads or model work, durable vectors reload from the catalog after relaunch or memory pressure, and a trusted unchanged photo missing analysis gets exactly one admitted catch-up read after pinned runtime preparation and thermal/memory admission. Failed attempts have an explicit per-photo retry admission. Catch-up preserves the stored Vision face keys, geometry, content version and manual identity decisions without rerunning the detector; failed, paused and capacity-full analysis are explicit retry states, never empty success. A deletion or suppression that lands while a batch is in flight cannot re-insert suppressed vectors, and human naming during in-flight inference no longer discards usable model results.
@@ -69,6 +70,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Separated synthetic core checks and simulator compilation from native UI, physical compatibility and M4 performance acceptance.
 
 ### Fixed
+- Scan activity, all-photos Search and photo-viewer status show their message once; root-level filenames no longer repeat as an identical path. Existing native journeys assert single status values and group preservation around photo viewing.
 - Choosing a real photo folder on iPad no longer fails with "Folder access denied": folder access now uses the exact folder link the picker returned.
 - Cleaning up a failed backup export now reopens access to the chosen folder, so the cleanup can succeed without a relaunch before privacy actions are available again.
 - Restore leftovers that startup could not remove are now counted in the diagnostic log (count only, no names or paths).
