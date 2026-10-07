@@ -16,7 +16,7 @@ struct PeopleView: View {
                 .machineValue("\(active.count)")
             DecisionStatus(services: services)
             #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-refresh-burst") {
+            if services.usesSyntheticFixture, services.launch.has("--uitest-refresh-burst") {
                 Text(services.syntheticRefreshProbe).accessibilityIdentifier("people-refresh-probe")
             }
             #endif

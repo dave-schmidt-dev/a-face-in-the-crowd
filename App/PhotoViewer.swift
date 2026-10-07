@@ -41,8 +41,8 @@ private final class ViewerController: ObservableObject {
             do {
                 guard let root else { throw ScanError.unavailable }
                 #if DEBUG
-                if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-disconnect") { throw ScanError.unavailable }
-                if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-hold-read") {
+                if synthetic && services.launch.has("--uitest-viewer-disconnect") { throw ScanError.unavailable }
+                if synthetic && services.launch.has("--uitest-viewer-hold-read") {
                     try await Task.sleep(for: .seconds(10))
                 }
                 #endif
@@ -52,7 +52,7 @@ private final class ViewerController: ObservableObject {
                     // Faults touch only this run's explicitly generated app-container fixture.
                     if root.deletingLastPathComponent().standardizedFileURL == cacheRoot.standardizedFileURL,
                        root.lastPathComponent.hasPrefix("AFITCFixture-") {
-                        if ProcessInfo.processInfo.arguments.contains("--uitest-viewer-change-bytes") {
+                        if services.launch.has("--uitest-viewer-change-bytes") {
                             let original = root.appendingPathComponent(photo.relativePath)
                             let bytes = try Data(contentsOf: original)
                             var changed = bytes; changed.append(0) // Valid JPEG with a different exact byte hash.
@@ -89,7 +89,7 @@ private final class ViewerController: ObservableObject {
                     #endif
                     guard services.sessionIsCurrent(operation.session) else { return }
                     #if DEBUG
-                    if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-memory-warning") {
+                    if synthetic && services.launch.has("--uitest-viewer-memory-warning") {
                         NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
                     }
                     #endif
@@ -112,7 +112,7 @@ private final class ViewerController: ObservableObject {
                 do {
                     guard let cache else { throw ScanError.unavailable }
                     #if DEBUG
-                    if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-evict-preview") {
+                    if synthetic && services.launch.has("--uitest-viewer-evict-preview") {
                         try? FileManager.default.removeItem(at: cache)
                     }
                     #endif
@@ -122,7 +122,7 @@ private final class ViewerController: ObservableObject {
                         defer { try? handle.close() }
                         let bytes = try handle.read(upToCount: DecodeLimits.maximumFileBytes + 1) ?? Data()
                         #if DEBUG
-                        if synthetic && ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") {
+                        if synthetic && services.launch.has("--uitest-viewer-fallback-error-after-release") {
                             // Causal race: release the raster/request before actual decoder failure returns.
                             await MainActor.run {
                                 NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
@@ -186,12 +186,12 @@ struct PhotoViewer: View {
                     }.frame(maxWidth: .infinity).frame(height: max(320, proxy.size.height * 0.8))
                     Text(controller.status).accessibilityIdentifier("viewer-status")
                     #if DEBUG
-                    if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") {
+                    if services.usesSyntheticFixture, services.launch.has("--uitest-viewer-fallback-error-after-release") {
                         Text(services.syntheticViewerProbe).font(.caption).accessibilityIdentifier("viewer-request-detail-probe")
                     }
                     #endif
                     #if DEBUG
-                    if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+                    if services.usesSyntheticFixture, services.launch.has("--uitest-session-controls") {
                         Text(services.sessionProbe).font(.caption).accessibilityIdentifier("viewer-session-probe")
                     }
                     #endif
@@ -229,7 +229,7 @@ struct PhotoViewer: View {
                 }
                 Button("Done") { controller.release(); dismiss() }.frame(minHeight: 44).accessibilityIdentifier("close-viewer")
                 #if DEBUG
-                if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+                if services.usesSyntheticFixture, services.launch.has("--uitest-session-controls") {
                     Button("Pause session") { Task { await services.quiesceCatalogSession() } }
                         .accessibilityIdentifier("quiesce-viewer-session")
                 }

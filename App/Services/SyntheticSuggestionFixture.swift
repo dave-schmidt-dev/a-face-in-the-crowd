@@ -15,7 +15,7 @@ import AFITCCore
 /// - synthetic-2: left = near tie 0.70 / 0.68 (always ambiguous, never shown), right = cluster 1 at 0.80.
 struct SyntheticFaceVectorProducer: FaceVectorProducing {
     static let launchArgument = "--uitest-synthetic-suggestions"
-    static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains(launchArgument) }
+    static func isRequested(_ launch: LaunchOptions) -> Bool { launch.has(launchArgument) }
 
     /// Same identity the engine ranks with, so synthetic vectors take the production path.
     let manifest = ModelManifest.openCVSFace2021December
@@ -68,7 +68,7 @@ extension FaceEmbeddingCoordinator {
     /// on, the scan carries a `FaceJobCoordinator` around `SyntheticFaceVectorProducer` through the
     /// same `prepareJob` handoff as production; otherwise nil keeps the scan unchanged.
     func syntheticSuggestionJob(repository: CatalogRepository) -> (any ScanEnrichment)? {
-        guard SyntheticFaceVectorProducer.isRequested, let jobs = suggestions?.prepareJob() else { return nil }
+        guard let suggestions, SyntheticFaceVectorProducer.isRequested(suggestions.launch), let jobs = suggestions.prepareJob() else { return nil }
         return FaceJobCoordinator(repository: repository, producer: SyntheticFaceVectorProducer(),
                                   index: jobs.index, gate: jobs.gate, stats: jobs.stats)
     }

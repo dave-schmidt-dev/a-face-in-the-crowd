@@ -155,7 +155,7 @@ struct PersonDetailView: View {
                 .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("discard-name-draft")
         }
         #if DEBUG
-        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls"), let person {
+        if services.usesSyntheticFixture, services.launch.has("--uitest-presentation-controls"), let person {
             Button("Refresh canonical fixture") { Task { await services.decide(.rename(personID: person.id, displayName: "Changed fictional name")) } }
                 .accessibilityIdentifier("change-canonical-fixture")
         }

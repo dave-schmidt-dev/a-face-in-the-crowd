@@ -3637,6 +3637,7 @@
         "App/DesignTokens.swift",
         "App/Components/PersonChips.swift",
         "App/Services/SearchService.swift",
+        "App/Services/LaunchOptions.swift",
         "App/Services/CatalogSessionLifecycle.swift",
         "App/Services/CatalogStartupService.swift",
         "App/Services/CatalogBackupService.swift",

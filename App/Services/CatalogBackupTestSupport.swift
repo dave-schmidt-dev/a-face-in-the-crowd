@@ -6,12 +6,14 @@ import AFITCCore
 @MainActor
 final class CatalogBackupTestSupport {
     enum Failure: Error { case snapshot }
+    let launch: LaunchOptions
     var selected: (URL, CatalogBackupService.Picker)?
     private var waiter: CheckedContinuation<Void, Never>?
     private var snapshotFailed = false
     var changed: (() -> Void)?
     private(set) var status = "Held 0 · Collision 0 · Sentinel 0" { didSet { changed?() } }
-    func has(_ argument: String) -> Bool { ProcessInfo.processInfo.arguments.contains(argument) }
+    init(launch: LaunchOptions) { self.launch = launch }
+    func has(_ argument: String) -> Bool { launch.has(argument) }
     func hold(_ kind: String) async {
         guard has("--uitest-backup-hold-" + kind) else { return }
         status = "Held 1 · " + kind

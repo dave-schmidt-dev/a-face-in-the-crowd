@@ -22,11 +22,11 @@ struct SettingsView: View {
                     PrivacySettingsActions(services: services)
                     #if DEBUG
                     if services.usesSyntheticFixture {
-                        SettingsInputFixtureControls(privacy: services.privacy, presentation: services.presentation)
+                        SettingsInputFixtureControls(privacy: services.privacy, presentation: services.presentation, launch: services.launch)
                         Text(backup.probe).font(.caption).accessibilityIdentifier("backup-operation-probe")
                         Text(backup.testStatus).font(.caption).accessibilityIdentifier("backup-test-status")
                         Button("Release backup work", action: backup.releaseTestWork).accessibilityIdentifier("release-backup-work")
-                        if ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+                        if services.launch.has("--uitest-session-controls") {
                             Text(services.sessionProbe).font(.caption).accessibilityIdentifier("settings-session-probe")
                             Button("Release catalog work", action: services.releaseHeldSessionWork).accessibilityIdentifier("settings-release-session-work")
                         }
@@ -55,8 +55,9 @@ struct SettingsView: View {
 private struct SettingsInputFixtureControls: View {
     @ObservedObject var privacy: CatalogPrivacyService
     @ObservedObject var presentation: AppPresentationState
+    let launch: LaunchOptions
     var body: some View {
-        if privacy.pendingCleanup, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-save-retry") {
+        if privacy.pendingCleanup, launch.has("--uitest-presentation-save-retry") {
             Text(presentation.saveFixtureProbe).accessibilityIdentifier("privacy-input-fixture")
             Button("Repair saved-input fixture") { presentation.setSaveObstructionForTest(create: false) }.accessibilityIdentifier("privacy-repair-inputs")
         }

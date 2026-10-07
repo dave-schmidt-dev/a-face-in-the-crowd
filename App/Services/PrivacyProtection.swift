@@ -97,7 +97,7 @@ final class PrivacyProtection: ObservableObject {
     init(services: AppServices) {
         self.services = services; available = UIApplication.shared.isProtectedDataAvailable
         #if DEBUG
-        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-protected-cold-lock") {
+        if services.usesSyntheticFixture, services.launch.has("--uitest-protected-cold-lock") {
             available = false
         }
         #endif
@@ -176,7 +176,7 @@ final class PrivacyProtection: ObservableObject {
                     if suspension == nil { suspension = try await CatalogSuspensionRepository.beginSuspension(catalog: repo) }
                     guard let suspension else { throw CatalogRecoveryError.recoveryRequired }
                     #if DEBUG
-                    if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-protected-sqlite-busy"), !heldSQLite {
+                    if services.usesSyntheticFixture, services.launch.has("--uitest-protected-sqlite-busy"), !heldSQLite {
                         try await suspension.holdSQLiteStatementForTest(); heldSQLite = true
                     }
                     #endif
@@ -247,7 +247,7 @@ final class PrivacyProtection: ObservableObject {
                 }
                 let photos = try await reopened.photos()
                 #if DEBUG
-                if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-protected-hold-fresh-snapshot") {
+                if services.usesSyntheticFixture, services.launch.has("--uitest-protected-hold-fresh-snapshot") {
                     await ProtectedFixtureGate.hold("fresh-snapshot")
                 }
                 #endif
@@ -289,7 +289,7 @@ final class PrivacyProtection: ObservableObject {
     }
     private var drainSeconds: Double {
         #if DEBUG
-        if services?.usesSyntheticFixture == true, ProcessInfo.processInfo.arguments.contains("--uitest-session-short-timeout") { return 0.25 }
+        if services?.usesSyntheticFixture == true, services?.launch.has("--uitest-session-short-timeout") == true { return 0.25 }
         #endif
         return 15
     }
@@ -314,10 +314,8 @@ final class PrivacyProtection: ObservableObject {
     }
     func holdPreview(_ operation: CatalogSessionLifecycle.Operation) async {
         guard let services, services.usesSyntheticFixture,
-              ProcessInfo.processInfo.arguments.contains("--uitest-protected-hold-previews") else { return }
-        let arguments = ProcessInfo.processInfo.arguments
-        if let index = arguments.firstIndex(of: "--uitest-protected-preview-kind"), index + 1 < arguments.count,
-           arguments[index + 1] != operation.kind { return }
+              services.launch.has("--uitest-protected-hold-previews") else { return }
+        if let kind = services.launch.value(after: "--uitest-protected-preview-kind"), kind != operation.kind { return }
         await services.catalogSession.hold(operation)
     }
     #endif
@@ -344,7 +342,7 @@ struct ProtectedCatalogView: View {
                 }
             }
             #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-protected-controls") {
+            if services.usesSyntheticFixture, services.launch.has("--uitest-protected-controls") {
                 Text(protection.state.rawValue).accessibilityIdentifier("protected-catalog-state")
                 Text(services.sessionProbe).accessibilityIdentifier("protected-session-probe")
                 Text(protection.fixtureProbe).accessibilityIdentifier("protected-fixture-probe")
@@ -359,16 +357,13 @@ struct ProtectedCatalogView: View {
 }
 
 enum AppOwnedPaths {
-    static func current() -> (support: URL, cache: URL, container: String) {
+    static func current(launch: LaunchOptions) -> (support: URL, cache: URL, container: String) {
         let manager = FileManager.default
         #if DEBUG
-        let isolated = ProcessInfo.processInfo.arguments.contains("--uitest-fresh-catalog") ||
-            ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source")
-        let arguments = ProcessInfo.processInfo.arguments
-        let tokenIndex = arguments.contains("--uitest-synthetic-source") ? arguments.firstIndex(of: "--uitest-catalog-token") : nil
-        let testToken = tokenIndex.flatMap { index in
-            index + 1 < arguments.count ? UUID(uuidString: arguments[index + 1]) : nil
-        }
+        let isolated = launch.has("--uitest-fresh-catalog") ||
+            launch.has("--uitest-synthetic-source")
+        let testToken = launch.has("--uitest-synthetic-source")
+            ? launch.value(after: "--uitest-catalog-token").flatMap(UUID.init(uuidString:)) : nil
         let container = isolated ? "AFITCTest-" + (testToken ?? UUID()).uuidString : "AFITC"
         #else
         let container = "AFITC"
@@ -406,7 +401,7 @@ enum ProtectedFixtureGate {
 extension AppServices {
     var usesSyntheticFixture: Bool {
         #if DEBUG
-        return ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source")
+        return launch.has("--uitest-synthetic-source")
         #else
         return false
         #endif

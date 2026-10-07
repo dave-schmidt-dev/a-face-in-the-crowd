@@ -103,7 +103,7 @@ struct FacePreview: View {
         // Causal runtime fixture: warn after a real decode but before its result can publish.
         // Normal DEBUG use and all release builds never select this hook.
         if decoded != nil, services.usesSyntheticFixture,
-           ProcessInfo.processInfo.arguments.contains("--uitest-face-preview-memory-warning") {
+           services.launch.has("--uitest-face-preview-memory-warning") {
             NotificationCenter.default.post(name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
         }
         #endif

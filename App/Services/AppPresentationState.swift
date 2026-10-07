@@ -32,11 +32,11 @@ final class AppPresentationState: ObservableObject {
     private var committedWaiting: [UUID: (String, Int)] = [:]
     private var writes = 0
     private var editedDraftIDs: Set<UUID> = []
-    init(directory: URL) {
+    init(directory: URL, launch: LaunchOptions) {
         let initial = UUID(); epoch = initial
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-source"),
-           ProcessInfo.processInfo.arguments.contains("--uitest-protected-hold-preferences") {
+        if launch.has("--uitest-synthetic-source"),
+           launch.has("--uitest-protected-hold-preferences") {
             // Core validates exact generated UUID ownership before this real writer hook is installed.
             store = try! PresentationPreferenceStore(ownedSyntheticDirectory: directory, epoch: initial,
                 beforeSyntheticWrite: { await ProtectedFixtureGate.hold("preference-writer") })
@@ -273,7 +273,7 @@ final class AppPresentationState: ObservableObject {
     /// Fixed synthetic fault only; repair checks the identity this fixture exclusively created.
     func setSaveObstructionForTest(create: Bool) {
         guard let services, services.usesSyntheticFixture, loaded, fixtureTask == nil,
-              ProcessInfo.processInfo.arguments.contains("--uitest-presentation-save-retry") else { return }
+              services.launch.has("--uitest-presentation-save-retry") else { return }
         let operation = services.catalogSession.begin("presentation-save-fixture")
         guard operation != nil || services.privacy.pendingCleanup else { return }
         let session = services.catalogSession.session

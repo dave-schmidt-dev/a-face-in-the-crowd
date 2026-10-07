@@ -62,7 +62,7 @@ public struct RootView: View {
                     Text(privacy.message).accessibilityIdentifier("privacy-maintenance-message")
                     Button("Open Settings") { settingsPresented = true }.frame(minHeight: 48).accessibilityIdentifier("privacy-open-settings")
                 }.padding(24)
-            } else if sizeClass == .regular && !ProcessInfo.processInfo.arguments.contains("--uitest-compact") {
+            } else if sizeClass == .regular && !services.launch.has("--uitest-compact") {
                 NavigationSplitView(columnVisibility: $columnVisibility) {
                     List(Section.allCases) { section in
                         let selected = selection == section
@@ -109,17 +109,17 @@ public struct RootView: View {
                 }.padding(8)
             }
             #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
+            if services.usesSyntheticFixture, services.launch.has("--uitest-session-controls") {
                 VStack {
                     Text(services.sessionProbe).font(.caption).accessibilityIdentifier("catalog-session-probe")
-                    if ProcessInfo.processInfo.arguments.contains("--uitest-protected-controls") {
+                    if services.launch.has("--uitest-protected-controls") {
                         Button("Synthetic unavailable event", action: protection.syntheticWill).accessibilityIdentifier("protected-synthetic-will")
                         Text(backup.retainedPreparedProbe).accessibilityIdentifier("protected-retained-backup-probe")
                     }
                     HStack {
                         Button("Pause session") {
                             Task { await services.quiesceCatalogSession(seconds:
-                                ProcessInfo.processInfo.arguments.contains("--uitest-session-short-timeout") ? 0.25 : 15) }
+                                services.launch.has("--uitest-session-short-timeout") ? 0.25 : 15) }
                         }
                             .accessibilityIdentifier("quiesce-session")
                         Button("Release held work") { services.releaseHeldSessionWork() }
@@ -171,12 +171,12 @@ public struct RootView: View {
             }.padding(8)
         }
         #if DEBUG
-        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-presentation-controls") {
+        if services.usesSyntheticFixture, services.launch.has("--uitest-presentation-controls") {
             VStack {
                 Text(presentation.persistenceProbe).font(.caption).accessibilityIdentifier("presentation-persistence-probe")
                 Button("Flush saved inputs") { Task { await presentation.preserveInputsForTest() } }
                     .accessibilityIdentifier("flush-presentation-inputs")
-                if ProcessInfo.processInfo.arguments.contains("--uitest-presentation-save-retry") {
+                if services.launch.has("--uitest-presentation-save-retry") {
                     Text(presentation.saveFixtureProbe).accessibilityIdentifier("presentation-save-fixture-probe")
                     HStack {
                         Button("Block input saving") { presentation.setSaveObstructionForTest(create: true) }.accessibilityIdentifier("block-presentation-save")

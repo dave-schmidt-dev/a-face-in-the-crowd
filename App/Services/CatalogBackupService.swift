@@ -53,12 +53,13 @@ final class CatalogBackupService: ObservableObject {
     private var exportOwner: CatalogBackupExport?
     private var restores = 0, opens = 0, adopts = 0, drops = 0
     #if DEBUG
-    let testSupport = CatalogBackupTestSupport()
+    let testSupport: CatalogBackupTestSupport
     private var privacyFixtures: SyntheticPrivacyBackupFixtures?
     #endif
     init(services: AppServices) {
         self.services = services
         #if DEBUG
+        testSupport = CatalogBackupTestSupport(launch: services.launch)
         testSupport.changed = { [weak self] in
             guard let self, let id = self.operationID, self.owns(id, closed: true) else { return }
             self.objectWillChange.send()
@@ -392,7 +393,7 @@ final class CatalogBackupService: ObservableObject {
         guard services?.usesSyntheticFixture == true else { return }
         admitted("backup-test-picker", state: intent == .restore ? .validating : .exportPreview) { [self] repo, cache, id, _ in
             let fixtureCache: URL
-            if ProcessInfo.processInfo.arguments.contains("--uitest-privacy-controls") {
+            if testSupport.has("--uitest-privacy-controls") {
                 if privacyFixtures == nil { privacyFixtures = try await Task.detached { try SyntheticPrivacyBackupFixtures(parent: cache.deletingLastPathComponent()) }.value }
                 guard let privacyFixtures else { throw BackupError.unsafeStage }; fixtureCache = await privacyFixtures.root
             } else { fixtureCache = cache }

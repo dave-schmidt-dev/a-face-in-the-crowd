@@ -40,9 +40,11 @@ final class SuggestionService: ObservableObject {
 
     /// Session gate shared by every job: toggle, thermal state and memory-warning latch.
     let resources = FaceJobResources()
+    /// Launch options injected by AppServices; the DEBUG index-capacity hook reads them.
+    let launch: LaunchOptions
     private let jobStats: FaceJobStats
     /// The default capacity is valid, so this is only nil if the index type rejects it.
-    private let index = SuggestionService.makeIndex()
+    private let index: InMemoryFaceVectorIndex?
     private weak var services: AppServices?
     private var cancellables: Set<AnyCancellable> = []
     private var snapshot: PeopleSnapshot
@@ -51,12 +53,10 @@ final class SuggestionService: ObservableObject {
     private var pausedBaseline = 0
     private var indexFullBaseline = 0
 
-    private nonisolated static func makeIndex() -> InMemoryFaceVectorIndex? {
+    private nonisolated static func makeIndex(launch: LaunchOptions) -> InMemoryFaceVectorIndex? {
         #if DEBUG
         // UI tests shrink the index to reach the "index full" state with a handful of faces.
-        let arguments = ProcessInfo.processInfo.arguments
-        if let at = arguments.firstIndex(of: "--uitest-suggestion-index-capacity"), arguments.indices.contains(at + 1),
-           let capacity = Int(arguments[at + 1]), capacity > 0 {
+        if let capacity = launch.value(after: "--uitest-suggestion-index-capacity").flatMap({ Int($0) }), capacity > 0 {
             return try? InMemoryFaceVectorIndex(capacity: capacity)
         }
         #endif
@@ -65,6 +65,8 @@ final class SuggestionService: ObservableObject {
 
     init(services: AppServices) {
         self.services = services
+        launch = services.launch
+        index = Self.makeIndex(launch: launch)
         let jobStats = FaceJobStats()
         self.jobStats = jobStats; stats = jobStats.snapshot
         snapshot = services.peopleSnapshot

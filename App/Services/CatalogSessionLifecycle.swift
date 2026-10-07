@@ -108,12 +108,14 @@ final class CatalogSessionLifecycle {
 #if DEBUG
 /// Explicit generated fixture only; shared with the real scan path.
 actor AppSessionSyntheticDetector: DetectionProvider {
+    let launch: LaunchOptions
+    init(launch: LaunchOptions) { self.launch = launch }
     func process(_ data: Data, contentVersion: Int) async throws -> ProcessedPreview {
         try Task.checkCancellation()
         let image = try JPEGPreviewDecoder.decode(data)
         return ProcessedPreview(jpeg: try JPEGPreviewDecoder.jpeg(image), analysis: FaceAnalysisState(
             status: .successful, detectorVersion: "synthetic-ui-preview-only-v1", contentVersion: contentVersion,
-            faces: ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-faces")
+            faces: launch.has("--uitest-synthetic-faces")
                 ? [FaceGeometry(rectangle: [0.05, 0.1, 0.3, 0.7], landmarks: []),
                    FaceGeometry(rectangle: [0.6, 0.2, 0.3, 0.6], landmarks: [])] : []))
     }
@@ -144,7 +146,7 @@ extension AppServices {
     #if DEBUG
     func releaseHeldSessionWork() { catalogSession.releaseHeld() }
     func holdSessionWork(_ operation: CatalogSessionLifecycle.Operation) async {
-        guard usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-hold-" + operation.kind) else { return }
+        guard usesSyntheticFixture, launch.has("--uitest-session-hold-" + operation.kind) else { return }
         await catalogSession.hold(operation)
     }
     #endif

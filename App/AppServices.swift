@@ -4,6 +4,7 @@ import AFITCCore
 @MainActor
 public final class AppServices: ObservableObject {
     public let databaseInfo: CatalogDatabaseInfo
+    let launch: LaunchOptions
     public let diagnostics: DiagnosticLog
     let presentation: AppPresentationState
     let catalogSession = CatalogSessionLifecycle()
@@ -95,8 +96,8 @@ public final class AppServices: ObservableObject {
         syntheticViewerProbe = "Request \(id.uuidString) · Cancelled \(probe.cancelled ? 1 : 0) · Finished \(probe.finished ? 1 : 0) · Publications \(probe.publications) · Late \(probe.latePublications)"
     }
     func beginViewerProbe(_ id: UUID) {
-        guard usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-hold-read") ||
-            ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") else { return }
+        guard usesSyntheticFixture, launch.has("--uitest-viewer-hold-read") ||
+            launch.has("--uitest-viewer-fallback-error-after-release") else { return }
         if viewerRequestProbes.count >= 8 { viewerRequestProbes.removeAll() }
         viewerRequestProbes[id] = ViewerRequestProbe(); publishViewerProbe(id)
     }
@@ -164,13 +165,14 @@ public final class AppServices: ObservableObject {
     private var scanTask: Task<Void, Never>?
     private var previewDirectory: URL?
     private var observers: [NSObjectProtocol] = []
-    public init(databaseInfo: CatalogDatabaseInfo = CatalogDatabaseInfo()) {
+    public init(databaseInfo: CatalogDatabaseInfo = CatalogDatabaseInfo(), launch: LaunchOptions = .process) {
         self.databaseInfo = databaseInfo
-        let (support, cache, container) = AppOwnedPaths.current()
+        self.launch = launch
+        let (support, cache, container) = AppOwnedPaths.current(launch: launch)
         diagnostics = DiagnosticLog(directory: support.appendingPathComponent("Diagnostics", isDirectory: true),
-                                    debugEnabled: ProcessInfo.processInfo.arguments.contains("--debug"))
+                                    debugEnabled: launch.has("--debug"))
         presentation = AppPresentationState(directory: support.deletingLastPathComponent()
-            .appendingPathComponent(container + "-Presentation", isDirectory: true))
+            .appendingPathComponent(container + "-Presentation", isDirectory: true), launch: launch)
         catalogSession.changed = { [weak self] in self?.updateSessionState() }
         startupPaths = (support, cache)
         ProtectedDataDelegate.protection = protection
@@ -247,7 +249,7 @@ public final class AppServices: ObservableObject {
             let scanSource: any PhotoSource
             #if DEBUG
             if usesSyntheticFixture {
-                let hold = ProcessInfo.processInfo.arguments.contains("--uitest-hold-after-first") && syntheticAttempts == 0
+                let hold = launch.has("--uitest-hold-after-first") && syntheticAttempts == 0
                 syntheticAttempts += 1
                 scanSource = AppSessionSlowSyntheticSource(source: source, holdAfterFirst: hold)
             } else { scanSource = source }
@@ -256,8 +258,8 @@ public final class AppServices: ObservableObject {
             #endif
             let detector: any DetectionProvider
             #if DEBUG
-            if usesSyntheticFixture && ProcessInfo.processInfo.arguments.contains("--uitest-synthetic-detector") {
-                detector = AppSessionSyntheticDetector()
+            if usesSyntheticFixture && launch.has("--uitest-synthetic-detector") {
+                detector = AppSessionSyntheticDetector(launch: launch)
             } else { detector = FaceDetectionService() }
             #else
             detector = FaceDetectionService()
@@ -356,7 +358,7 @@ public final class AppServices: ObservableObject {
         do {
             #if DEBUG
             if usesSyntheticFixture {
-                if syntheticFailNextRead || (syntheticReadCount == 1 && ProcessInfo.processInfo.arguments.contains("--uitest-fail-initial-people-read")) {
+                if syntheticFailNextRead || (syntheticReadCount == 1 && launch.has("--uitest-fail-initial-people-read")) {
                     syntheticFailNextRead = false
                     throw SyntheticPeopleReadFailure()
                 }
@@ -368,7 +370,7 @@ public final class AppServices: ObservableObject {
             #endif
             guard sessionIsCurrent(operation.session) else { return }
             #if DEBUG
-            if usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-refresh-burst") {
+            if usesSyntheticFixture, launch.has("--uitest-refresh-burst") {
                 // Finite replay uses a real generated source photo and the production callback path.
                 // It happens while this real snapshot is held, so the next read must absorb the dirty flag.
                 if syntheticReplayEvents == 0, let photo = photos.last {
@@ -400,7 +402,7 @@ public final class AppServices: ObservableObject {
     private func armCommittedRefreshFault(merge: Bool) {
         guard usesSyntheticFixture else { return }
         let flag = merge ? "--uitest-fail-people-refresh-after-merge" : "--uitest-fail-people-refresh-after-decision"
-        guard ProcessInfo.processInfo.arguments.contains(flag) else { return }
+        guard launch.has(flag) else { return }
         if merge {
             guard !syntheticMergeFaultUsed else { return }; syntheticMergeFaultUsed = true
         } else {

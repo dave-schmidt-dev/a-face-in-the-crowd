@@ -53,6 +53,7 @@
 		AA0000020000000000000042 /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000042; };
 		AA0000020000000000000043 /* PersonChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000043; };
 		AA0000020000000000000044 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000044; };
+		AA0000020000000000000070 /* LaunchOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000070; };
 		CC0000020000000000000040 /* ViewerReadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000040; };
 		DD0000020000000000000040 /* SearchFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000040; };
 		DD0000020000000000000041 /* AccessibilityFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0000010000000000000041; };
@@ -293,6 +294,7 @@
 		AA0000010000000000000042 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignTokens.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000043 /* PersonChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/PersonChips.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000044 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/SearchService.swift"; sourceTree = "<group>"; };
+		AA0000010000000000000070 /* LaunchOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/LaunchOptions.swift"; sourceTree = "<group>"; };
 		CC0000010000000000000040 /* ViewerReadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewerReadTests.swift"; sourceTree = "<group>"; };
 		DD0000010000000000000040 /* SearchFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SearchFlowTests.swift"; sourceTree = "<group>"; };
 		DD0000010000000000000041 /* AccessibilityFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AccessibilityFlowTests.swift"; sourceTree = "<group>"; };
@@ -528,6 +530,7 @@
 				AA0000010000000000000042 /* DesignTokens.swift */,
 				AA0000010000000000000043 /* PersonChips.swift */,
 				AA0000010000000000000044 /* SearchService.swift */,
+				AA0000010000000000000070 /* LaunchOptions.swift */,
 				AA0000010000000000000020 /* PeopleView.swift */,
 				AA0000010000000000000021 /* PersonDetailView.swift */,
 				AA000001000000000000000E /* FaceDetectionService.swift */,
@@ -954,6 +957,7 @@
 				AA0000020000000000000042 /* DesignTokens.swift in Sources */,
 				AA0000020000000000000043 /* PersonChips.swift in Sources */,
 				AA0000020000000000000044 /* SearchService.swift in Sources */,
+				AA0000020000000000000070 /* LaunchOptions.swift in Sources */,
 				AA0000020000000000000020 /* PeopleView.swift in Sources */,
 				AA0000020000000000000021 /* PersonDetailView.swift in Sources */,
 				AA000002000000000000000E /* FaceDetectionService.swift in Sources */,

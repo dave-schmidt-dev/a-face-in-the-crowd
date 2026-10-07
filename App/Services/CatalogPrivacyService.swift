@@ -193,7 +193,7 @@ final class CatalogPrivacyService: ObservableObject {
                 state = .idle; message = "The catalog changed. Review a new deletion confirmation."; return
             }
             #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-privacy-controls"), let source = originalSource {
+            if services.usesSyntheticFixture, services.launch.has("--uitest-privacy-controls"), let source = originalSource {
                 sourceFixtureProof = try await Task.detached { try Self.syntheticSourceProof(source) }.value; sourceFixtureURL = source
             }
             #endif
@@ -218,7 +218,7 @@ final class CatalogPrivacyService: ObservableObject {
             try await services.backup.retireImportRootForCatalogDeletion(); stageRemoved = true; updateCleanup()
         }
         #if DEBUG
-        if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-protected-hold-deletion"), !deletionProtectionHeld {
+        if services.usesSyntheticFixture, services.launch.has("--uitest-protected-hold-deletion"), !deletionProtectionHeld {
             deletionProtectionHeld = true
             probe = "Deletes \(deletes) · Effects \(effects) · Adopt \(adopts) · Whole owners \(wholeOwners)"
             await ProtectedFixtureGate.hold("prepared-deletion-owner")
@@ -269,7 +269,7 @@ final class CatalogPrivacyService: ObservableObject {
     }
     func verifyDeletionFixture(cleanup: Bool = false) {
         guard !busy, catalogDeleted, let services, services.usesSyntheticFixture,
-              ProcessInfo.processInfo.arguments.contains("--uitest-privacy-controls"), let roots = services.deletionFixtureRoots,
+              services.launch.has("--uitest-privacy-controls"), let roots = services.deletionFixtureRoots,
               let operation = services.catalogSession.begin("privacy-fixture-proof") else { return }
         task = Task {
             defer { services.catalogSession.finish(operation); task = nil }
@@ -305,7 +305,7 @@ final class CatalogPrivacyService: ObservableObject {
     }
     private var drainSeconds: Double {
         #if DEBUG
-        if services?.usesSyntheticFixture == true, ProcessInfo.processInfo.arguments.contains("--uitest-session-short-timeout") { return 0.25 }
+        if services?.usesSyntheticFixture == true, services?.launch.has("--uitest-session-short-timeout") == true { return 0.25 }
         #endif
         return 15
     }
@@ -315,8 +315,9 @@ final class CatalogPrivacyService: ObservableObject {
 /// Whole-catalog deletion is a separate destructive group placed last in Settings.
 struct PrivacySettingsActions: View {
     @ObservedObject var privacy: CatalogPrivacyService
+    let launch: LaunchOptions
     @Environment(\.tokens) private var tokens
-    init(services: AppServices) { privacy = services.privacy }
+    init(services: AppServices) { privacy = services.privacy; launch = services.launch }
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
             Text("Local data").font(.headline).accessibilityAddTraits(.isHeader)
@@ -338,10 +339,10 @@ struct PrivacySettingsActions: View {
             }
             #if DEBUG
             Text(privacy.probe).font(.caption).accessibilityIdentifier("privacy-operation-probe")
-            if ProcessInfo.processInfo.arguments.contains("--uitest-protected-controls") {
+            if launch.has("--uitest-protected-controls") {
                 Button("Synthetic unavailable event", action: privacy.syntheticProtectedWill).accessibilityIdentifier("protected-synthetic-will")
             }
-            if privacy.catalogDeleted, ProcessInfo.processInfo.arguments.contains("--uitest-privacy-controls") {
+            if privacy.catalogDeleted, launch.has("--uitest-privacy-controls") {
                 Text(privacy.deletionFixtureProbe).accessibilityIdentifier("privacy-deletion-fixture-probe")
                 Button("Verify synthetic deletion") { privacy.verifyDeletionFixture() }.disabled(privacy.busy).accessibilityIdentifier("verify-deletion-fixture")
                 Button("Clean owned synthetic copies") { privacy.verifyDeletionFixture(cleanup: true) }.disabled(privacy.busy).accessibilityIdentifier("cleanup-deletion-fixture")

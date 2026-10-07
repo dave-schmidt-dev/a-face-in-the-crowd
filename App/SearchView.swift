@@ -97,8 +97,8 @@ struct SearchView: View {
                     .buttonStyle(.capsuleSecondary).accessibilityIdentifier("clear-unavailable-selections")
             }
             #if DEBUG
-            if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-hold-read") ||
-                ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") {
+            if services.usesSyntheticFixture, services.launch.has("--uitest-viewer-hold-read") ||
+                services.launch.has("--uitest-viewer-fallback-error-after-release") {
                 Text(services.syntheticViewerProbe).font(.caption).accessibilityIdentifier("viewer-request-probe")
             }
             #endif
