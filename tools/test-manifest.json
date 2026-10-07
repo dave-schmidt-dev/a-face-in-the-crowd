@@ -3640,6 +3640,96 @@
           ]
         }
       }
+    },
+    "task7.2": {
+      "description": "Conservative durable face groups, inspected-cover decisions and generation suppression",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceGroupingTests.swift",
+            "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift",
+            "Tests/AFITCCoreTests/SuggestionStateTests.swift",
+            "Tests/AFITCCoreTests/ReviewQueueTests.swift",
+            "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+            "Tests/AFITCCoreTests/IdentityCorrectionTests.swift",
+            "Tests/AFITCCoreTests/DeletionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceGroupingTests/testDeterministicDurableSeedAndSamePhotoExclusion",
+            "AFITCCoreTests.FaceGroupingTests/testAppendPreservesSeedAndMembers",
+            "AFITCCoreTests.FaceGroupingTests/testNoChainingRequiresSeedAndRepresentatives",
+            "AFITCCoreTests.FaceGroupingTests/testAmbiguityMarginLeavesNearTiesUngrouped",
+            "AFITCCoreTests.FaceGroupingTests/testCapturedExclusionReseedsWithoutErasingPairs",
+            "AFITCCoreTests.FaceGroupingTests/testSuppressedNotPersonAndDeferredFacesNeverJoinGroups",
+            "AFITCCoreTests.FaceGroupingTests/testTwentyThousandFaceSyntheticBoundCompletesWithinBudget",
+            "AFITCCoreTests.FaceGroupingTests/testComparisonBudgetReportsIncompleteInsteadOfGuessing",
+            "AFITCCoreTests.FaceGroupingTests/testProgressIsReportedAndRepresentativeCapBoundsComparisons",
+            "AFITCCoreTests.FaceGroupingTests/testCapacityLimitsAreExplicit",
+            "AFITCCoreTests.FaceGroupingTests/testContradictoryNamesAndPairNegativesRemainSeparate",
+            "AFITCCoreTests.FaceGroupingTests/testSamePhotoConstraintChecksAlsoConsumeTheStrictBudget",
+            "AFITCCoreTests.FaceGroupingTests/testCancellationStopsBoundedGrouping",
+            "AFITCCoreTests.FaceGroupingTests/testPinnedNamingConfirmsOnlyCoverPreservesIDAndLaterMembers",
+            "AFITCCoreTests.FaceGroupingTests/testMembershipUsesConfirmedAnchorsAndStablePersonSeed",
+            "AFITCCoreTests.FaceGroupingTests/testSecondLabeledGroupAggregatesThroughTheSamePerson",
+            "AFITCCoreTests.FaceGroupingTests/testLabelGuardUsesInspectedCoverStateNotCatalogRevision",
+            "AFITCCoreTests.FaceGroupingTests/testLabelAndExclusionRejectChangedInspectedStates",
+            "AFITCCoreTests.FaceGroupingTests/testExclusionCorrectionIsDurableAndUndoRestoresCapturedPairs",
+            "AFITCCoreTests.FaceGroupingTests/testCaptureFiltersStaleGenerationsAndOtherPipelines",
+            "AFITCCoreTests.FaceGroupingTests/testGroupingNeverMutatesTheCatalog",
+            "AFITCCoreTests.FaceGroupDeletionTests/testDeleteDisplayedGroupReopenUnchangedScanAndPipelineRefreshStaySuppressed",
+            "AFITCCoreTests.FaceGroupDeletionTests/testChangedOriginalGenerationCanProduceANewGroup",
+            "AFITCCoreTests.FaceGroupDeletionTests/testChangedInspectedMemberBlocksDeletionWithoutScrubbingVectors",
+            "AFITCCoreTests.FaceGroupDeletionTests/testDeletionRejectsDisplayedGroupWithAnotherConfirmedIdentity",
+            "AFITCCoreTests.FaceGroupDeletionTests/testExclusionSurvivesSeedNotPersonAndReopen",
+            "AFITCCoreTests.SuggestionStateTests/testLegacySuggestionsProjectTheProductionMembershipResult",
+            "AFITCCoreTests.SuggestionStateTests/testNearestExemplarScoringAndDeterministicOrder",
+            "AFITCCoreTests.SuggestionStateTests/testAmbiguousCandidateIsSkippedAndCounted",
+            "AFITCCoreTests.SuggestionStateTests/testNegativesDeferralsAndFalseDetectionsAreHonored",
+            "AFITCCoreTests.SuggestionStateTests/testSamePhotoConflictsKeepOneFacePerPerson",
+            "AFITCCoreTests.SuggestionStateTests/testStaleHashModelOrGenerationEntriesAreIgnored",
+            "AFITCCoreTests.SuggestionStateTests/testEngineNeverMutatesSnapshotOrConfirmation",
+            "AFITCCoreTests.SuggestionStateTests/testIndexBoundsAndInvalidateDropEverything",
+            "AFITCCoreTests.SuggestionStateTests/testStaleCardCannotEraseNewerPairRejection",
+            "AFITCCoreTests.SuggestionStateTests/testExemplarRevisionChangeRejectsConfirmSuggestion",
+            "AFITCCoreTests.SuggestionStateTests/testConfirmSuggestionConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
+            "AFITCCoreTests.SuggestionStateTests/testConfirmSuggestionInjectedFailurePreservesBeforeState",
+            "AFITCCoreTests.SuggestionStateTests/testStaleCardNotAPersonCannotOverrideNewerConfirmation",
+            "AFITCCoreTests.ReviewQueueTests/testSharedMembershipProjectsTheSameGuardedReviewCards",
+            "AFITCCoreTests.ReviewQueueTests/testSkipIsSessionLocalAndNeverPersisted",
+            "AFITCCoreTests.ReviewQueueTests/testQueueReconcilesAfterDecisionRefresh",
+            "AFITCCoreTests.ReviewQueueTests/testStaleCardIsReplacedNotConfirmed",
+            "AFITCCoreTests.ReviewQueueTests/testAnswerForDisplayedCardIsRefusedAfterReplacement",
+            "AFITCCoreTests.ReviewQueueTests/testUnrequestedRemovalRequiresAcknowledgement",
+            "AFITCCoreTests.ReviewQueueTests/testOwnAnswerDoesNotRaiseStaleNotice",
+            "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
+            "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
+            "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",
+            "AFITCCoreTests.DecisionDurabilityTests/testChangedGenerationCannotInheritDecisionsOrAnchors",
+            "AFITCCoreTests.DecisionDurabilityTests/testDuplicateCopiesIndependentAndRepeatedFacesCountOnce",
+            "AFITCCoreTests.DecisionDurabilityTests/testSchemaTwoBackfillAndTransactionalMigrationFailure",
+            "AFITCCoreTests.IdentityCorrectionTests/testCropLowerLeftCoordinatesClampAndRejectInvalidGeometry",
+            "AFITCCoreTests.IdentityCorrectionTests/testRenameReassignAndUndoRestoreBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnassignUnsureRejectAndNotPersonAreDistinctUndoableStates",
+            "AFITCCoreTests.IdentityCorrectionTests/testDecisionAndUndoEveryInjectedWriteFailurePreservesBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
+            "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
+            "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeConflictsRequireExactExplicitChoicesAndCancelChangesNothing",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeUndoAfterReopenRestoresDomainAndAdvancesBothEpochs",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeAndUndoFailurePointsRollBackCompleteStateAfterReopen",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeStalePreviewNewTargetedMembershipAndGenerationAreRejected",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergePreservesThirdPersonAndNeverPropagatesDuplicateConfirmation",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnavailableSameGenerationMergeRefusesUntilReconnectResolvesConflict",
+            "AFITCCoreTests.IdentityCorrectionTests/testLegacySchemaThreePayloadUndoAdvancesEpochWithoutRewindingJobs",
+            "AFITCCoreTests.DeletionTests/testPersonFamilyScrubsInactiveStatesPreservesPeersAndHistoryAcrossReopen",
+            "AFITCCoreTests.DeletionTests/testDeletionRollbackAtBothBoundariesAndUnrelatedUndoRemainUsable",
+            "AFITCCoreTests.DeletionTests/testDeletedIdentityCannotBeRestoredByAnyOrdinaryInverse",
+            "AFITCCoreTests.DeletionTests/testLegacyBeforeOnlyScopeAndAliasReferencesRejectWithoutInverseWrite",
+            "AFITCCoreTests.DeletionTests/testAliasCycleDanglingAndUnknownFailWithoutEffects"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -3741,7 +3831,10 @@
         "Sources/AFITCCore/FaceJobCoordinator.swift",
         "Sources/AFITCCore/ReviewQueue.swift",
         "Sources/AFITCCore/FaceAnalysisRepository.swift",
-        "Sources/AFITCCore/FaceAnalysisEncoding.swift"
+        "Sources/AFITCCore/FaceAnalysisEncoding.swift",
+        "Sources/AFITCCore/FaceGrouping.swift",
+        "Sources/AFITCCore/FaceGroupDecisions.swift",
+        "Sources/AFITCCore/FaceAnalysisSQL.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -3800,7 +3893,9 @@
         "Tests/AFITCCoreTests/FaceJobCoordinatorTests.swift",
         "Tests/AFITCCoreTests/ReviewQueueTests.swift",
         "Tests/AFITCCoreTests/FaceAnalysisPersistenceTests.swift",
-        "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift"
+        "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift",
+        "Tests/AFITCCoreTests/FaceGroupingTests.swift",
+        "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift"
       ]
     },
     "UITests": {

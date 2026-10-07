@@ -53,6 +53,13 @@ extension CatalogRepository {
                 }
                 guard targeted == record.after.allFaces else { throw DecisionError.conflict }
             }
+            let beforeSeparations = Set((record.separationsBefore ?? []).map { FaceGroupPair($0.faceKeyA, $0.faceKeyB) })
+            let afterSeparations = Set((record.separationsAfter ?? []).map { FaceGroupPair($0.faceKeyA, $0.faceKeyB) })
+            let affectedSeparations = beforeSeparations.union(afterSeparations)
+            for pair in affectedSeparations {
+                let current = try FaceAnalysisSQL.areSeparated(db, keyA: pair.first.storageKey, keyB: pair.second.storageKey)
+                guard current == afterSeparations.contains(pair) else { throw DecisionError.conflict }
+            }
             var actualAfter = record.after
             actualAfter.people = try record.after.people.map { try PeopleSQL.person(db, $0.id) }
             var restoredPeople = record.before.people
@@ -70,11 +77,20 @@ extension CatalogRepository {
             }
             if failure == .afterPersonWrite { throw DecisionError.injectedFailure }
             for face in record.before.allFaces { try PeopleSQL.writeFace(db, face) }
+            for pair in affectedSeparations {
+                if beforeSeparations.contains(pair) {
+                    try FaceAnalysisSQL.recordSeparation(db, keyA: pair.first.storageKey, keyB: pair.second.storageKey, createdAt: Date())
+                } else {
+                    try FaceAnalysisSQL.removeSeparation(db, keyA: pair.first.storageKey, keyB: pair.second.storageKey)
+                }
+            }
             if let created = record.createdPersonID { try PeopleSQL.run(db, "DELETE FROM people WHERE id=?", strings: [created.uuidString]) }
             if failure == .afterFaceWrite { throw DecisionError.injectedFailure }
             var restored = record.before; restored.people = restoredPeople
-            let inverse = DecisionRecord(id: UUID(), kind: "undo", before: actualAfter, after: restored,
+            var inverse = DecisionRecord(id: UUID(), kind: "undo", before: actualAfter, after: restored,
                 createdPersonID: nil, date: Date(), revision: try CatalogCounters.successor(CatalogCounters.read(db, .revision)), undoOf: id)
+            inverse.separationsBefore = record.separationsAfter
+            inverse.separationsAfter = record.separationsBefore
             try PeopleSQL.run(db, "INSERT INTO decisions(id,undo_of,payload) VALUES(?,?,?)", strings: [inverse.id.uuidString, id.uuidString], data: JSONEncoder().encode(inverse))
             if failure == .afterLedgerWrite { throw DecisionError.injectedFailure }
         }

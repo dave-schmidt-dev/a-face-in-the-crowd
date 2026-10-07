@@ -29,7 +29,7 @@ The app reads one selected folder recursively without changing originals, publis
 
 The transactional SQLite catalog, checkpoints and bounded preview cache stay in the protected app container. Synthetic regression coverage includes interruption, source loss, stale generations, disk pressure and migration rollback. Headless checks verify target membership and compile the app and both test bundles without booting a simulator. These checks do not establish real-drive access, live Vision behavior, native UI usability or physical-device performance. [INVARIANTS.md](INVARIANTS.md) defines the system contract; [CHANGELOG.md](CHANGELOG.md) records human-facing changes.
 
-Schema 4 adds durable face-analysis storage with content, source and pipeline guards. Backup exports remove derived vectors and mark restored catalogs for recomputation while retaining human decisions. Automatic grouping and scan reuse are the next implementation phases.
+Schema 4 adds durable face-analysis storage with content, source and pipeline guards. Backup exports remove derived vectors and mark restored catalogs for recomputation while retaining human decisions. The core derives bounded provisional groups from a consistent durable-analysis snapshot, with stable seed identity across naming and later analysis. Naming confirms only the inspected cover; group exclusions persist across reseeding and support guarded undo. Displayed-group deletion suppresses that content/source generation across model refresh and remains non-undoable. Scan reuse and the group UI are the next implementation phases; recognition qualification and owner acceptance remain separate.
 
 ## Manual identity boundary
 

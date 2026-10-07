@@ -20,6 +20,7 @@ import device_delivery as d
 ONE = "11111111-1111-1111-1111-111111111111"
 TWO = "22222222-2222-2222-2222-222222222222"
 PROFILE = "33333333-3333-3333-3333-333333333333"
+MISMATCH_PROFILE = "44444444-4444-4444-4444-444444444444"
 
 
 class FakeTools:
@@ -33,6 +34,7 @@ class FakeTools:
         self.info_change = None
         self.signature_change = None
         self.entitlement_change = None
+        self.profile_uuid = PROFILE
         self.archs = b"arm64"
         self.stale = False
 
@@ -67,13 +69,21 @@ class FakeTools:
         if tool == "security":
             profile = {"TeamIdentifier": [d.TEAM], "ProvisionedDevices": [ONE, TWO],
                        "ExpirationDate": datetime.datetime(2099, 1, 1),
-                       "DeveloperCertificates": [b"generated-leaf"], "Entitlements": self.entitlements()}
+                       "DeveloperCertificates": [b"generated-leaf"], "Entitlements": self.entitlements(),
+                       "UUID": self.profile_uuid}
             if self.profile_change:
                 self.profile_change(profile)
             return plistlib.dumps(profile)
         if tool == "codesign":
+            if "--verify" in args:
+                expected = '-R=anchor apple generic and certificate leaf[subject.OU] = "' + d.TEAM + '"'
+                if expected not in args or "-R" in args:
+                    raise d.DeliveryError("invalid-requirement-specification")
             if "--extract-certificates" in args:
-                Path(args[args.index("--extract-certificates") + 1] + "0").write_bytes(b"generated-leaf")
+                raise d.DeliveryError("invalid-extract-certificates-argument")
+            certificates = next((a.split("=", 1)[1] for a in args if a.startswith("--extract-certificates=")), None)
+            if certificates is not None:
+                Path(certificates + "0").write_bytes(b"generated-leaf")
                 return b""
             if "--entitlements" in args:
                 ent = self.entitlements()
@@ -178,8 +188,12 @@ class Prepare(Fixture):
         self.assertFalse(receipt["independentInstalledBytesVerified"])
         self.assertEqual(sum(t == "xcodebuild" for t, _ in self.runner.calls), 1)
         argv = next(a for t, a in self.runner.calls if t == "xcodebuild")
+        self.assertIn("CODE_SIGN_STYLE=Automatic", argv)
+        self.assertNotIn("CODE_SIGN_STYLE=Manual", argv)
         self.assertNotIn("-allowProvisioningUpdates", argv)
+        self.assertFalse(any("PROVISIONING_PROFILE_SPECIFIER" in a for a in argv))
         self.assertNotIn(str(self.workspace / "AFITC.xcodeproj"), argv)
+        self.assertEqual(receipt["signing"]["profileUUID"], PROFILE)
         self.no_hardware()
 
     def test_arguments_hash_acceptance_and_dependency_missing(self):
@@ -290,6 +304,25 @@ class Prepare(Fixture):
             with self.assertRaises(d.DeliveryError):
                 runner.command(["/usr/bin/python3", "-S", "-c", "print('x' * 2200000)"], 2)
 
+    def test_mismatched_requested_uuid_and_signing_command_flags(self):
+        res, _ = self.call(["prepare", "--capsule", str(self.capsule), "--capsule-sha256",
+                            self.capsule_hash, "--profile", MISMATCH_PROFILE, "--output", str(self.output)])
+        self.assertEqual(res, 1)
+        self.assertFalse(self.output.exists())
+        self.assertFalse((self.output / "receipt.json").exists())
+        self.runner.profile_uuid = MISMATCH_PROFILE
+        self.assertEqual(self.prepare(), 1)
+        self.assertFalse(self.output.exists())
+        self.runner.profile_uuid = PROFILE
+        self.assertEqual(self.prepare(), 0)
+        self.assertTrue(self.output.exists())
+        argv = next(a for t, a in self.runner.calls if t == "xcodebuild")
+        self.assertIn("CODE_SIGN_STYLE=Automatic", argv)
+        self.assertNotIn("CODE_SIGN_STYLE=Manual", argv)
+        self.assertNotIn("-allowProvisioningUpdates", argv)
+        self.assertFalse(any("PROVISIONING_PROFILE_SPECIFIER" in a for a in argv))
+        self.no_hardware()
+
 
 class Validate(Fixture):
     def setUp(self):
@@ -311,6 +344,8 @@ class Validate(Fixture):
             lambda p: p.update(ProvisionedDevices=[]),
             lambda p: p.update(DeveloperCertificates=[b"foreign"]),
             lambda p: p["Entitlements"].update({"application-identifier": "wrong"}),
+            lambda p: p.update(UUID=MISMATCH_PROFILE),
+            lambda p: p.update(UUID="invalid-uuid"),
         ]
         for change in changes:
             self.runner.profile_change = change
@@ -431,6 +466,13 @@ class Install(Fixture):
 
 if __name__ == "__main__":
     classes = {"prepare": Prepare, "validate": Validate, "install": Install}
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] == "all"):
+        suite = unittest.TestSuite()
+        for cls in [Prepare, Validate, Install]:
+            suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(cls))
+        result = unittest.TextTestRunner(verbosity=2).run(suite)
+        print("DEVICE_DELIVERY_CASES=" + str(result.testsRun), flush=True)
+        sys.exit(0 if result.wasSuccessful() and result.testsRun else 1)
     selected = classes.get(sys.argv[1] if len(sys.argv) == 2 else "")
     if selected is None:
         sys.exit(2)

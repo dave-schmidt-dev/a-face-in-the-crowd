@@ -29,6 +29,7 @@ TOOLS = {"xcodebuild": "/usr/bin/xcodebuild", "codesign": "/usr/bin/codesign",
          "security": "/usr/bin/security", "xcrun": "/usr/bin/xcrun"}
 HASH = re.compile(r"[0-9a-f]{64}")
 DEVICE = re.compile(r"(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})")
+UUID_RE = re.compile(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}")
 
 
 class DeliveryError(Exception):
@@ -215,8 +216,8 @@ def inspect(product, runner):
     regular(product / executable)
     require("arm64" in runner.run("xcrun", ["lipo", "-archs", product / executable]).decode().split(),
             "device-architecture")
-    runner.run("codesign", ["--verify", "--deep", "--strict", "-R",
-               'anchor apple generic and certificate leaf[subject.OU] = "' + TEAM + '"', product])
+    runner.run("codesign", ["--verify", "--deep", "--strict",
+               '-R=anchor apple generic and certificate leaf[subject.OU] = "' + TEAM + '"', product])
     metadata = runner.run("codesign", ["-dv", "--verbose=4", product]).decode()
     fields = dict(line.split("=", 1) for line in metadata.splitlines() if "=" in line)
     require(fields.get("Identifier") == BUNDLE and fields.get("TeamIdentifier") == TEAM,
@@ -241,6 +242,8 @@ def inspect(product, runner):
     devices = profile.get("ProvisionedDevices")
     require(isinstance(devices, list) and devices
             and all(isinstance(d, str) and DEVICE.fullmatch(d) for d in devices), "profile-devices")
+    profile_uuid = profile.get("UUID")
+    require(isinstance(profile_uuid, str) and UUID_RE.fullmatch(profile_uuid), "profile-uuid")
     # Ensure every signed entitlement is actually authorized by the embedded profile.
     def allows(actual, allowed):
         if isinstance(actual, dict):
@@ -253,14 +256,15 @@ def inspect(product, runner):
     require(allows(ent, pe), "profile-entitlement-mismatch")
     with tempfile.TemporaryDirectory(prefix="AFITC-delivery-cert-") as temp:
         prefix = Path(temp) / "certificate"
-        runner.run("codesign", ["-d", "--extract-certificates", prefix, product])
+        runner.run("codesign", ["-d", "--extract-certificates=" + str(prefix), product])
         leaf = regular(Path(str(prefix) + "0"), MAX_JSON)
         require(any(isinstance(c, bytes) and digest(c) == digest(leaf)
                     for c in profile.get("DeveloperCertificates", [])), "profile-certificate-mismatch")
     return {"bundleID": BUNDLE, "team": TEAM, "version": info["CFBundleShortVersionString"],
             "build": str(info["CFBundleVersion"]), "minimumOS": "17.0", "CDHash": fields["CDHash"],
             "profileSHA256": digest(regular(product / "embedded.mobileprovision")),
-            "profileDeviceSHA256s": [digest(d.encode()) for d in devices], "candidateID": info.get("AFITCPreparedCandidateID"),
+            "profileDeviceSHA256s": [digest(d.encode()) for d in devices], "profileUUID": profile_uuid,
+            "candidateID": info.get("AFITCPreparedCandidateID"),
             "acceptedCapsuleSHA256": info.get("AFITCAcceptedCapsuleSHA256")}
 
 
@@ -282,7 +286,7 @@ def validate(receipt, expected, runner):
 
 def prepare(args, runner, workspace):
     source, inventory = capsule(args.capsule, args.capsule_sha256)
-    require(re.fullmatch(r"[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}", args.profile), "profile-required")
+    require(isinstance(args.profile, str) and UUID_RE.fullmatch(args.profile), "profile-required")
     directory(args.output.parent)
     require(not os.path.lexists(args.output), "output-collision")
     candidate = str(uuid.uuid4())
@@ -305,14 +309,15 @@ def prepare(args, runner, workspace):
         runner.run("xcodebuild", ["-project", frozen / "AFITC.xcodeproj", "-scheme", "AFITC",
                    "-configuration", "Debug", "-destination", "generic/platform=iOS",
                    "-derivedDataPath", workspace / "build/device", "CODE_SIGNING_ALLOWED=YES",
-                   "CODE_SIGNING_REQUIRED=YES", "CODE_SIGN_STYLE=Manual", "DEVELOPMENT_TEAM=" + TEAM,
-                   "CODE_SIGN_IDENTITY=Apple Development", "PROVISIONING_PROFILE_SPECIFIER=" + args.profile,
+                   "CODE_SIGNING_REQUIRED=YES", "CODE_SIGN_STYLE=Automatic", "DEVELOPMENT_TEAM=" + TEAM,
+                   "CODE_SIGN_IDENTITY=Apple Development",
                    "IPHONEOS_DEPLOYMENT_TARGET=17.0", "build"], timeout=600)
         require(capsule(args.capsule, args.capsule_sha256)[1] == inventory, "capsule-input-changed")
         product = workspace / "build/device/Build/Products/Debug-iphoneos/AFITC.app"
         signature = inspect(product, runner)
         require(signature["candidateID"] == candidate
                 and signature["acceptedCapsuleSHA256"] == args.capsule_sha256, "stale-build-product")
+        require(signature["profileUUID"] == args.profile, "profile-uuid-mismatch")
         host = tree(product)
         # Commit only an exclusively-owned candidate; interrupted preparation is never success.
         args.output.mkdir(mode=0o700)

@@ -93,6 +93,18 @@ private extension CatalogRepository {
 final class SuggestionStateTests: XCTestCase {
     private typealias S = Synthetic
     // MARK: 3.2a engine and index
+    func testLegacySuggestionsProjectTheProductionMembershipResult() throws {
+        let candidate = S.photo(2, "candidate.jpg", faces: 1)
+        let snapshot = S.snapshot([S.anchors, candidate], states: S.anchorStates)
+        let index = try S.index(S.anchorVectors + [(S.key(candidate, 0), S.vector([0: 1]))])
+        let membership = try FaceGrouping.membership(snapshot: snapshot, vectors: index.snapshot())
+        let legacy = SuggestionEngine.suggestions(snapshot: snapshot, index: index)
+        XCTAssertEqual(legacy.suggestions, membership.suggestions)
+        XCTAssertEqual(legacy.compared, membership.compared)
+        XCTAssertEqual(legacy.ambiguous, membership.ambiguous)
+        XCTAssertFalse(InMemoryFaceVectorIndex.self is Codable.Type)
+    }
+
     func testNearestExemplarScoringAndDeterministicOrder() throws {
         let extra = S.photo(2, "anchors/a2.jpg", faces: 1)
         let near = S.photo(3, "c/1.jpg", faces: 1), later = S.photo(4, "c/2.jpg", faces: 1)

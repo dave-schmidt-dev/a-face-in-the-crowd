@@ -132,7 +132,7 @@ final class DeviceDeliveryContractTests: XCTestCase {
     }
     func testPrepareCandidateBehaviorMatrix() async throws {
         try await cancelledHangingChild()
-        try await behavior("prepare", expected: 10)
+        try await behavior("prepare", expected: 11)
     }
     func testValidateCandidateBehaviorMatrix() async throws { try await behavior("validate", expected: 7) }
     func testInstallReceiptBehaviorMatrix() async throws { try await behavior("install", expected: 8) }

@@ -71,6 +71,11 @@ public struct ReviewQueue: Sendable, Equatable {
 
     /// Replaces the queue contents with `result` (nil when suggestions are off or cleared).
     @discardableResult
+    public mutating func reconcile(_ result: FaceMembershipResult) -> Change {
+        reconcile(SuggestionResult(suggestions: result.suggestions, compared: result.compared,
+                                   ambiguous: result.ambiguous))
+    }
+
     public mutating func reconcile(_ result: SuggestionResult?) -> Change {
         latest = result?.suggestions ?? []
         let previous = current

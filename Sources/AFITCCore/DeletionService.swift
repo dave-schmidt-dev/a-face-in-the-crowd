@@ -22,8 +22,22 @@ enum PersonDeletionFault: Sendable { case afterFaces, afterPeople }
 extension CatalogRepository {
     /// Deletes the explicit canonical alias family; immutable history is deliberately retained.
     public func deletePerson(_ id: UUID) throws -> PersonDeletionResult { try deletePerson(id, fault: nil) }
-    func deletePerson(_ id: UUID, fault: PersonDeletionFault?) throws -> PersonDeletionResult {
+    /// Deletes the confirmed person and suppresses every generation in the inspected group.
+    /// The snapshot guards affected faces; deletion remains non-undoable.
+    public func deletePerson(_ id: UUID, group: FaceGroupSnapshot) throws -> PersonDeletionResult {
+        try deletePerson(id, fault: nil, group: group)
+    }
+    func deletePerson(_ id: UUID, fault: PersonDeletionFault?, group: FaceGroupSnapshot? = nil) throws -> PersonDeletionResult {
         try peopleTransaction { db in
+            if let group {
+                guard Set(group.members) == Set(group.expectedStates.map(\.key)),
+                      group.members.count == group.expectedStates.count,
+                      Set(group.members).count == group.members.count, group.members.contains(group.seed) else { throw DecisionError.conflict }
+                for state in group.expectedStates {
+                    _ = try PeopleSQL.currentPhoto(db, state.key)
+                    guard try PeopleSQL.faceState(db, state.key) == state else { throw DecisionError.conflict }
+                }
+            }
             let people: [PersonRecord] = try PeopleSQL.rows(db, "SELECT payload FROM people")
             var records: [UUID: PersonRecord] = [:]
             for person in people {
@@ -42,6 +56,10 @@ extension CatalogRepository {
             let survivor = try canonical(id)
             var family = Set<UUID>()
             for person in people where try canonical(person.id) == survivor { family.insert(person.id) }
+            if let group {
+                guard group.expectedStates.contains(where: { $0.personID.map(family.contains) == true }),
+                      group.expectedStates.allSatisfy({ $0.personID.map(family.contains) ?? true }) else { throw DecisionError.conflict }
+            }
             let states: [ManualFaceState] = try PeopleSQL.rows(db, "SELECT payload FROM manual_faces ORDER BY key")
             var changed = 0
             var unassignedFaces: [FaceKey] = []
@@ -56,8 +74,24 @@ extension CatalogRepository {
                 if state != before { try PeopleSQL.writeFace(db, state); changed += 1 }
             }
             if try CatalogSchema.version(db) >= 4 {
-                for key in unassignedFaces {
-                    try? FaceAnalysisSQL.deleteVector(db, faceKey: key.storageKey)
+                for key in Set(unassignedFaces).union(group?.members ?? []) {
+                    try Task.checkCancellation()
+                    if let row = try FaceAnalysisSQL.vectorRow(db, faceKey: key.storageKey) {
+                        let suppression = FaceSuppressionRecord(faceKey: key, photoID: key.photoID,
+                                                                contentVersion: key.contentVersion,
+                                                                contentHash: row.contentHash,
+                                                                sourceBinding: row.sourceBinding)
+                        try FaceAnalysisSQL.suppressFace(db, suppression: suppression)
+                    } else if group?.members.contains(key) == true {
+                        let photo = try PeopleSQL.currentPhoto(db, key)
+                        let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
+                        guard let hash = photo.contentHash, !hash.isEmpty, bindings.count == 1 else { throw DecisionError.conflict }
+                        try FaceAnalysisSQL.suppressFace(db, suppression: FaceSuppressionRecord(
+                            faceKey: key, photoID: key.photoID, contentVersion: key.contentVersion,
+                            contentHash: hash, sourceBinding: bindings[0]))
+                    } else {
+                        try FaceAnalysisSQL.deleteVector(db, faceKey: key.storageKey)
+                    }
                 }
             }
             if fault == .afterFaces { throw DeletionError.injectedFailure }

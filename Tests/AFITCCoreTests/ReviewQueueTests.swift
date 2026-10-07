@@ -67,6 +67,22 @@ private struct ReviewFixture {
 }
 
 final class ReviewQueueTests: XCTestCase {
+    func testSharedMembershipProjectsTheSameGuardedReviewCards() async throws {
+        let fixture = try await GroupFixture.make(self)
+        try await fixture.persist(fixture.keys.map { ($0, G.vector([0: 1])) })
+        _ = try await fixture.catalog.applyDecision(.name(face: fixture.keys[0], displayName: "Fictional A"))
+        let result = try await fixture.membership()
+        var queue = ReviewQueue()
+        queue.reconcile(result)
+        XCTAssertEqual(queue.current, result.suggestions.first)
+        let card = try XCTUnwrap(queue.current)
+        let decision = try XCTUnwrap(queue.decision(for: .yes, card: card))
+        _ = try await fixture.catalog.applyDecision(decision)
+        let snapshot = try await fixture.catalog.peopleSnapshot()
+        XCTAssertEqual(snapshot.faces.filter { $0.state.personID != nil }.count, 2)
+        XCTAssertFalse(ReviewQueue.self is Codable.Type)
+    }
+
     func testSkipIsSessionLocalAndNeverPersisted() async throws {
         let f = try await ReviewFixture.make(self)
         XCTAssertFalse(ReviewQueue.self is Encodable.Type, "skips can never be encoded")

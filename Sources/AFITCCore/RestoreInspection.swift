@@ -134,8 +134,9 @@ enum RestoreDomain {
         "geometry": ["id","rectangle","landmarks"], "analysis": ["status","detectorVersion","contentVersion","faces","reason"],
         "metadata": ["revision","size","modified"], "captureDate": ["localWallClock","sourceOffset","provenance"],
         "checkpoint": ["phase","discovered","processed","skipped","failed","enumerationFinished","message"],
-        "decision": ["id","kind","before","after","createdPersonID","date","revision","undoOf","mergeResolutions"],
-        "effect": ["people","face","faces"], "resolution": ["key","choice"]]
+        "decision": ["id","kind","before","after","createdPersonID","date","revision","undoOf","mergeResolutions","separationsBefore","separationsAfter"],
+        "effect": ["people","face","faces"], "resolution": ["key","choice"],
+        "separation": ["faceKeyA","faceKeyB","createdAt"]]
     static func shape(_ data: Data, context: String, work: RestoreSQLWork? = nil) throws {
         let limit = context == "manifest" ? BackupManifest.maximumManifestBytes : BackupManifest.maximumCatalogBytes
         guard data.count <= limit else { throw BackupError.limitExceeded }
@@ -155,6 +156,7 @@ enum RestoreDomain {
                     case "faces": next = context == "analysis" ? "geometry" : "state"
                     case "key", "cover": next = "key"
                     case "mergeResolutions": next = "resolution"
+                    case "separationsBefore", "separationsAfter": next = "separation"
                     default: next = keys[name] != nil ? name : nil
                     }
                     try walk(child, next, depth + 1)
@@ -276,7 +278,7 @@ enum RestoreDomain {
             try work.item()
             guard UUID(uuidString: id) == record.id, undo.flatMap(UUID.init(uuidString:)) == record.undoOf,
                   record.revision > 0, record.revision <= revision, record.date.timeIntervalSince1970.isFinite,
-                  ["name","confirm","reject","unsure","unassign","not-person","rename","merge","undo"].contains(record.kind),
+                  ["name","confirm","reject","unsure","unassign","not-person","rename","merge","undo","group-exclude","group-label"].contains(record.kind),
                   (record.kind == "undo") == (record.undoOf != nil), records.updateValue(record, forKey: record.id) == nil else { throw RestoreValidationError.domain }
             for effect in [record.before, record.after] {
             try work.item()

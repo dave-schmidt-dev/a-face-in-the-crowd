@@ -2,6 +2,8 @@ import Foundation
 
 public enum ManualDecision: Sendable {
     case name(face: FaceKey, displayName: String)
+    /// Names only the inspected cover, preserving provisional membership and seed identity.
+    case nameGroup(cover: FaceKey, group: FaceGroupSnapshot, displayName: String)
     case confirm(face: FaceKey, personID: UUID)
     /// Confirms an evaluation suggestion only if the face state and the person's exemplar
     /// revision still match the rendered card; otherwise `DecisionError.conflict`. Ledger kind "confirm".
@@ -11,6 +13,12 @@ public enum ManualDecision: Sendable {
     case unassign(face: FaceKey)
     case notPerson(face: FaceKey)
     case rename(personID: UUID, displayName: String)
+    /// Durable "not in this group" correction for a pinned unnamed group. Separations are captured
+    /// against every inspected member so a later reseed cannot rejoin the excluded face.
+    case excludeGroupMember(face: FaceKey, group: FaceGroupSnapshot)
+    /// Labels a pinned group to an existing person under the captured cover and member states.
+    /// Aggregation is through the person; no person is created and no merge is implied.
+    case labelGroup(cover: FaceKey, group: FaceGroupSnapshot, personID: UUID, exemplarRevision: Int)
     /// A review-card answer applied only if the face's manual state still equals the state the
     /// card was rendered with; otherwise `DecisionError.conflict`. The inner decision must target a
     /// face and must not itself be wrapped; its own ledger kind is kept, so the existing undo works.
@@ -35,6 +43,8 @@ struct DecisionRecord: Codable, Sendable {
     let revision: Int
     let undoOf: UUID?
     var mergeResolutions: [MergeResolution]? = nil
+    var separationsBefore: [GroupSeparationRecord]? = nil
+    var separationsAfter: [GroupSeparationRecord]? = nil
 }
 public struct DecisionService: Sendable {
     let catalog: CatalogRepository
@@ -61,6 +71,29 @@ extension CatalogRepository {
                 if case .expectingState = inner { throw DecisionError.conflict }
                 decision = inner; expectedState = state
             }
+            if case .nameGroup(let cover, let group, let displayName) = decision {
+                guard Set(group.members) == Set(group.expectedStates.map(\.key)),
+                      Set(group.members).count == group.members.count, group.members.contains(group.seed),
+                      group.expectedStates.count == group.members.count, let captured = group.state(for: cover) else {
+                    throw DecisionError.conflict
+                }
+                for state in group.expectedStates {
+                    _ = try PeopleSQL.currentPhoto(db, state.key)
+                    guard try PeopleSQL.faceState(db, state.key) == state else { throw DecisionError.conflict }
+                }
+                if let expectedState, expectedState != captured { throw DecisionError.conflict }
+                expectedState = captured
+                decision = .name(face: cover, displayName: displayName)
+            }
+            if case .excludeGroupMember(let face, let group) = decision {
+                if let expectedState, try PeopleSQL.faceState(db, face) != expectedState { throw DecisionError.conflict }
+                return try Self.applyGroupExclusion(db, face: face, group: group, failure: failure)
+            }
+            if case .labelGroup(let cover, let group, let personID, let revision) = decision {
+                if let expectedState, try PeopleSQL.faceState(db, cover) != expectedState { throw DecisionError.conflict }
+                return try Self.applyGroupLabel(db, cover: cover, group: group, personID: personID,
+                                                exemplarRevision: revision, failure: failure)
+            }
             let kind: String
             switch decision {
             case .name(let face, let value): key = face; name = value; kind = "name"
@@ -72,7 +105,7 @@ extension CatalogRepository {
             case .unassign(let face): key = face; kind = "unassign"
             case .notPerson(let face): key = face; kind = "not-person"
             case .rename(let person, let value): target = person; name = value; kind = "rename"
-            case .expectingState: throw DecisionError.conflict
+            case .nameGroup, .excludeGroupMember, .labelGroup, .expectingState: throw DecisionError.conflict
             }
             if let name {
                 let value = name.trimmingCharacters(in: .whitespacesAndNewlines)

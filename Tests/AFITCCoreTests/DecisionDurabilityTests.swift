@@ -127,7 +127,7 @@ final class DecisionDurabilityTests: XCTestCase {
         XCTAssertNotEqual(sqlite3_prepare_v2(db, "SELECT * FROM current_faces", -1, &statement, nil), SQLITE_OK)
         sqlite3_finalize(statement)
         try CatalogSchema.migrate(db)
-        XCTAssertEqual(try CatalogSchema.version(db), 3)
+        XCTAssertEqual(try CatalogSchema.version(db), CatalogSchema.currentVersion)
         XCTAssertEqual(try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM current_faces"), 2)
         let legacy: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
         XCTAssertEqual(legacy, [fixture.photos[0]])
