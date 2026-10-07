@@ -172,10 +172,11 @@ final class ProtectedDataFlowTests: XCTestCase {
         XCTAssertTrue(field.waitForNonExistence(timeout: 10))
         let person = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-'" )).firstMatch
         XCTAssertTrue(person.waitForExistence(timeout: 10)); person.tap()
-        XCTAssertTrue(app.textFields["rename-person-name"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["person-name-heading"].waitForExistence(timeout: 10))
     }
     func testDirtyDraftAndSearchInputsSurviveOrdinaryUnlockWithoutSourceReadOrScan() {
         let app = launch(); scan(app); nameAndOpen(app)
+        ensureEditingPersonName(app)
         let rename = app.textFields["rename-person-name"]; rename.tap(); rename.typeText(" retained owner input")
         backFromPerson(app)
         navigate("Search", app); tap("search-mode-any", app)
@@ -225,7 +226,10 @@ final class ProtectedDataFlowTests: XCTestCase {
         navigate("Library", app); waitValue("scan-phase", "completed", app)
         navigate("People", app)
         XCTAssertTrue(app.buttons[personID].waitForExistence(timeout: 10)); app.buttons[personID].tap()
-        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, "Fictional Alice")
+        // No dirty draft survives, so the name shows once as the heading with the editor closed.
+        XCTAssertTrue(app.staticTexts["person-name-heading"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["person-name-heading"].label, "Fictional Alice")
+        XCTAssertFalse(app.textFields["rename-person-name"].exists)
         backFromPerson(app)
         tap("settings", app); waitValue("backup-operation-state", "idle", app)
         XCTAssertEqual(app.staticTexts["backup-source-state"].label, "Original source folder selected")
