@@ -43,6 +43,37 @@ struct PersonCard: View {
     }
 }
 
+/// Unnamed group tile: circular cover face and member count. The name is added in the group's
+/// own detail screen; this tile only opens it.
+struct FaceGroupCard: View {
+    @ObservedObject var services: AppServices
+    let cover: FaceItem?
+    let memberCount: Int
+    @Environment(\.tokens) private var tokens
+    @ScaledMetric(relativeTo: .headline) private var diameter: CGFloat = 112
+
+    var body: some View {
+        let size = min(diameter, 220)
+        VStack(spacing: DesignTokens.Spacing.xs) {
+            if let cover {
+                FacePreview(services: services, face: cover, wholePhoto: false, style: .circle(size))
+            } else {
+                Image(systemName: "person.crop.circle.fill").resizable().scaledToFit()
+                    .frame(width: size, height: size).foregroundStyle(tokens.surfaceRaised)
+                    .accessibilityLabel("Cover unavailable")
+            }
+            VStack(spacing: DesignTokens.Spacing.xxs) {
+                Text("Unnamed group").font(.headline).multilineTextAlignment(.center)
+                Text(memberCount == 1 ? "1 face" : "\(memberCount) faces")
+                    .font(.subheadline).foregroundStyle(tokens.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: DesignTokens.Layout.reviewHit)
+        .padding(.vertical, DesignTokens.Spacing.xs)
+        .contentShape(Rectangle())
+    }
+}
+
 /// Raised "Unidentified faces" card: count, primary Review action and a wrapping grid of
 /// circular crops. A wrapping grid (not a horizontal strip) keeps every face reachable by
 /// vertical scrolling at any width or text size.
@@ -67,12 +98,12 @@ struct UnidentifiedFacesCard: View {
             Text("Names apply only to the face you select. Detection may miss people.")
                 .font(.footnote).foregroundStyle(tokens.textSecondary)
         }
-        .card(raised: true)
+        .card()
     }
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            Text("Unidentified faces").font(.title2.bold()).accessibilityAddTraits(.isHeader)
+            Text("Individual face review").font(.headline).accessibilityAddTraits(.isHeader)
             Text("\(faces.count) unidentified faces").font(.subheadline).foregroundStyle(tokens.textSecondary)
                 .accessibilityIdentifier("unidentified-count")
         }
@@ -80,7 +111,7 @@ struct UnidentifiedFacesCard: View {
 
     private var review: some View {
         Button { if let first = faces.first { onSelect(first) } } label: {
-            Label("Review", systemImage: "person.crop.circle.badge.questionmark")
+            Label("Review individual faces", systemImage: "person.crop.circle.badge.questionmark")
         }
         .buttonStyle(CapsuleButtonStyle(minHeight: DesignTokens.Layout.reviewHit))
         .disabled(faces.isEmpty || services.isSavingDecision || services.peopleRefreshWarning != nil)

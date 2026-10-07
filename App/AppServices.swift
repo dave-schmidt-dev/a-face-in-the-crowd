@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 import AFITCCore
 @MainActor
 public final class AppServices: ObservableObject {
@@ -73,13 +75,13 @@ public final class AppServices: ObservableObject {
     @Published public var isRefreshingPeople = false
     @Published public var hasLoadedPeopleSnapshot = false
     @Published public var isSavingDecision = false
-    private var decisionService: DecisionService?
-    private var undoService: UndoService?
+    var decisionService: DecisionService?
+    var undoService: UndoService?
     private var peopleRefreshTask: Task<Void, Never>?
     private var peopleRefreshPending = false
     private var scanPhotoCallbacks = 0
     private var nextAutomaticPeopleRefresh = 1
-    private var decisionErrorGeneration = 0
+    var decisionErrorGeneration = 0
     @Published private var sourceSelectionGeneration = 0
     #if DEBUG
     private struct ViewerRequestProbe {
@@ -155,6 +157,9 @@ public final class AppServices: ObservableObject {
     lazy var backup = CatalogBackupService(services: self)
     lazy var privacy = CatalogPrivacyService(services: self)
     lazy var suggestions = SuggestionService(services: self)
+    /// One shared off-main membership snapshot: People groups, person detail and Verify all
+    /// read this result; naming and viewing never start scans or source reads.
+    lazy var faceGroups = FaceGroupService(services: self)
     func privacyContext() -> (CatalogRepository, URL)? {
         guard let repository, let previewDirectory else { return nil }; return (repository, previewDirectory)
     }
@@ -175,11 +180,14 @@ public final class AppServices: ObservableObject {
             .appendingPathComponent(container + "-Presentation", isDirectory: true), launch: launch)
         catalogSession.changed = { [weak self] in self?.updateSessionState() }
         startupPaths = (support, cache)
+        #if canImport(UIKit)
         ProtectedDataDelegate.protection = protection
+        #endif
         #if DEBUG
         ProtectedFixtureGate.protection = protection
         #endif
         if protection.admitsWork { retryCatalogStartup(); presentation.attach(self) }
+        #if canImport(UIKit)
         for name in [UIApplication.didReceiveMemoryWarningNotification] {
             observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor in
@@ -190,6 +198,7 @@ public final class AppServices: ObservableObject {
                 }
             })
         }
+        #endif
     }
     deinit { for observer in observers { NotificationCenter.default.removeObserver(observer) } }
     func retryCatalogStartup() {
@@ -222,6 +231,15 @@ public final class AppServices: ObservableObject {
         guard let repository, let previewDirectory, let operation = catalogSession.begin(kind) else { return nil }
         return (repository, previewDirectory, operation)
     }
+    var groupingBoundaryOpen = false
+    var groupingBoundaryCallbacks = 0
+    var nextGroupingBoundary = 1
+    /// Admission for the one shared grouping snapshot; it reads only saved catalog analysis.
+    func beginGroupingAdmission(_ kind: String) -> (CatalogRepository, CatalogSessionLifecycle.Operation)? {
+        guard (canStart || groupingBoundaryOpen), faceEmbedding.groupingPauseReason == nil,
+              let repository, let operation = catalogSession.begin(kind) else { return nil }
+        return (repository, operation)
+    }
     public func choose(_ url: URL) {
         guard !isQuiescingCatalog, !privacy.catalogDeleted else { return }
         sourceSelectionGeneration += 1; selectedFolder = url; setupError = nil; faceEmbedding.invalidate()
@@ -233,6 +251,7 @@ public final class AppServices: ObservableObject {
                                                  syntheticFixture: usesSyntheticFixture)
         canStart = false; setupError = nil
         scanPhotoCallbacks = 0; nextAutomaticPeopleRefresh = 1
+        groupingBoundaryCallbacks = 0; nextGroupingBoundary = 1
         #if DEBUG
         syntheticAutomaticRequests = 0
         #endif
@@ -267,6 +286,7 @@ public final class AppServices: ObservableObject {
             let result = await coordinator.scan(source: scanSource, detector: detector, confirmedSource: confirmedSource,
                                                 enrichment: enrichment) { [weak self] progress, photo in
                 await self?.receive(progress, photo, session: operation.session)
+                if photo != nil { await self?.refreshGroupsAtScanBoundary(session: operation.session) }
             }
             await faceEmbedding.finishScan(enrichment)
             #if DEBUG
@@ -399,7 +419,7 @@ public final class AppServices: ObservableObject {
     }
     #if DEBUG
     private struct SyntheticPeopleReadFailure: Error {}
-    private func armCommittedRefreshFault(merge: Bool) {
+    func armCommittedRefreshFault(merge: Bool) {
         guard usesSyntheticFixture else { return }
         let flag = merge ? "--uitest-fail-people-refresh-after-merge" : "--uitest-fail-people-refresh-after-decision"
         guard launch.has(flag) else { return }
@@ -411,78 +431,4 @@ public final class AppServices: ObservableObject {
         syntheticFailNextRead = true
     }
     #endif
-    @discardableResult public func decide(_ decision: ManualDecision) async -> Bool {
-        guard !isSavingDecision, let decisionService, let operation = catalogSession.begin("decision") else { return false }
-        isSavingDecision = true; decisionError = nil
-        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
-        let work = Task { try await decisionService.apply(decision) }
-        catalogSession.bind(operation) { work.cancel() }
-        do { _ = try await work.value }
-        catch {
-            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "The decision was not saved. Try again." }
-            return false
-        }
-        // A committed write remains successful even if its retired session must not publish.
-        guard sessionIsCurrent(operation.session) else { return true }
-        #if DEBUG
-        armCommittedRefreshFault(merge: false)
-        #endif
-        await refreshPeople()
-        guard sessionIsCurrent(operation.session) else { return true }
-        if peopleRefreshWarning != nil { peopleRefreshWarning = "Decision saved. People view could not be refreshed; refresh before another decision." }
-        return true
-    }
-    public func previewMerge(source: UUID, survivor: UUID) async -> MergePreview? {
-        guard let decisionService, let operation = catalogSession.begin("merge-preview") else { return nil }
-        defer { catalogSession.finish(operation) }
-        clearDecisionError()
-        let errorGeneration = decisionErrorGeneration
-        let work = Task { try await decisionService.previewMerge(source: source, survivor: survivor) }
-        catalogSession.bind(operation) { work.cancel() }
-        do {
-            let preview = try await work.value
-            return sessionIsCurrent(operation.session) ? preview : nil
-        } catch {
-            if sessionIsCurrent(operation.session), decisionErrorGeneration == errorGeneration {
-                decisionError = (error as? DecisionError)?.message ?? "Merge preview unavailable. Refresh and try again."
-            }
-            return nil
-        }
-    }
-    @discardableResult public func merge(_ preview: MergePreview, resolutions: [MergeResolution]) async -> Bool {
-        guard !isSavingDecision, let decisionService, let operation = catalogSession.begin("merge") else { return false }
-        isSavingDecision = true; decisionError = nil
-        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
-        let work = Task { try await decisionService.merge(preview, resolutions: resolutions) }
-        catalogSession.bind(operation) { work.cancel() }
-        do { _ = try await work.value }
-        catch {
-            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "Merge was not saved. Refresh and try again." }
-            return false
-        }
-        guard sessionIsCurrent(operation.session) else { return true }
-        #if DEBUG
-        armCommittedRefreshFault(merge: true)
-        #endif
-        await refreshPeople()
-        guard sessionIsCurrent(operation.session) else { return true }
-        if peopleRefreshWarning != nil { peopleRefreshWarning = "Merge saved. People view could not be refreshed; refresh before another decision." }
-        return true
-    }
-    public func undoDecision() async {
-        guard !isSavingDecision, let undoService, let id = peopleSnapshot.undoID,
-              let operation = catalogSession.begin("undo") else { return }
-        isSavingDecision = true; decisionError = nil
-        defer { if sessionIsCurrent(operation.session) { isSavingDecision = false }; catalogSession.finish(operation) }
-        let work = Task { try await undoService.undo(id) }
-        catalogSession.bind(operation) { work.cancel() }
-        do {
-            try await work.value
-            guard sessionIsCurrent(operation.session) else { return }
-            await refreshPeople()
-        } catch {
-            if sessionIsCurrent(operation.session) { decisionError = (error as? DecisionError)?.message ?? "Undo was not saved. Try again." }
-        }
-    }
-
 }

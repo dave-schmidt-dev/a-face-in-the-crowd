@@ -3,9 +3,18 @@ import AFITCCore
 
 struct PeopleView: View {
     @ObservedObject var services: AppServices
+    @ObservedObject private var faceGroups: FaceGroupService
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var selectedFace: FaceItem?
+    /// Local string route: the outer stack's UUID path pruning cannot pop an open group detail.
+    @State private var selectedGroupSeed: String?
+
+    init(services: AppServices) {
+        self.services = services
+        self.faceGroups = services.faceGroups
+    }
+
     var body: some View {
         let coverFaces = Dictionary(uniqueKeysWithValues: services.peopleSnapshot.faces.map { ($0.key, $0) })
         let active = services.peopleSnapshot.people.filter { $0.person.mergedInto == nil }
@@ -25,7 +34,7 @@ struct PeopleView: View {
                     .accessibilityIdentifier("people-data-unavailable")
             } else {
             if active.isEmpty {
-                Text("Name an unidentified face to add a person.").foregroundStyle(tokens.textSecondary)
+                Text("Open an unnamed group to add a name, or review individual faces below.").foregroundStyle(tokens.textSecondary)
             } else {
                 LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.l) {
                     ForEach(active) { summary in
@@ -40,6 +49,17 @@ struct PeopleView: View {
                     }
                 }
             }
+            if faceGroups.isComputing { ProgressView("Updating face groups").accessibilityIdentifier("face-groups-progress") }
+            if let failure = faceGroups.failureText { Text(failure).accessibilityIdentifier("face-groups-failure") }
+            if faceGroups.result?.incomplete == true { Text("Some faces have no saved analysis. Scan from Library to finish available face details.").foregroundStyle(tokens.textSecondary) }
+            if !faceGroups.retryablePhotos.isEmpty {
+                Button("Retry unfinished face analysis") {
+                    Task { await services.retrySavedFaceAnalysis(faceGroups.retryablePhotos) }
+                }
+                .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
+                .disabled(!services.canStart).accessibilityIdentifier("retry-saved-face-analysis")
+            }
+            unnamedGroups(coverFaces: coverFaces)
             let unidentified = services.peopleSnapshot.faces.filter { $0.state.personID == nil && !$0.state.notPerson }
             UnidentifiedFacesCard(services: services, faces: unidentified) { selectedFace = $0 }
             let falseDetections = services.peopleSnapshot.faces.filter { $0.state.notPerson }
@@ -58,7 +78,46 @@ struct PeopleView: View {
         .sheet(item: $selectedFace) { face in
             NavigationStack { ManualFaceView(services: services, face: face, initialPerson: nil) }
         }
-        .task { if services.peopleRefreshWarning == nil { await services.refreshPeople() } }
+        .navigationDestination(isPresented: groupPresented) {
+            if let seed = selectedGroupSeed {
+                FaceGroupView(services: services, faceGroups: faceGroups, seed: seed)
+            }
+        }
+        .task { if services.peopleRefreshWarning == nil { await services.refreshPeople(); await services.faceGroups.refresh() } }
+    }
+    private var groupPresented: Binding<Bool> {
+        Binding(get: { selectedGroupSeed != nil }, set: { if !$0 { selectedGroupSeed = nil } })
+    }
+    /// Unnamed multi-face groups from the one shared saved-analysis snapshot. Opening, naming or
+    /// viewing a group never reads a source and never starts a scan.
+    @ViewBuilder private func unnamedGroups(coverFaces: [FaceKey: FaceItem]) -> some View {
+        if let result = faceGroups.result {
+            let states = Dictionary(uniqueKeysWithValues: services.peopleSnapshot.faces.map { ($0.key, $0.state) })
+            let groups = result.groups.filter { group in
+                group.members.count > 1
+                    && group.members.allSatisfy { states[$0]?.personID == nil && states[$0]?.notPerson != true }
+            }
+            if !groups.isEmpty {
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                    Text("Unnamed groups").font(.headline).foregroundStyle(tokens.textSecondary)
+                        .accessibilityAddTraits(.isHeader).accessibilityIdentifier("unnamed-groups-start")
+                    Text("Open a group to name it or correct its photos.")
+                        .font(.subheadline).foregroundStyle(tokens.textSecondary)
+                    LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.l) {
+                        ForEach(groups) { group in
+                            Button { selectedGroupSeed = group.id } label: {
+                                FaceGroupCard(services: services,
+                                              cover: group.members.compactMap { coverFaces[$0] }.first,
+                                              memberCount: group.members.count)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Unnamed group, \(group.members.count) faces")
+                            .accessibilityIdentifier("face-group-\(group.id)")
+                        }
+                    }
+                }
+            }
+        }
     }
     private var columns: [GridItem] {
         typeSize.isAccessibilitySize ? [GridItem(.flexible())]
@@ -73,7 +132,7 @@ struct DecisionStatus: View {
             if let message = services.decisionError { Text(message).accessibilityIdentifier("decision-error") }
             if let warning = services.peopleRefreshWarning {
                 Text(warning).accessibilityIdentifier("people-refresh-warning")
-                Button("Refresh People") { Task { await services.refreshPeople() } }
+                Button("Refresh People") { Task { await services.refreshPeople(); await services.faceGroups.refresh() } }
                     .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision).accessibilityIdentifier("refresh-people")
             }
             if services.isSavingDecision { ProgressView("Saving decision") }

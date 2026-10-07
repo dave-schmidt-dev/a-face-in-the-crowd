@@ -3610,8 +3610,8 @@
             "UITests.SearchFlowTests/testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful",
             "UITests.SearchFlowTests/testFallbackDecodeErrorAfterMemoryReleasePreservesReleasedStatus",
             "UITests.SearchFlowTests/testMemoryWarningDuringOriginalDecodeReleasesBeforePublication",
-            "UITests.VerificationFlowTests/testCompactLargeTextAndRelaunchShowsSuggestionsUnavailableUntilScan",
-            "UITests.VerificationFlowTests/testVerifyIsOffAndLabeledEvaluationByDefault"
+            "UITests.VerificationFlowTests/testCompactLargeTextAndRelaunchRetainsSavedSuggestions",
+            "UITests.VerificationFlowTests/testVerifyUsesSavedAnalysisWithoutToggleOrRescan"
           ]
         }
       }
@@ -3789,6 +3789,84 @@
           ]
         }
       }
+    },
+    "task7.4": {
+      "description": "Saved-analysis People groups and portable App service causal integration",
+      "targets": {
+        "AFITCAppTests": {
+          "type": "unit",
+          "swiftpmOnly": true,
+          "testFiles": [
+            "Tests/AFITCAppTests/FaceGroupServiceTests.swift"
+          ],
+          "selectors": [
+            "AFITCAppTests.FaceGroupServiceTests/testFirstOrdinaryScanCreatesUnnamedSavedGroups",
+            "AFITCAppTests.FaceGroupServiceTests/testNameKeepsSeedPhotosAndConfirmsOnlyCoverWithoutWork",
+            "AFITCAppTests.FaceGroupServiceTests/testUnchangedScanReusesSavedAnalysis",
+            "AFITCAppTests.FaceGroupServiceTests/testCorrectionUndoUsesSameSavedMembership",
+            "AFITCAppTests.FaceGroupServiceTests/testVerifyConsumesSharedResultsAndSettlesAnswer",
+            "AFITCAppTests.FaceGroupServiceTests/testReopenRetainsNamedGroupWithoutSourceOrInference",
+            "AFITCAppTests.FaceGroupServiceTests/testGroupsPublishDuringScanAtAwaitedBoundaries",
+            "AFITCAppTests.FaceGroupServiceTests/testRetryStatesNeedExplicitAdmissionAndOnlyReadAffectedPhoto",
+            "AFITCAppTests.FaceGroupServiceTests/testRetiredSessionClearsSharedReviewWithoutLatePublication",
+            "AFITCAppTests.FaceGroupServiceTests/testPersonDeletionPinsDisplayedPossibleMembersAndSuppressesThem"
+          ]
+        },
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift",
+            "Tests/AFITCCoreTests/FaceGroupingTests.swift",
+            "Tests/AFITCCoreTests/ReviewQueueTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceGroupRunnerContractTests/testPhase7UnionCoversTask7Phase6AndFocusedJourney",
+            "AFITCCoreTests.FaceGroupingTests/testDeterministicDurableSeedAndSamePhotoExclusion",
+            "AFITCCoreTests.FaceGroupingTests/testAppendPreservesSeedAndMembers",
+            "AFITCCoreTests.FaceGroupingTests/testNoChainingRequiresSeedAndRepresentatives",
+            "AFITCCoreTests.FaceGroupingTests/testAmbiguityMarginLeavesNearTiesUngrouped",
+            "AFITCCoreTests.FaceGroupingTests/testCapturedExclusionReseedsWithoutErasingPairs",
+            "AFITCCoreTests.FaceGroupingTests/testSuppressedNotPersonAndDeferredFacesNeverJoinGroups",
+            "AFITCCoreTests.FaceGroupingTests/testTwentyThousandFaceSyntheticBoundCompletesWithinBudget",
+            "AFITCCoreTests.FaceGroupingTests/testComparisonBudgetReportsIncompleteInsteadOfGuessing",
+            "AFITCCoreTests.FaceGroupingTests/testProgressIsReportedAndRepresentativeCapBoundsComparisons",
+            "AFITCCoreTests.FaceGroupingTests/testCapacityLimitsAreExplicit",
+            "AFITCCoreTests.FaceGroupingTests/testContradictoryNamesAndPairNegativesRemainSeparate",
+            "AFITCCoreTests.FaceGroupingTests/testSamePhotoConstraintChecksAlsoConsumeTheStrictBudget",
+            "AFITCCoreTests.FaceGroupingTests/testCancellationStopsBoundedGrouping",
+            "AFITCCoreTests.FaceGroupingTests/testPinnedNamingConfirmsOnlyCoverPreservesIDAndLaterMembers",
+            "AFITCCoreTests.FaceGroupingTests/testMembershipUsesConfirmedAnchorsAndStablePersonSeed",
+            "AFITCCoreTests.FaceGroupingTests/testSecondLabeledGroupAggregatesThroughTheSamePerson",
+            "AFITCCoreTests.FaceGroupingTests/testLabelGuardUsesInspectedCoverStateNotCatalogRevision",
+            "AFITCCoreTests.FaceGroupingTests/testLabelAndExclusionRejectChangedInspectedStates",
+            "AFITCCoreTests.FaceGroupingTests/testExclusionCorrectionIsDurableAndUndoRestoresCapturedPairs",
+            "AFITCCoreTests.FaceGroupingTests/testCaptureFiltersStaleGenerationsAndOtherPipelines",
+            "AFITCCoreTests.FaceGroupingTests/testGroupingNeverMutatesTheCatalog",
+            "AFITCCoreTests.ReviewQueueTests/testSharedMembershipProjectsTheSameGuardedReviewCards",
+            "AFITCCoreTests.ReviewQueueTests/testSkipIsSessionLocalAndNeverPersisted",
+            "AFITCCoreTests.ReviewQueueTests/testQueueReconcilesAfterDecisionRefresh",
+            "AFITCCoreTests.ReviewQueueTests/testStaleCardIsReplacedNotConfirmed",
+            "AFITCCoreTests.ReviewQueueTests/testAnswerForDisplayedCardIsRefusedAfterReplacement",
+            "AFITCCoreTests.ReviewQueueTests/testUnrequestedRemovalRequiresAcknowledgement",
+            "AFITCCoreTests.ReviewQueueTests/testOwnAnswerDoesNotRaiseStaleNotice"
+          ]
+        }
+      }
+    },
+    "ui.group-journey": {
+      "description": "Focused native group naming, relaunch and confirmed Search journey",
+      "targets": {
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/FaceGroupingFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.FaceGroupingFlowTests/testGroupNameReopenAndSearchJourney"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -3837,7 +3915,10 @@
         "App/Components/BackupSettingsSection.swift",
         "App/Components/MachineValue.swift",
         "App/Components/TileLayout.swift",
-        "App/Components/ZoomableImage.swift"
+        "App/Components/ZoomableImage.swift",
+        "App/FaceGroupView.swift",
+        "App/Services/FaceGroupService.swift",
+        "App/Services/AppDecisions.swift"
       ]
     },
     "AFITCCore": {
@@ -3957,7 +4038,8 @@
         "Tests/AFITCCoreTests/FaceGroupingTests.swift",
         "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift",
         "Tests/AFITCCoreTests/PersistentFaceScanTests.swift",
-        "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift"
+        "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift",
+        "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift"
       ]
     },
     "UITests": {
@@ -3976,7 +4058,8 @@
         "UITests/VerificationFlowTests.swift",
         "UITests/DesignTestSupport.swift",
         "UITests/DesignFlowTests.swift",
-        "UITests/DesignScreensTests.swift"
+        "UITests/DesignScreensTests.swift",
+        "UITests/FaceGroupingFlowTests.swift"
       ]
     },
     "AFITCRuntime": {
@@ -3992,6 +4075,41 @@
         "Sources/AFITCRuntime/TransientFaceEmbeddingProducer.swift",
         "Sources/AFITCRuntime/RuntimeFaceVectorProducer.swift",
         "Sources/AFITCRuntime/PersistentFaceAnalysisProducer.swift"
+      ]
+    },
+    "AFITCApp": {
+      "type": "library",
+      "swiftpmOnly": true,
+      "sources": [
+        "App/AppServices.swift",
+        "App/Services/AppDecisions.swift",
+        "App/Services/AppPresentationState.swift",
+        "App/Services/CatalogBackupExport.swift",
+        "App/Services/CatalogBackupService.swift",
+        "App/Services/CatalogBackupTestSupport.swift",
+        "App/Services/CatalogOperationProgress.swift",
+        "App/Services/CatalogPrivacyService.swift",
+        "App/Services/CatalogSessionLifecycle.swift",
+        "App/Services/CatalogStartupService.swift",
+        "App/Services/DiagnosticFiles.swift",
+        "App/Services/DiagnosticLog.swift",
+        "App/Services/FaceDetectionService.swift",
+        "App/Services/FaceEmbeddingCoordinator.swift",
+        "App/Services/FaceGroupService.swift",
+        "App/Services/FolderSource.swift",
+        "App/Services/LaunchOptions.swift",
+        "App/Services/PreviewService.swift",
+        "App/Services/PrivacyProtection.swift",
+        "App/Services/SearchService.swift",
+        "App/Services/SuggestionService.swift",
+        "App/Services/SyntheticSuggestionFixture.swift"
+      ]
+    },
+    "AFITCAppTests": {
+      "type": "unit",
+      "swiftpmOnly": true,
+      "sources": [
+        "Tests/AFITCAppTests/FaceGroupServiceTests.swift"
       ]
     }
   },
@@ -4136,6 +4254,74 @@
     ],
     "phase-release-ui": [
       "ui.release"
+    ],
+    "phase7": [
+      "task1.1",
+      "task1.4",
+      "task1.2",
+      "task1.5",
+      "task3.1",
+      "task3.3",
+      "task3.2a",
+      "task3.2b",
+      "task3.2c",
+      "task3.2d",
+      "task3.2e",
+      "task3.2f",
+      "task3.2g",
+      "task4.capture-date",
+      "task4.1",
+      "task4.2",
+      "task5.1A",
+      "task5.1B",
+      "task5.1C1",
+      "task5.1C2a",
+      "task5.1Counters",
+      "task5.1C2b1",
+      "task5.1C2b2",
+      "task5.1C2b3",
+      "task5.1C2b4",
+      "task5.1C2b5",
+      "task5.1C2b6",
+      "task5.1",
+      "task5.1C2b7",
+      "task5.1C2b8",
+      "task5.2B",
+      "task5.2A",
+      "task5.2a-ui-actions",
+      "task5.2b1",
+      "task5.2b2",
+      "task5.2c-Core-suspension",
+      "task5.2c2-Core-retained-protected-data",
+      "task5.2c3",
+      "task5.2c4",
+      "task5.2-protection-union",
+      "task5.2protectedA",
+      "task5.2protectedB",
+      "task5.1C2b14-crash-matrix",
+      "task5.retained-export-cleanup",
+      "task6.1A",
+      "task6.1A-retry",
+      "task2.runtime-admission",
+      "task2.sface-local-session",
+      "task2.sface-matrix-integration",
+      "task2.preprocessing",
+      "task6.device-delivery",
+      "task6.runner-native-union",
+      "task2.alignment-association",
+      "task2.embedding-runtime",
+      "task2.yunet-decoder-normal",
+      "task2.yunet-pixelprep-normal",
+      "task2.3-yunet-runtime-generic",
+      "task2.3-core-face-fence",
+      "task2.model-resources",
+      "task2.3-producer",
+      "ui.journeys",
+      "task7.1",
+      "task7.2",
+      "task7.3",
+      "task7.4",
+      "ui.group-journey"
     ]
   }
 }

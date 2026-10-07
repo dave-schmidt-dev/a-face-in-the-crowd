@@ -6,12 +6,13 @@ struct PersonDetailView: View {
     let personID: UUID
     @ObservedObject private var privacy: CatalogPrivacyService
     @ObservedObject private var presentation: AppPresentationState
+    @ObservedObject private var faceGroups: FaceGroupService
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 120
     init(services: AppServices, personID: UUID) {
         self.services = services; self.personID = personID
-        presentation = services.presentation; privacy = services.privacy
+        presentation = services.presentation; privacy = services.privacy; faceGroups = services.faceGroups
     }
     private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
     @State private var selectedFace: FaceItem?
@@ -46,6 +47,7 @@ struct PersonDetailView: View {
                             .optionalPresentationAnchor(confirmed.first(where: { $0.photo.id == face.photo.id })?.key == face.key ? face.photo.id : nil, section: "Person-" + personID.uuidString)
                         }
                     }
+                    possiblePhotos(summary)
                     manage(summary)
                 } else {
                     Text("This person is no longer available.")
@@ -80,6 +82,53 @@ struct PersonDetailView: View {
     private var columns: [GridItem] {
         typeSize.isAccessibilitySize ? [GridItem(.flexible())]
             : [GridItem(.adaptive(minimum: DesignTokens.Layout.photoCardMin), spacing: DesignTokens.Spacing.s)]
+    }
+    /// Possible photos from the one shared saved-analysis result; there is no second match
+    /// engine. Confirm and reject are guarded by the rendered face state and the person's
+    /// current exemplar revision, and both are undoable decisions.
+    @ViewBuilder private func possiblePhotos(_ summary: PersonSummary) -> some View {
+        let possible = possibleMembers()
+        if !possible.isEmpty {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                Text("Possible photos").font(.headline).foregroundStyle(tokens.textSecondary)
+                    .accessibilityAddTraits(.isHeader).accessibilityIdentifier("possible-photos-start")
+                Text("Saved analysis suggests these faces may be \(summary.person.displayName). Confirmation is yours.")
+                    .font(.subheadline).foregroundStyle(tokens.textSecondary)
+                LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                    ForEach(possible) { face in
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                            FacePreview(services: services, face: face, wholePhoto: false, style: .tile)
+                            Text((face.photo.relativePath as NSString).lastPathComponent)
+                                .font(.caption).foregroundStyle(tokens.textSecondary).lineLimit(1)
+                            Button("Confirm") {
+                                perform(.confirmSuggestion(face: face.key, personID: personID,
+                                                           exemplarRevision: summary.person.exemplarRevision,
+                                                           expectedState: face.state))
+                            }
+                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 44))
+                            .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                            .accessibilityIdentifier("possible-confirm")
+                            Button("Not this person") {
+                                perform(.expectingState(.reject(face: face.key, personID: personID),
+                                                        expectedState: face.state))
+                            }
+                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 44))
+                            .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                            .accessibilityIdentifier("possible-reject")
+                        }.card()
+                    }
+                }
+            }
+        }
+    }
+    private func possibleMembers() -> [FaceItem] {
+        guard let result = faceGroups.result else { return [] }
+        return services.peopleSnapshot.faces.filter { face in
+            face.state.personID != personID && result.memberships[face.key]?.personID == personID
+        }
+    }
+    private func perform(_ decision: ManualDecision) {
+        Task { _ = await services.decide(decision) }
     }
     /// Large circular cover, name and confirmed count; stacks vertically at accessibility sizes.
     @ViewBuilder private func header(_ summary: PersonSummary) -> some View {
@@ -284,7 +333,7 @@ struct ManualFaceView: View {
     }
 }
 
-private struct PeoplePalette: ViewModifier {
+struct PeoplePalette: ViewModifier {
     @Environment(\.tokens) private var tokens
     func body(content: Content) -> some View {
         content.background(tokens.background).tint(tokens.primary)

@@ -35,6 +35,35 @@ let package = Package(
             ],
             path: "Sources/AFITCRuntime"
         ),
+        // Portable App services: the catalog, grouping, suggestion and fixture services without
+        // the UIKit-only views. Excluded files compile only inside the AFITC app target.
+        .target(
+            name: "AFITCApp",
+            dependencies: ["AFITCCore", "AFITCRuntime"],
+            path: "App",
+            exclude: [
+                "AFITCApp.swift",
+                "Info.plist",
+                "RootView.swift",
+                "PeopleView.swift",
+                "PersonDetailView.swift",
+                "VerifyView.swift",
+                "FaceGroupView.swift",
+                "SearchView.swift",
+                "LibraryView.swift",
+                "SettingsView.swift",
+                "StatusView.swift",
+                "PhotoViewer.swift",
+                "DesignTokens.swift",
+                "Components",
+                "Services/CatalogPackagePicker.swift"
+            ]
+        ),
+        .testTarget(
+            name: "AFITCAppTests",
+            dependencies: ["AFITCApp", "AFITCCore"],
+            path: "Tests/AFITCAppTests"
+        ),
         .testTarget(
             name: "AFITCCoreTests",
             dependencies: [

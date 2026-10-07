@@ -1,5 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#endif
 import AFITCCore
 
 /// Actual retained authority, chosen only after all relevant workers complete.
@@ -7,11 +9,24 @@ enum ProtectedCatalogAuthority {
     case live(CatalogRepository), restore(CatalogRestoreRepository), deletion(RetainedCatalogDeletion), absent
 }
 
+#if canImport(UIKit)
 @MainActor
 final class ProtectedDataDelegate: NSObject, UIApplicationDelegate {
     static weak var protection: PrivacyProtection?
     func applicationProtectedDataWillBecomeUnavailable(_ application: UIApplication) { Self.protection?.willBecomeUnavailable() }
     func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) { Self.protection?.didBecomeAvailable() }
+}
+#endif
+
+extension PrivacyProtection {
+    /// Protected-data availability; a non-UIKit host (portable App services) is always available.
+    static var protectedDataAvailable: Bool {
+        #if canImport(UIKit)
+        UIApplication.shared.isProtectedDataAvailable
+        #else
+        true
+        #endif
+    }
 }
 
 /// Only this coordinator can issue a generation-bound permission for explicit reopening.
@@ -51,13 +66,13 @@ final class PrivacyProtection: ObservableObject {
     var blocksContent: Bool { !available || (state != .open && state != .deleted) }
     func accepts(_ permit: ProtectedReopenPermit) -> Bool {
         permit.owner == permitOwner && permit.generation == generation && available &&
-            UIApplication.shared.isProtectedDataAvailable && state == .reopening
+            Self.protectedDataAvailable && state == .reopening
     }
     private func require(_ permit: ProtectedReopenPermit) throws {
         guard accepts(permit), !Task.isCancelled else { throw CancellationError() }
     }
     var canExplicitlyOpen: Bool {
-        available && UIApplication.shared.isProtectedDataAvailable && !busy &&
+        available && Self.protectedDataAvailable && !busy &&
             [.closed, .coldLocked, .openRetryRequired].contains(state)
     }
     var canTryMarkedRecovery: Bool {
@@ -71,7 +86,7 @@ final class PrivacyProtection: ObservableObject {
         try requireCleanup(generation, permit: permit); return generation
     }
     func requireCleanup(_ captured: UInt64, permit: ProtectedReopenPermit?) throws {
-        guard captured == generation, available, UIApplication.shared.isProtectedDataAvailable,
+        guard captured == generation, available, Self.protectedDataAvailable,
               !Task.isCancelled else { throw CancellationError() }
         if let permit { try require(permit) }
         else { guard admitsWork else { throw CancellationError() } }
@@ -95,7 +110,7 @@ final class PrivacyProtection: ObservableObject {
         #endif
     }
     init(services: AppServices) {
-        self.services = services; available = UIApplication.shared.isProtectedDataAvailable
+        self.services = services; available = Self.protectedDataAvailable
         #if DEBUG
         if services.usesSyntheticFixture, services.launch.has("--uitest-protected-cold-lock") {
             available = false
@@ -271,7 +286,7 @@ final class PrivacyProtection: ObservableObject {
                 if disposition == .restoreRecovered { services.setupError = "Reconnect the original source folder. Restored permission is not reused." }
                 message = cleanupReady ? "Existing catalog reopened. Scanning remains an explicit action." : "Catalog reopened; retained backup cleanup requires another attempt."
                 // Publication succeeded synchronously; no general work was admitted earlier.
-                if permit.generation == generation, available, UIApplication.shared.isProtectedDataAvailable {
+                if permit.generation == generation, available, Self.protectedDataAvailable {
                     _ = await services.diagnostics.resumeAfterProtectedData()
                 }
             } catch {
@@ -368,6 +383,11 @@ enum AppOwnedPaths {
         #else
         let container = "AFITC"
         #endif
+        // An owner-injected root keeps every app-owned path beneath one testable directory.
+        if let owned = launch.ownedRoot {
+            return (owned.appendingPathComponent("Support", isDirectory: true),
+                    owned.appendingPathComponent("Caches", isDirectory: true), container)
+        }
         let support = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent(container, isDirectory: true)
         let cache = manager.urls(for: .cachesDirectory, in: .userDomainMask)[0]

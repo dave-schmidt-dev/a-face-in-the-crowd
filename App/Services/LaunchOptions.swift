@@ -4,10 +4,16 @@ import Foundation
 public struct LaunchOptions: Sendable, Equatable {
     /// The full argument list this value was created from.
     public let arguments: [String]
+    /// Optional owner-injected root: `AppOwnedPaths` places Support and Caches beneath it.
+    /// Nil uses the process's own application support and caches containers.
+    public let ownedRoot: URL?
     /// The arguments of the process this value was created in.
     public static let process = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
     /// Creates options from a full argument list.
-    public init(arguments: [String]) { self.arguments = arguments }
+    public init(arguments: [String], ownedRoot: URL? = nil) {
+        self.arguments = arguments
+        self.ownedRoot = ownedRoot
+    }
     /// True when the exact flag appears among the arguments.
     public func has(_ flag: String) -> Bool { arguments.contains(flag) }
     /// The argument immediately after the flag, when one is present.

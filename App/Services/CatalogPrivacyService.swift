@@ -13,6 +13,7 @@ final class CatalogPrivacyService: ObservableObject {
         let revision: Int
         let family: Set<UUID>
         let name: String
+        let group: FaceGroupSnapshot?
     }
     enum State: String { case idle, confirming, draining, applying, cleanupRequired, retryRequired, finished }
     @Published private(set) var state = State.idle
@@ -83,13 +84,23 @@ final class CatalogPrivacyService: ObservableObject {
             defer { services.catalogSession.finish(operation); task = nil }
             do {
                 guard services.sessionIsCurrent(operation.session), services.protection.admitsWork, !Task.isCancelled else { return }
+                await services.faceGroups.refresh()
                 let people = try await context.0.peopleSnapshot()
                 guard services.sessionIsCurrent(operation.session), !Task.isCancelled else { return }
                 let family = try Self.family(action, people: people)
                 let name: String
                 if case .person(let id) = action { name = people.people.first { $0.id == id }?.person.displayName ?? "Person" }
                 else { name = "" }
-                confirmation = Confirmation(action: action, revision: people.revision, family: family, name: name)
+                var displayed: FaceGroupSnapshot?
+                if case .person(let id) = action, let result = services.faceGroups.result {
+                    guard result.revision == people.revision else { throw DecisionError.conflict }
+                    let states = Dictionary(uniqueKeysWithValues: people.faces.map { ($0.key, $0.state) })
+                    let members = result.memberships.values.filter { $0.personID.map(family.contains) == true }.map(\.face).sorted { $0.id < $1.id }
+                    if let seed = people.people.first(where: { $0.id == id })?.person.cover, members.contains(seed) {
+                        displayed = FaceGroup(seed: seed, members: members).snapshot(states: states)
+                    }
+                }
+                confirmation = Confirmation(action: action, revision: people.revision, family: family, name: name, group: displayed)
                 state = .idle; message = ""
             } catch { if services.sessionIsCurrent(operation.session) { state = .idle; message = "The catalog could not be checked. Try again." } }
         }
@@ -148,7 +159,9 @@ final class CatalogPrivacyService: ObservableObject {
                     try requireProtectedAdmission()
                     switch retained.action {
                     case .person(let id):
-                        committed = try await context.0.deletePerson(id); deletes += 1
+                        if let group = retained.group { committed = try await context.0.deletePerson(id, group: group) }
+                        else { committed = try await context.0.deletePerson(id) }
+                        deletes += 1
                     case .disconnect: try await context.0.disconnectSource()
                     case .cache: _ = try await context.0.clearDerivedCache()
                     case .catalog: throw DeletionError.unsafeEntry
@@ -311,6 +324,7 @@ final class CatalogPrivacyService: ObservableObject {
     }
 }
 
+#if canImport(UIKit)
 /// Routine local privacy actions (clear previews, disconnect the source) and their results.
 /// Whole-catalog deletion is a separate destructive group placed last in Settings.
 struct PrivacySettingsActions: View {
@@ -404,3 +418,4 @@ struct PrivacyConfirmation: ViewModifier {
         }
     }
 }
+#endif

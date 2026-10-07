@@ -156,7 +156,10 @@
 		CC0000020000000000000130 /* BundledModelResourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000130 /* BundledModelResourceTests.swift */; };
 		A23D00020000000000000001 /* TransientFaceEmbeddingProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */; };
 		A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */; };
+		CE0000020000000000000002 /* AppDecisions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000002 /* AppDecisions.swift */; };
+		CE0000020000000000000001 /* FaceGroupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000001 /* FaceGroupService.swift */; };
 		AA0000020000000000000051 /* VerifyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000051 /* VerifyView.swift */; };
+		CE0000020000000000000003 /* FaceGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000003 /* FaceGroupView.swift */; };
 		AA0000020000000000000052 /* SuggestionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000052 /* SuggestionService.swift */; };
 		A23D00020000000000000003 /* ScanEmbeddingEnrichmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */; };
 		A23D00020000000000000004 /* TransientFaceEmbeddingProducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */; };
@@ -170,6 +173,7 @@
 		AA0000020000000000000053 /* ReviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000053 /* ReviewCard.swift */; };
 		AA0000020000000000000054 /* SyntheticSuggestionFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */; };
 		AA0000020000000000000055 /* VerificationFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000055 /* VerificationFlowTests.swift */; };
+		CE0000020000000000000004 /* FaceGroupingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000004 /* FaceGroupingFlowTests.swift */; };
 		AA0000020000000000000066 /* DesignScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000066 /* DesignScreensTests.swift */; };
 		AA0000020000000000000063 /* DesignFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000063 /* DesignFlowTests.swift */; };
 		AA0000020000000000000062 /* DesignTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000010000000000000062 /* DesignTestSupport.swift */; };
@@ -193,6 +197,7 @@
 		CC0000020000000000000144 /* FaceAnalysisRestoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */; };
 		CC0000020000000000000146 /* FaceGroupDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000146 /* FaceGroupDeletionTests.swift */; };
 		CC0000020000000000000145 /* FaceGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000145 /* FaceGroupingTests.swift */; };
+		CE0000020000000000000005 /* FaceGroupRunnerContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */; };
 		FE0000020000000000000001 /* PersistentFaceAnalysisProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0000010000000000000001 /* PersistentFaceAnalysisProducer.swift */; };
 		FE0000020000000000000002 /* PersistentFaceScanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0000010000000000000002 /* PersistentFaceScanTests.swift */; };
 		FE0000020000000000000003 /* PersistentFaceAdmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0000010000000000000003 /* PersistentFaceAdmissionTests.swift */; };
@@ -405,7 +410,10 @@
 		EF0000010000000000000004 /* OpenCV-Zoo-SFace-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = tools/third-party-notices/OpenCV-Zoo-SFace-LICENSE.txt; sourceTree = "<group>"; };
 		A23D00010000000000000001 /* TransientFaceEmbeddingProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducer.swift; sourceTree = "<group>"; };
 		A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/FaceEmbeddingCoordinator.swift; sourceTree = "<group>"; };
+		CE0000010000000000000002 /* AppDecisions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/AppDecisions.swift"; sourceTree = "<group>"; };
+		CE0000010000000000000001 /* FaceGroupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Services/FaceGroupService.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000051 /* VerifyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifyView.swift; sourceTree = "<group>"; };
+		CE0000010000000000000003 /* FaceGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FaceGroupView.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000052 /* SuggestionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SuggestionService.swift; sourceTree = "<group>"; };
 		A23D00010000000000000003 /* ScanEmbeddingEnrichmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanEmbeddingEnrichmentTests.swift; sourceTree = "<group>"; };
 		A23D00010000000000000004 /* TransientFaceEmbeddingProducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransientFaceEmbeddingProducerTests.swift; sourceTree = "<group>"; };
@@ -419,6 +427,7 @@
 		AA0000010000000000000053 /* ReviewCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Components/ReviewCard.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/SyntheticSuggestionFixture.swift; sourceTree = "<group>"; };
 		AA0000010000000000000055 /* VerificationFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationFlowTests.swift; sourceTree = "<group>"; };
+		CE0000010000000000000004 /* FaceGroupingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "FaceGroupingFlowTests.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000066 /* DesignScreensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignScreensTests.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000063 /* DesignFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignFlowTests.swift"; sourceTree = "<group>"; };
 		AA0000010000000000000062 /* DesignTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DesignTestSupport.swift"; sourceTree = "<group>"; };
@@ -442,6 +451,7 @@
 		CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisRestoreTests.swift; sourceTree = "<group>"; };
 		CC0000010000000000000146 /* FaceGroupDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupDeletionTests.swift; sourceTree = "<group>"; };
 		CC0000010000000000000145 /* FaceGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupingTests.swift; sourceTree = "<group>"; };
+		CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupRunnerContractTests.swift; sourceTree = "<group>"; };
 		FE0000010000000000000001 /* PersistentFaceAnalysisProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentFaceAnalysisProducer.swift; sourceTree = "<group>"; };
 		FE0000010000000000000002 /* PersistentFaceScanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentFaceScanTests.swift; sourceTree = "<group>"; };
 		FE0000010000000000000003 /* PersistentFaceAdmissionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentFaceAdmissionTests.swift; sourceTree = "<group>"; };
@@ -574,7 +584,10 @@
 				F34A42044E5BF8DE67184FAC /* CatalogPrivacyService.swift */,
 				14FD12695D171D1A1CD92A9E /* PrivacyProtection.swift */,
 				A23D00010000000000000002 /* FaceEmbeddingCoordinator.swift */,
+				CE0000010000000000000002 /* AppDecisions.swift */,
+				CE0000010000000000000001 /* FaceGroupService.swift */,
 				AA0000010000000000000051 /* VerifyView.swift */,
+				CE0000010000000000000003 /* FaceGroupView.swift */,
 				AA0000010000000000000052 /* SuggestionService.swift */,
 				AA0000010000000000000053 /* ReviewCard.swift */,
 				AA0000010000000000000054 /* SyntheticSuggestionFixture.swift */,
@@ -726,6 +739,7 @@
 				CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */,
 				CC0000010000000000000146 /* FaceGroupDeletionTests.swift */,
 				CC0000010000000000000145 /* FaceGroupingTests.swift */,
+				CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */,
 				FE0000010000000000000002 /* PersistentFaceScanTests.swift */,
 				FE0000010000000000000003 /* PersistentFaceAdmissionTests.swift */,
 			);
@@ -747,6 +761,7 @@
 				CE6D3BB465126317BB1C1601 /* PrivacyFlowTests.swift */,
 				56B9187FEADB55F856792846 /* ProtectedDataFlowTests.swift */,
 				AA0000010000000000000055 /* VerificationFlowTests.swift */,
+				CE0000010000000000000004 /* FaceGroupingFlowTests.swift */,
 				AA0000010000000000000066 /* DesignScreensTests.swift */,
 				AA0000010000000000000063 /* DesignFlowTests.swift */,
 				AA0000010000000000000062 /* DesignTestSupport.swift */,);
@@ -1019,7 +1034,10 @@
 				B4CA8DE5240BBD6EA341E018 /* CatalogPrivacyService.swift in Sources */,
 				093FC255B10269D29D4E0FB1 /* PrivacyProtection.swift in Sources */,
 				A23D00020000000000000002 /* FaceEmbeddingCoordinator.swift in Sources */,
+				CE0000020000000000000002 /* AppDecisions.swift in Sources */,
+				CE0000020000000000000001 /* FaceGroupService.swift in Sources */,
 				AA0000020000000000000051 /* VerifyView.swift in Sources */,
+				CE0000020000000000000003 /* FaceGroupView.swift in Sources */,
 				AA0000020000000000000052 /* SuggestionService.swift in Sources */,
 				AA0000020000000000000053 /* ReviewCard.swift in Sources */,
 				AA0000020000000000000054 /* SyntheticSuggestionFixture.swift in Sources */,
@@ -1094,6 +1112,7 @@
 				CC0000020000000000000144 /* FaceAnalysisRestoreTests.swift in Sources */,
 				CC0000020000000000000146 /* FaceGroupDeletionTests.swift in Sources */,
 				CC0000020000000000000145 /* FaceGroupingTests.swift in Sources */,
+				CE0000020000000000000005 /* FaceGroupRunnerContractTests.swift in Sources */,
 				FE0000020000000000000002 /* PersistentFaceScanTests.swift in Sources */,
 				FE0000020000000000000003 /* PersistentFaceAdmissionTests.swift in Sources */,
 			);
@@ -1115,6 +1134,7 @@
 				44B0AF63412E0A94A2F8E17E /* PrivacyFlowTests.swift in Sources */,
 				433BD979FC39ACA1A3DE0457 /* ProtectedDataFlowTests.swift in Sources */,
 				AA0000020000000000000055 /* VerificationFlowTests.swift in Sources */,
+				CE0000020000000000000004 /* FaceGroupingFlowTests.swift in Sources */,
 				AA0000020000000000000066 /* DesignScreensTests.swift in Sources */,
 				AA0000020000000000000063 /* DesignFlowTests.swift in Sources */,
 				AA0000020000000000000062 /* DesignTestSupport.swift in Sources */,);

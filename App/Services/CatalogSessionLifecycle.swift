@@ -1,6 +1,6 @@
 import Foundation
+import CoreGraphics
 import AFITCCore
-import UIKit
 
 /// Tracks actual work through completion; cancellation alone never establishes drain.
 @MainActor
@@ -127,15 +127,18 @@ actor AppSessionSlowSyntheticSource: PhotoSource {
     init(source: FolderPhotoSource, holdAfterFirst: Bool) { self.source = source; self.holdAfterFirst = holdAfterFirst }
     func identity() async throws -> String? { try await source.identity() }
     func permissionBookmark() async throws -> Data? { try await source.permissionBookmark() }
-    func open() async throws { try await source.open() }
+    func open() async throws { SyntheticAnalysisProbe.recordScan(); try await source.open() }
     func next() async throws -> SourceEntry? {
         if returned > 0, holdAfterFirst {
             while true { try await Task.sleep(nanoseconds: 100_000_000) }
         }
         returned += 1
-        return try await source.next()
+        guard let entry = try await source.next() else { return nil }
+        // This source serves only the immutable, generated fictional fixture. Its fixed
+        // generator version is a provider-guaranteed revision, unlike ordinary folder dates.
+        return SourceEntry(relativePath: entry.relativePath, metadata: SourceMetadata(revision: "synthetic-fixture-v1", size: entry.metadata?.size, modified: entry.metadata?.modified))
     }
-    func read(_ entry: SourceEntry) async throws -> Data { try await source.read(entry) }
+    func read(_ entry: SourceEntry) async throws -> Data { SyntheticAnalysisProbe.recordRead(); return try await source.read(entry) }
     func close() async { await source.close() }
 }
 #endif
@@ -154,8 +157,8 @@ extension AppServices {
 
 #if DEBUG
 enum AppSessionFixture {
-    static func root() throws -> URL {
-                    let root = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+    static func root(in parent: URL? = nil) throws -> URL {
+                    let root = (parent ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0])
                         .appendingPathComponent("AFITCFixture-" + UUID().uuidString, isDirectory: true)
                     let nested = root.appendingPathComponent("nested", isDirectory: true)
                     try CatalogRepository.protect(nested, directory: true)

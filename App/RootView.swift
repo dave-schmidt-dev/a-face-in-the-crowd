@@ -227,7 +227,7 @@ public struct RootView: View {
                 } else if section == .search {
                     SearchView(services: services)
                 } else {
-                    VerifyView(services: services, suggestions: services.suggestions)
+                    VerifyView(services: services)
                 }
             }
             .id("catalog-top-" + section.rawValue)

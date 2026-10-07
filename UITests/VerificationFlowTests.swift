@@ -1,7 +1,7 @@
 import XCTest
 
 /// Evaluation suggestions over the generated synthetic fixture with fixed fictional vectors
-/// (`--uitest-synthetic-suggestions`). Proves the review workflow only; recognition is not qualified.
+/// (persisted by the first ordinary scan). Proves the review workflow only; recognition is not qualified.
 ///
 /// Fixture outcome (see `SyntheticFaceVectorProducer`): the two synthetic-0 faces are named as the
 /// examples. The person named on the pure cluster-0 face ("top") is suggested once on synthetic-1;
@@ -15,16 +15,15 @@ final class VerificationFlowTests: XCTestCase {
     private func launch(compact: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces",
-                               "--uitest-synthetic-suggestions", "--uitest-catalog-token", UUID().uuidString]
+                               "--uitest-catalog-token", UUID().uuidString]
         if compact { app.launchArguments += ["--uitest-compact", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] }
         app.launch()
         return app
     }
 
-    /// Suggestions on, one scan (the job indexes all six faces), both synthetic-0 faces named, Verify open.
+    /// One ordinary scan saves all six faces; both synthetic-0 examples are named, then Verify opens.
     private func prepared(compact: Bool = false) -> (app: XCUIApplication, top: String, other: String) {
         let app = launch(compact: compact)
-        navigate("Verify", app); setToggle(true, app)
         navigate("Library", app); scan(app)
         name("Fixture A", app); name("Fixture B", app)
         navigate("Verify", app)
@@ -75,20 +74,6 @@ final class VerificationFlowTests: XCTestCase {
         XCTAssertTrue(app.alerts.buttons["Start scan"].waitForExistence(timeout: 10)); app.alerts.buttons["Start scan"].tap()
         phaseCompleted(app)
     }
-    private func setToggle(_ on: Bool, _ app: XCUIApplication) {
-        let toggle = app.switches["evaluation-suggestions-toggle"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10)); reveal(toggle, app)
-        let wanted = on ? "1" : "0"
-        if toggle.value as? String != wanted {
-            let inner = toggle.switches.firstMatch
-            if inner.exists { inner.tap() } else { toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap() }
-        }
-        XCTAssertTrue(waitUntil { toggle.value as? String == wanted }, "evaluation toggle did not turn \(wanted)")
-    }
-    private func toggleValue(_ app: XCUIApplication) -> String? {
-        let toggle = app.switches["evaluation-suggestions-toggle"].firstMatch
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10)); return toggle.value as? String
-    }
     /// Names the next unidentified synthetic-0 face.
     private func name(_ value: String, _ app: XCUIApplication) {
         navigate("People", app)
@@ -133,43 +118,20 @@ final class VerificationFlowTests: XCTestCase {
     private func unidentified(_ count: Int, _ app: XCUIApplication) {
         navigate("People", app); label("unidentified-count", contains: "\(count) unidentified faces", app)
     }
-    /// Runs Find face details and waits for that new suggestion job to finish: the button's value
-    /// counts finished jobs, so an earlier "Completed" can never satisfy the wait.
-    private func findFaceDetails(_ app: XCUIApplication) {
-        let find = app.buttons["verify-find-face-details"].firstMatch
-        XCTAssertTrue(find.waitForExistence(timeout: 10))
-        let before = Int(find.value as? String ?? "") ?? -1
-        XCTAssertGreaterThanOrEqual(before, 0, "finished-job count missing")
-        tap("verify-find-face-details", app)
-        XCTAssertTrue(waitUntil(30) {
-            find.exists && find.isEnabled && (Int(find.value as? String ?? "") ?? -1) > before
-        }, "Find face details did not run a new scan to completion")
-        phaseCompleted(app)
-    }
-
     // MARK: Tests
 
-    func testVerifyIsOffAndLabeledEvaluationByDefault() {
+    func testVerifyUsesSavedAnalysisWithoutToggleOrRescan() {
         let app = launch()
         navigate("Verify", app)
-        label("verify-evaluation-banner", contains: "Evaluation only · never confirms itself", app)
-        XCTAssertEqual(toggleValue(app), "0")
-        XCTAssertTrue(app.staticTexts["verify-off"].waitForExistence(timeout: 5))
+        label("verify-evaluation-banner", contains: "Evaluation only", app)
+        XCTAssertTrue(app.staticTexts["verify-no-confirmed-faces"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.switches["evaluation-suggestions-toggle"].exists)
         navigate("Library", app); scan(app)
         name("Fixture A", app); name("Fixture B", app)
         navigate("Verify", app)
-        XCTAssertEqual(toggleValue(app), "0", "suggestions stay off after a scan and naming")
-        XCTAssertTrue(app.staticTexts["verify-off"].exists)
-        XCTAssertFalse(app.descendants(matching: .any)["review-card"].exists)
-        XCTAssertFalse(app.buttons["verify-find-face-details"].exists)
-        // Turned on after a scan without a job: unavailable until Find face details runs.
-        setToggle(true, app)
-        XCTAssertTrue(app.staticTexts["verify-index-empty"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.descendants(matching: .any)["review-card"].exists)
-        findFaceDetails(app)
         XCTAssertEqual(card(app).photo, "synthetic-1")
+        XCTAssertFalse(app.buttons["verify-find-face-details"].exists)
         label("verify-suggestion-count", contains: "Compared 4 · Ambiguous 1", app)
-        label("verify-evaluation-banner", contains: "Evaluation only", app)
     }
 
     func testYesConfirmsOnlySelectedFaceAndUndoRestoresBeforeState() {
@@ -189,7 +151,7 @@ final class VerificationFlowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["decision-error"].exists)
     }
 
-    func testCompactLargeTextAndRelaunchShowsSuggestionsUnavailableUntilScan() {
+    func testCompactLargeTextAndRelaunchRetainsSavedSuggestions() {
         let (app, top, other) = prepared(compact: true)
         for id in ["review-yes", "review-not-this-person", "review-unsure", "review-not-a-person", "review-skip"] {
             let button = app.buttons[id].firstMatch
@@ -201,12 +163,6 @@ final class VerificationFlowTests: XCTestCase {
         expectCard(Card(name: other, photo: "synthetic-1"), app)
         app.terminate(); app.launch()
         navigate("Verify", app)
-        XCTAssertEqual(toggleValue(app), "0", "the evaluation toggle is session-only")
-        XCTAssertTrue(app.staticTexts["verify-off"].waitForExistence(timeout: 10))
-        setToggle(true, app)
-        XCTAssertTrue(app.staticTexts["verify-index-empty"].waitForExistence(timeout: 10))
-        XCTAssertFalse(app.descendants(matching: .any)["review-card"].exists)
-        findFaceDetails(app)
         expectCard(Card(name: other, photo: "synthetic-1"), app)
         label("verify-suggestion-count", contains: "2 to review", app)
         person(top, confirmed: 2, app)

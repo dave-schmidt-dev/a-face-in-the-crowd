@@ -1,31 +1,6 @@
 import SwiftUI
 import AFITCCore
 
-/// Faces and name one review card shows, looked up once per queue or People change by
-/// `SuggestionService` rather than on every render.
-struct ReviewCardFaces {
-    let card: Suggestion
-    let name: String
-    let candidate: FaceItem?
-    let closest: FaceItem?
-    /// Up to two more confirmed examples of the suggested person, in a stable order.
-    let more: [FaceItem]
-
-    init(card: Suggestion, snapshot: PeopleSnapshot) {
-        let all = snapshot.faces
-        self.card = card
-        name = snapshot.people.first { $0.id == card.personID }?.person.displayName ?? "Unknown person"
-        candidate = all.first { $0.key == card.face }
-        closest = all.first { $0.key == card.closestExemplar }
-        more = Array(all.filter {
-            $0.state.personID == card.personID && $0.state.isAnchor && $0.key != card.closestExemplar && $0.key != card.face
-        }.sorted {
-            $0.photo.relativePath != $1.photo.relativePath ? $0.photo.relativePath < $1.photo.relativePath
-                : $0.key.faceID.uuidString < $1.key.faceID.uuidString
-        }.prefix(2))
-    }
-}
-
 /// One evaluation suggestion under human review. Recognition is not qualified: the card only
 /// offers answers, and Yes goes through the guarded confirm with this card's own exemplar
 /// revision and face state. Skip is session-local and writes nothing.
