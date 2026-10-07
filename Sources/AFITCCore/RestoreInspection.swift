@@ -49,7 +49,8 @@ final class RestoreInspection {
             return Unmanaged<RestoreSQLWork>.fromOpaque(pointer).takeUnretainedValue().tick()
         }, Unmanaged.passUnretained(work).toOpaque())
         defer { sqlite3_progress_handler(db, 0, nil, nil) }
-        try CatalogSchema.execute(db, "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF")
+        // cell_size_check catches malformed b-tree pages in the untrusted file; sqlite3_db_config is variadic and unavailable here.
+        try CatalogSchema.execute(db, "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; PRAGMA cell_size_check=ON; PRAGMA mmap_size=0")
         try Task.checkCancellation()
         guard try CatalogSchema.version(db) == 3 else { throw ScanError.unsupportedSchema }
         guard try Self.schema(db) == Self.canonicalSchema() else { throw RestoreValidationError.schema }
