@@ -128,7 +128,7 @@ struct SearchView: View {
             }
         }
         .onDisappear { controller.cancelInFlight() }
-        .sheet(item: $viewer) { PhotoViewer(photo: $0, services: services) }
+        .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
     }
 }
 

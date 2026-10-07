@@ -27,6 +27,8 @@ struct StatusView: View {
     var showsDetails = false
     @Environment(\.tokens) private var tokens
 
+    @State private var showsScanNote = false
+
     /// Elsewhere the strip appears only when it says something: work is running, the scan
     /// ended in a state worth showing, the source has a problem or cached photos have no source.
     var isNoteworthy: Bool {
@@ -73,10 +75,26 @@ struct StatusView: View {
 
     @ViewBuilder private var details: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-            Text("Discovered \(services.progress.discovered) · Processed \(services.progress.processed) · Skipped \(services.progress.skipped) · Failed \(services.progress.failed)")
-                .accessibilityIdentifier("scan-counts")
-            Text(services.progress.enumerationFinished ? "Discovery complete" : "Total unknown until discovery completes")
-            if let message = services.progress.message { Text(message) }
+            HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+                Text("Discovered \(services.progress.discovered) · Processed \(services.progress.processed) · Skipped \(services.progress.skipped) · Failed \(services.progress.failed)")
+                    .accessibilityIdentifier("scan-counts")
+                if services.progress.phase == .completed, let message = services.progress.message, !message.isEmpty {
+                    Button { showsScanNote = true } label: {
+                        Image(systemName: "info.circle").frame(minWidth: DesignTokens.Layout.minimumHit, minHeight: DesignTokens.Layout.minimumHit)
+                    }
+                    .accessibilityLabel("About this scan")
+                    .accessibilityIdentifier("scan-note")
+                    .popover(isPresented: $showsScanNote) {
+                        Text(message)
+                            .padding(DesignTokens.Spacing.m).frame(minWidth: 260, maxWidth: 360)
+                            .presentationCompactAdaptation(.popover)
+                    }
+                }
+            }
+            if services.progress.phase != .completed {
+                Text(services.progress.enumerationFinished ? "Discovery complete" : "Total unknown until discovery completes")
+            }
+            if services.progress.phase != .completed, let message = services.progress.message { Text(message) }
         }.font(.footnote).foregroundStyle(tokens.textSecondary)
     }
 

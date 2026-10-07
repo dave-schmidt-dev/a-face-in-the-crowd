@@ -16,9 +16,16 @@ struct LibraryView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.l) {
             if services.photos.isEmpty {
                 // Welcome / empty: brand, one explanation and one action, then the status.
-                if services.canStart && !services.isScanning { welcome }
-                else if services.isOpeningCatalog { ProgressView("Opening catalog") }
-                StatusView(services: services, showsDetails: true)
+                if services.canStart && !services.isScanning {
+                    welcome
+                    if services.isScanning || services.isRestoringSource || services.setupError != nil
+                        || services.progress.phase != .ready || services.selectedFolder != nil {
+                        StatusView(services: services, showsDetails: true)
+                    }
+                } else {
+                    if services.isOpeningCatalog { ProgressView("Opening catalog") }
+                    StatusView(services: services, showsDetails: true)
+                }
             } else {
                 // Browsing: one compact status line, a slim action row, then the dense photo grid.
                 StatusView(services: services, showsDetails: true)
@@ -34,7 +41,7 @@ struct LibraryView: View {
                 footer
             }
         }
-        .sheet(item: $viewer) { PhotoViewer(photo: $0, services: services) }
+        .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
         .fileImporter(isPresented: $picker, allowedContentTypes: [.folder], allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): if let url = urls.first { services.choose(url); selectionError = nil }

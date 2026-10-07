@@ -15,7 +15,8 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [presentation], timeout: 15), .completed)
         XCTAssertTrue(isHittableSafely(cancel, app))
         cancel.tap()
-        XCTAssertTrue(app.staticTexts["No folder selected"].exists)
+        XCTAssertTrue(app.buttons["choose-folder"].exists)
+        XCTAssertFalse(app.staticTexts["No folder selected"].exists)
         XCTAssertFalse(app.buttons["start-scan"].exists)
     }
     func testInitialScanPreviewsBeforeCompletionAndCancellation() {
@@ -60,8 +61,9 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertTrue(preview.exists)
         expectation(for: NSPredicate(format: "value == 'completed'"), evaluatedWith: phase)
         waitForExpectations(timeout: 15)
+        XCTAssertTrue(app.staticTexts["scan-counts"].exists)
         XCTAssertTrue(app.staticTexts["Discovered 3 · Processed 3 · Skipped 0 · Failed 0"].exists)
-        XCTAssertTrue(app.staticTexts["Discovery complete"].exists)
+        XCTAssertFalse(app.staticTexts["Discovery complete"].exists)
     }
 
 }

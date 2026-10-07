@@ -20,7 +20,8 @@ final class NavigationTests: XCTestCase {
         app.buttons["settings"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         app.buttons["Done"].tap()
-        XCTAssertTrue(app.staticTexts["No folder selected"].exists)
+        XCTAssertTrue(app.buttons["choose-folder"].exists)
+        XCTAssertFalse(app.staticTexts["No folder selected"].exists)
     }
 
     func testCompactNavigation() {
@@ -44,6 +45,7 @@ final class NavigationTests: XCTestCase {
         app.buttons["settings"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
         app.buttons["Done"].tap()
-        XCTAssertTrue(app.staticTexts["No folder selected"].exists)
+        XCTAssertTrue(app.buttons["choose-folder"].exists)
+        XCTAssertFalse(app.staticTexts["No folder selected"].exists)
     }
 }

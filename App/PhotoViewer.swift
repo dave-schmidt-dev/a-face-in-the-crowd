@@ -153,7 +153,7 @@ private final class ViewerController: ObservableObject {
                 }
             }
             guard services.sessionIsCurrent(operation.session), token == current, services.viewerSourceGeneration == generation else { return }
-            if image != nil { status = original ? "Original · up to 1024px" : "Preview only · original unavailable or changed" }
+            if image != nil { status = original ? "Original" : "Preview only · original unavailable or changed" }
             request = nil; worker = nil
         }
         request = job
@@ -166,7 +166,9 @@ struct PhotoViewer: View {
     @ObservedObject var services: AppServices
     @StateObject private var controller = ViewerController()
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.tokens) private var tokens
     @State private var zoomed = false
+    @State private var showsReadOnlyNote = false
     var body: some View {
         NavigationStack {
             // The photo takes most of the sheet; details scroll below it. Scrolling is held while zoomed
@@ -181,7 +183,7 @@ struct PhotoViewer: View {
                         } else if controller.status == "Opening photo" {
                             ProgressView("Opening photo")
                         } else { Text(controller.status).multilineTextAlignment(.center) }
-                    }.frame(maxWidth: .infinity).frame(height: max(320, proxy.size.height * 0.68))
+                    }.frame(maxWidth: .infinity).frame(height: max(320, proxy.size.height * 0.8))
                     Text(controller.status).accessibilityIdentifier("viewer-status")
                     #if DEBUG
                     if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-viewer-fallback-error-after-release") {
@@ -193,7 +195,14 @@ struct PhotoViewer: View {
                         Text(services.sessionProbe).font(.caption).accessibilityIdentifier("viewer-session-probe")
                     }
                     #endif
-                    Text(photo.relativePath).font(.caption).textSelection(.enabled)
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                        Text((photo.relativePath as NSString).lastPathComponent)
+                            .font(.headline)
+                        Text(photo.relativePath)
+                            .font(.caption)
+                            .foregroundStyle(tokens.textSecondary)
+                            .textSelection(.enabled)
+                    }
                     if let date = photo.captureDate {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Date taken").font(.caption)
@@ -201,12 +210,23 @@ struct PhotoViewer: View {
                                 .accessibilityIdentifier("viewer-date-taken")
                         }.accessibilityElement(children: .combine)
                     } else { Text("Date taken unknown").accessibilityIdentifier("viewer-date-taken") }
-                    Text("Read-only view. Originals stay unchanged.").font(.caption)
                 }.padding(24)
             }.scrollDisabled(zoomed)
             }
             .navigationTitle("Photo")
             .toolbar {
+                Button { showsReadOnlyNote = true } label: {
+                    Image(systemName: "info.circle")
+                        .frame(minWidth: DesignTokens.Layout.minimumHit, minHeight: DesignTokens.Layout.minimumHit)
+                }
+                .accessibilityLabel("About photo view")
+                .accessibilityIdentifier("viewer-read-only-note")
+                .popover(isPresented: $showsReadOnlyNote) {
+                    Text("Read-only view. Originals stay unchanged.")
+                        .padding(DesignTokens.Spacing.m)
+                        .frame(minWidth: 260, maxWidth: 360)
+                        .presentationCompactAdaptation(.popover)
+                }
                 Button("Done") { controller.release(); dismiss() }.frame(minHeight: 44).accessibilityIdentifier("close-viewer")
                 #if DEBUG
                 if services.usesSyntheticFixture, ProcessInfo.processInfo.arguments.contains("--uitest-session-controls") {
