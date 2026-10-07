@@ -137,6 +137,10 @@ public final class AppServices: ObservableObject {
         guard sessionIsCurrent(session), let repository else { throw ScanError.database }
         return try await SearchRepository(catalog: repository).snapshot(query: query)
     }
+    func faceGroupSearchSnapshot(_ query: PeopleQuery, session: UInt64) async throws -> FaceGroupSearchSnapshot {
+        guard sessionIsCurrent(session), let repository else { throw ScanError.database }
+        return try await repository.faceGroupSearchSnapshot(query: query, sharedMembership: faceGroups.result)
+    }
     func validateViewerPhoto(_ photo: PhotoIdentity, sourceIdentity: String?, hash: String? = nil, session: UInt64) async throws {
         guard sessionIsCurrent(session), let repository else { throw ScanError.database }
         try await repository.validateViewerPhoto(photo, sourceIdentity: sourceIdentity, verifiedContentHash: hash)

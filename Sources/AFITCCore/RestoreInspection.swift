@@ -278,7 +278,7 @@ enum RestoreDomain {
             try work.item()
             guard UUID(uuidString: id) == record.id, undo.flatMap(UUID.init(uuidString:)) == record.undoOf,
                   record.revision > 0, record.revision <= revision, record.date.timeIntervalSince1970.isFinite,
-                  ["name","confirm","reject","unsure","unassign","not-person","rename","merge","undo","group-exclude","group-label"].contains(record.kind),
+                  ["name","confirm","reject","unsure","unassign","not-person","rename","merge","undo","group-exclude","group-label","group-confirm"].contains(record.kind),
                   (record.kind == "undo") == (record.undoOf != nil), records.updateValue(record, forKey: record.id) == nil else { throw RestoreValidationError.domain }
             for effect in [record.before, record.after] {
             try work.item()

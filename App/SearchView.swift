@@ -18,6 +18,7 @@ struct SearchView: View {
     }
     @State private var viewer: PhotoIdentity?
     @State private var autoSearch = false
+    @State private var selectedGroupSeed: String?
     @Environment(\.tokens) private var tokens
     private func title(_ mode: SearchMode) -> String {
         switch mode { case .together: return "Together"; case .any: return "Any selected"; case .only: return "Only selected" }
@@ -102,8 +103,8 @@ struct SearchView: View {
                 Text(services.syntheticViewerProbe).font(.caption).accessibilityIdentifier("viewer-request-probe")
             }
             #endif
-            Text("Only confirmed identities included. Possible matches unavailable.")
-                .font(.caption).foregroundStyle(tokens.secondary).accessibilityIdentifier("possible-unavailable")
+            Text(mode == .only ? "Only selected uses confirmed identities and withholds unresolved faces." : "Confirmed photos and possible matches are shown separately.")
+                .font(.caption).foregroundStyle(tokens.secondary).accessibilityIdentifier("search-membership-boundary")
             if controller.snapshot == nil, !controller.searching, !autoSearch {
                 Button("Show photos") {
                     autoSearch = true
@@ -116,7 +117,7 @@ struct SearchView: View {
             if controller.searching { ProgressView("Searching").accessibilityIdentifier("searching") }
             if let error = controller.error { Text(error).accessibilityIdentifier("search-error") }
             if let snapshot = controller.snapshot {
-                Text("\(snapshot.totalCount) \(snapshot.totalCount == 1 ? "photo" : "photos")").font(.headline).accessibilityIdentifier("search-result-count")
+                Text("\(snapshot.totalCount)\(snapshot.selectedPeople.isEmpty ? "" : " confirmed") \(snapshot.totalCount == 1 ? "photo" : "photos")").font(.headline).accessibilityIdentifier("search-result-count")
                 // With people selected the chips above already say who was searched; this caption
                 // only says what an empty selection means.
                 if snapshot.selectedPeople.isEmpty {
@@ -140,12 +141,15 @@ struct SearchView: View {
                             .accessibilityLabel("Open photo \(result.photo.relativePath)")
                     }
                 }
+                possibleResults
                 if controller.visibleResults.count < snapshot.totalCount {
                     Button("Load more photos") { controller.nextPage(); presentation.requestedPage() }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(presentation.preferences.search.requestedPages >= 64).accessibilityIdentifier("search-next-page")
                     if presentation.preferences.search.requestedPages >= 64 { Text("Refine this search to view more photos.").foregroundStyle(tokens.secondary) }
                 }
             }
         }
+        .onAppear { controller.refreshIfNeeded(services: services) }
+        .onChange(of: services.peopleSnapshot.revision) { controller.refreshIfNeeded(services: services) }
         .onChange(of: mode) { autoSearch = true }
         .onChange(of: selected) { autoSearch = true }
         .task(id: searchKey) {
@@ -159,9 +163,49 @@ struct SearchView: View {
             guard !selectionUnavailable, !(mode == .only && canonicalSelection.isEmpty) else { return }
             controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages)
         }
+        .navigationDestination(isPresented: Binding(get: { selectedGroupSeed != nil }, set: { if !$0 { selectedGroupSeed = nil } })) {
+            if let seed = selectedGroupSeed { FaceGroupView(services: services, faceGroups: services.faceGroups, seed: seed) }
+        }
         .onDisappear { controller.cancelInFlight() }
         .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
     }
+    @ViewBuilder private var possibleResults: some View {
+        if let grouped = controller.groupedSnapshot, grouped.confirmed.query.mode != .only {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                Text("\(grouped.possibleCount) possible \(grouped.possibleCount == 1 ? "photo" : "photos")").font(.headline)
+                    .accessibilityIdentifier("search-possible-count")
+                if grouped.possibleCount > 0 {
+                    Text("Review possible matches before confirming them.").foregroundStyle(tokens.textSecondary)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: DesignTokens.Spacing.s)]) {
+                        ForEach(controller.visiblePossibleResults, id: \.photo.id) { result in
+                            Button { viewer = result.photo } label: {
+                                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
+                                    SearchPreview(services: services, url: services.previewURL(result.photo))
+                                    Text((result.photo.relativePath as NSString).lastPathComponent).font(.caption)
+                                    Text("Possible match").font(.caption).foregroundStyle(tokens.textSecondary)
+                                }
+                            }.accessibilityIdentifier("search-possible-photo-\(result.photo.id.uuidString)")
+                                .accessibilityLabel("Open possible match \(result.photo.relativePath)")
+                        }
+                    }
+                    let selected = grouped.confirmed.query.selectedPersonIDs
+                    ForEach(grouped.membership.groups.filter { group in
+                        group.members.contains { grouped.membership.memberships[$0]?.personID.map(selected.contains) == true }
+                    }) { group in
+                        Button("Review group · \(group.members.count) photos") { selectedGroupSeed = group.id }
+                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
+                            .accessibilityIdentifier("search-review-group-\(group.id)")
+                    }
+                    if controller.visiblePossibleResults.count < grouped.possibleCount {
+                        Button("Load more possible matches") { controller.nextPossiblePage() }
+                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
+                            .accessibilityIdentifier("search-next-possible-page")
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 private struct SearchPreview: View {

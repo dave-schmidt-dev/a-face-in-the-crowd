@@ -89,6 +89,9 @@ final class FaceGroupService: ObservableObject {
                         self.progress = update
                     }
                 })
+                // A vector write can advance the SQL capture before the coalesced People pump
+                // publishes its photo/face records. Align that render snapshot before groups.
+                if services.peopleSnapshot.revision < value.revision { await services.refreshPeople() }
                 if started == generation, services.sessionIsCurrent(operation.session), !Task.isCancelled { retryablePhotos = retryPhotos }
             } catch {
                 services.catalogSession.finish(operation)

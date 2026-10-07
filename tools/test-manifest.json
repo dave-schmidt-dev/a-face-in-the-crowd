@@ -3854,7 +3854,7 @@
       }
     },
     "ui.group-journey": {
-      "description": "Focused native group naming, relaunch and confirmed Search journey",
+      "description": "Focused native group/name/reopen, separate possible Search, explicit bulk confirmation and Undo journey",
       "targets": {
         "UITests": {
           "type": "ui",
@@ -3864,6 +3864,102 @@
           ],
           "selectors": [
             "UITests.FaceGroupingFlowTests/testGroupNameReopenAndSearchJourney"
+          ]
+        }
+      }
+    },
+    "task7.5": {
+      "description": "One captured confirmed/possible Search and explicit transactional reviewed-group confirmation with full undo",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceGroupSearchTests.swift",
+            "Tests/AFITCCoreTests/FaceGroupConfirmationTests.swift",
+            "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift",
+            "Tests/AFITCCoreTests/PeopleQueryTests.swift",
+            "Tests/AFITCCoreTests/SearchSnapshotTests.swift",
+            "Tests/AFITCCoreTests/DecisionDurabilityTests.swift",
+            "Tests/AFITCCoreTests/IdentityCorrectionTests.swift",
+            "Tests/AFITCCoreTests/FaceAnalysisRestoreTests.swift",
+            "Tests/AFITCCoreTests/DeletionTests.swift",
+            "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceGroupSearchTests/testNamedThreePhotoGroupAddsPossibleWhileDefaultStaysConfirmed",
+            "AFITCCoreTests.FaceGroupSearchTests/testTogetherAnyUsePossibleAndOnlyNeverResolvesUnknown",
+            "AFITCCoreTests.FaceGroupSearchTests/testFrozenCountsPagesAndNamesSurviveLaterDecisions",
+            "AFITCCoreTests.FaceGroupSearchTests/testSharedMembershipReuseAndStaleRevisionRecompute",
+            "AFITCCoreTests.FaceGroupSearchTests/testSourceRebindRemovesPossibleButPreservesConfirmed",
+            "AFITCCoreTests.FaceGroupSearchTests/testCombinedCapturePinsReadWhileOtherHandleAttemptsCommit",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testExplicitBatchChangesExactlyInspectedFacesAndUndoRestoresAll",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testChangedMemberRejectsWholeBatchWithoutLedgerOrPartialWrites",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testChangedGenerationAndExemplarRefuseBatch",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testInjectedFailuresRollBackPersonFacesAndLedger",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testUndoRefusesChangedBatchMemberWithoutPartialRestore",
+            "AFITCCoreTests.FaceGroupConfirmationTests/testBackupValidationPreservesBulkLedgerAndWholeBatchUndo",
+            "AFITCCoreTests.FaceGroupRunnerContractTests/testPhase7UnionCoversTask7Phase6AndFocusedJourney",
+            "AFITCCoreTests.PeopleQueryTests/testTogetherAnyOnlyFormalTruthTable",
+            "AFITCCoreTests.PeopleQueryTests/testEmptySelectionsAndUnrelatedFailedPhotoDoNotGateSearch",
+            "AFITCCoreTests.PeopleQueryTests/testAllRawFacesBlockOnlyUntilExplicitValidFalseDetection",
+            "AFITCCoreTests.PeopleQueryTests/testContradictionsRejectOnlyTheirFaceAndUnrelatedNegativesPreserveConfirmation",
+            "AFITCCoreTests.PeopleQueryTests/testAliasesCanonicalizeChainsAndRejectUnknownCyclesAndDanglingTargets",
+            "AFITCCoreTests.PeopleQueryTests/testSelectionSizesReflectionsAndCopiesRemainIndependent",
+            "AFITCCoreTests.PeopleQueryTests/testMissingChangedAndStaleAnalysisCannotResurrectConfirmations",
+            "AFITCCoreTests.SearchSnapshotTests/testDuplicatePersonPayloadUUIDThrowsInsteadOfTrapping",
+            "AFITCCoreTests.SearchSnapshotTests/testCaptureWallClockUnknownTailAndUUIDTiesWithoutOffsetConversion",
+            "AFITCCoreTests.SearchSnapshotTests/testImmutablePagesNamesCountsAndRevisionSurviveSecondHandleChangesAndReopen",
+            "AFITCCoreTests.SearchSnapshotTests/testReadTransactionPinsRevisionBeforeConcurrentWriterAndRollsBackOnFailure",
+            "AFITCCoreTests.SearchSnapshotTests/testCandidateSQLUsesExistingIndexesAndMalformedRelationFailsClosed",
+            "AFITCCoreTests.DecisionDurabilityTests/testNamingOnlySelectedFaceAndDuplicateNamesSeparate",
+            "AFITCCoreTests.DecisionDurabilityTests/testPairNegativeAndUnsureSurviveReopenAndOtherConfirmation",
+            "AFITCCoreTests.DecisionDurabilityTests/testGenerationDetectorStatusMissingAndUnknownKeysCannotConfirm",
+            "AFITCCoreTests.DecisionDurabilityTests/testChangedGenerationCannotInheritDecisionsOrAnchors",
+            "AFITCCoreTests.DecisionDurabilityTests/testDuplicateCopiesIndependentAndRepeatedFacesCountOnce",
+            "AFITCCoreTests.DecisionDurabilityTests/testSchemaTwoBackfillAndTransactionalMigrationFailure",
+            "AFITCCoreTests.IdentityCorrectionTests/testCropLowerLeftCoordinatesClampAndRejectInvalidGeometry",
+            "AFITCCoreTests.IdentityCorrectionTests/testRenameReassignAndUndoRestoreBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnassignUnsureRejectAndNotPersonAreDistinctUndoableStates",
+            "AFITCCoreTests.IdentityCorrectionTests/testDecisionAndUndoEveryInjectedWriteFailurePreservesBeforeState",
+            "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
+            "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
+            "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeConflictsRequireExactExplicitChoicesAndCancelChangesNothing",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeUndoAfterReopenRestoresDomainAndAdvancesBothEpochs",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeAndUndoFailurePointsRollBackCompleteStateAfterReopen",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergeStalePreviewNewTargetedMembershipAndGenerationAreRejected",
+            "AFITCCoreTests.IdentityCorrectionTests/testMergePreservesThirdPersonAndNeverPropagatesDuplicateConfirmation",
+            "AFITCCoreTests.IdentityCorrectionTests/testUnavailableSameGenerationMergeRefusesUntilReconnectResolvesConflict",
+            "AFITCCoreTests.IdentityCorrectionTests/testLegacySchemaThreePayloadUndoAdvancesEpochWithoutRewindingJobs",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testExportDropsDerivedVectorsAndZeroRawMarkerBytesRemain",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testDisconnectedRestorePreservesHumanDecisionsAndReportsRecomputationNeeded",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testV3ToV4RestoreRoundTrip",
+            "AFITCCoreTests.FaceAnalysisRestoreTests/testInterruptedV3RestoreRecovery",
+            "AFITCCoreTests.DeletionTests/testPersonFamilyScrubsInactiveStatesPreservesPeersAndHistoryAcrossReopen",
+            "AFITCCoreTests.DeletionTests/testDeletionRollbackAtBothBoundariesAndUnrelatedUndoRemainUsable",
+            "AFITCCoreTests.DeletionTests/testDeletedIdentityCannotBeRestoredByAnyOrdinaryInverse",
+            "AFITCCoreTests.DeletionTests/testLegacyBeforeOnlyScopeAndAliasReferencesRejectWithoutInverseWrite",
+            "AFITCCoreTests.DeletionTests/testAliasCycleDanglingAndUnknownFailWithoutEffects",
+            "AFITCCoreTests.FaceGroupDeletionTests/testDeleteDisplayedGroupReopenUnchangedScanAndPipelineRefreshStaySuppressed",
+            "AFITCCoreTests.FaceGroupDeletionTests/testChangedOriginalGenerationCanProduceANewGroup",
+            "AFITCCoreTests.FaceGroupDeletionTests/testChangedInspectedMemberBlocksDeletionWithoutScrubbingVectors",
+            "AFITCCoreTests.FaceGroupDeletionTests/testDeletionRejectsDisplayedGroupWithAnotherConfirmedIdentity",
+            "AFITCCoreTests.FaceGroupDeletionTests/testExclusionSurvivesSeedNotPersonAndReopen",
+            "AFITCCoreTests.FaceGroupSearchTests/testTwoPersonTogetherRequiresCombinedIdentitiesAndAnyAcceptsEither"
+          ]
+        },
+        "AFITCAppTests": {
+          "type": "unit",
+          "swiftpmOnly": true,
+          "testFiles": [
+            "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"
+          ],
+          "selectors": [
+            "AFITCAppTests.FaceGroupSearchServiceTests/testNamedThreePhotoGroupSearchSharesSavedResultWithoutWork",
+            "AFITCAppTests.FaceGroupSearchServiceTests/testReviewedBulkConfirmationUpdatesConfirmedAndUndoRestoresPossible",
+            "AFITCAppTests.FaceGroupSearchServiceTests/testOnlyWithholdsOtherUnresolvedFacesEvenAfterGroupConfirmation",
+            "AFITCAppTests.FaceGroupSearchServiceTests/testLatestQueryGenerationPublishesBothSectionsTogether",
+            "AFITCAppTests.FaceGroupSearchServiceTests/testPaginationUsesFrozenSnapshotAndRetirementClearsBothSections"
           ]
         }
       }
@@ -3975,7 +4071,8 @@
         "Sources/AFITCCore/FaceGrouping.swift",
         "Sources/AFITCCore/FaceGroupDecisions.swift",
         "Sources/AFITCCore/FaceAnalysisSQL.swift",
-        "Sources/AFITCCore/FaceAnalysisReuse.swift"
+        "Sources/AFITCCore/FaceAnalysisReuse.swift",
+        "Sources/AFITCCore/FaceGroupSearch.swift"
       ]
     },
     "AFITCCoreTests": {
@@ -4039,7 +4136,9 @@
         "Tests/AFITCCoreTests/FaceGroupDeletionTests.swift",
         "Tests/AFITCCoreTests/PersistentFaceScanTests.swift",
         "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift",
-        "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift"
+        "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift",
+        "Tests/AFITCCoreTests/FaceGroupSearchTests.swift",
+        "Tests/AFITCCoreTests/FaceGroupConfirmationTests.swift"
       ]
     },
     "UITests": {
@@ -4109,7 +4208,8 @@
       "type": "unit",
       "swiftpmOnly": true,
       "sources": [
-        "Tests/AFITCAppTests/FaceGroupServiceTests.swift"
+        "Tests/AFITCAppTests/FaceGroupServiceTests.swift",
+        "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"
       ]
     }
   },
@@ -4321,6 +4421,7 @@
       "task7.2",
       "task7.3",
       "task7.4",
+      "task7.5",
       "ui.group-journey"
     ]
   }

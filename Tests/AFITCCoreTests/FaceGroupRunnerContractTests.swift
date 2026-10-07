@@ -13,7 +13,7 @@ final class FaceGroupRunnerContractTests: XCTestCase {
             with: Data(contentsOf: root.appendingPathComponent("tools/test-manifest.json"))) as? [String: Any])
     }
 
-    /// Task 7.4's final phase7 union: every task7.* selector set, all existing phase6 selectors
+    /// Task 7.5's final phase7 union: every task7.* selector set, all existing phase6 selectors
     /// and the focused native group/name/reopen/Search journey, with exact runner membership.
     func testPhase7UnionCoversTask7Phase6AndFocusedJourney() throws {
         let manifest = try loadManifest()
@@ -57,7 +57,17 @@ final class FaceGroupRunnerContractTests: XCTestCase {
         let appTestsTarget = try XCTUnwrap(targets["AFITCAppTests"])
         XCTAssertEqual(appTestsTarget["type"] as? String, "unit")
         XCTAssertEqual(appTestsTarget["swiftpmOnly"] as? Bool, true)
-        XCTAssertEqual(appTestsTarget["sources"] as? [String], ["Tests/AFITCAppTests/FaceGroupServiceTests.swift"])
+        XCTAssertEqual(Set(try XCTUnwrap(appTestsTarget["sources"] as? [String])),
+                       Set(["Tests/AFITCAppTests/FaceGroupServiceTests.swift", "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"]))
+        let task75 = try XCTUnwrap(tasks["task7.5"])
+        let target75 = try XCTUnwrap(task75["targets"] as? [String: [String: Any]])
+        let searchApp = try XCTUnwrap(target75["AFITCAppTests"])
+        XCTAssertEqual(searchApp["swiftpmOnly"] as? Bool, true)
+        XCTAssertEqual(searchApp["testFiles"] as? [String], ["Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"])
+        let searchSelectors = try XCTUnwrap(searchApp["selectors"] as? [String])
+        XCTAssertEqual(searchSelectors.count, 5)
+        XCTAssertTrue(searchSelectors.allSatisfy { $0.hasPrefix("AFITCAppTests.FaceGroupSearchServiceTests/") })
+        XCTAssertTrue(phase7.contains("task7.5"))
     }
 
     #else

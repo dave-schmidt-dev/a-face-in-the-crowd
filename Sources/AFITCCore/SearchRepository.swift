@@ -14,7 +14,11 @@ extension CatalogRepository {
     }
     // The synchronous hook permits a causal two-handle snapshot test; no await crosses a transaction.
     func searchSnapshot(query: PeopleQuery, afterRevisionRead: (@Sendable () throws -> Void)?) throws -> SearchSnapshot {
-        try peopleRead { db in
+        try peopleRead { db in try Self.confirmedSearchSnapshot(db, query: query, afterRevisionRead: afterRevisionRead) }
+    }
+    /// Reuses the confirmed-only truth table inside a caller-owned consistent read.
+    static func confirmedSearchSnapshot(_ db: OpaquePointer, query: PeopleQuery,
+                                        afterRevisionRead: (@Sendable () throws -> Void)? = nil) throws -> SearchSnapshot {
             let revision = try PeopleSQL.scalar(db, "SELECT revision FROM catalog_revision")
             try afterRevisionRead?()
             let people: [PersonRecord] = try SearchSQL.records(db, "SELECT payload,id FROM people")
@@ -111,12 +115,11 @@ extension CatalogRepository {
             return SearchSnapshot(revision: revision, query: normalized, selectedPeople: selectedPeople,
                                   results: results, coverage: SearchCoverage(candidatePhotoCount: photos.count,
                                   unresolvedCandidatePhotoCount: unresolved, extraPeopleCandidatePhotoCount: extra))
-        }
     }
 }
 
 /// Validate relational IDs alongside JSON payloads before publishing a snapshot.
-private enum SearchSQL {
+enum SearchSQL {
     static func records<T: Decodable & Identifiable>(_ db: OpaquePointer, _ sql: String, strings: [String] = []) throws -> [T] where T.ID == UUID {
         let statement = try PeopleSQL.statement(db, sql, strings: strings)
         defer { sqlite3_finalize(statement) }

@@ -321,6 +321,12 @@ extension CatalogRepository {
     /// and suppressions. The expensive pure grouping runs after this transaction has closed.
     public func captureFaceGrouping(modelIdentifier: String, preprocessingVersion: String) throws -> FaceGroupingCapture {
         try peopleRead { db in
+            try Self.captureFaceGrouping(db, modelIdentifier: modelIdentifier, preprocessingVersion: preprocessingVersion)
+        }
+    }
+    /// Caller-owned read seam: grouping and Search can freeze exactly the same revision.
+    static func captureFaceGrouping(_ db: OpaquePointer, modelIdentifier: String,
+                                     preprocessingVersion: String) throws -> FaceGroupingCapture {
             let records: [PersonRecord] = try PeopleSQL.rows(db, "SELECT payload FROM people ORDER BY rowid")
             let summaries = try records.map { person in
                 PersonSummary(person: person, confirmedPhotoCount: try PeopleSQL.scalar(db, "SELECT COUNT(DISTINCT c.photo_id) FROM current_faces c JOIN manual_faces m ON m.key=c.key WHERE m.person_id=?", strings: [person.id.uuidString]))
@@ -354,7 +360,6 @@ extension CatalogRepository {
             let separations = Set(try FaceAnalysisSQL.allSeparations(db).map { FaceGroupPair($0.faceKeyA, $0.faceKeyB) })
             return FaceGroupingCapture(revision: snapshot.revision, people: snapshot, rows: rows,
                                        separations: separations, suppressions: suppressions)
-        }
     }
 
     /// The production possible-membership result for Verify and group surfaces. The capture is a

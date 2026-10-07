@@ -19,6 +19,8 @@ public enum ManualDecision: Sendable {
     /// Labels a pinned group to an existing person under the captured cover and member states.
     /// Aggregation is through the person; no person is created and no merge is implied.
     case labelGroup(cover: FaceKey, group: FaceGroupSnapshot, personID: UUID, exemplarRevision: Int)
+    /// Explicitly confirms every inspected face in one guarded, undoable transaction.
+    case confirmGroup(group: FaceGroupSnapshot, personID: UUID, exemplarRevision: Int)
     /// A review-card answer applied only if the face's manual state still equals the state the
     /// card was rendered with; otherwise `DecisionError.conflict`. The inner decision must target a
     /// face and must not itself be wrapped; its own ledger kind is kept, so the existing undo works.
@@ -94,6 +96,11 @@ extension CatalogRepository {
                 return try Self.applyGroupLabel(db, cover: cover, group: group, personID: personID,
                                                 exemplarRevision: revision, failure: failure)
             }
+            if case .confirmGroup(let group, let personID, let revision) = decision {
+                if let expectedState, group.state(for: expectedState.key) != expectedState { throw DecisionError.conflict }
+                return try Self.applyGroupConfirmation(db, group: group, personID: personID,
+                                                       exemplarRevision: revision, failure: failure)
+            }
             let kind: String
             switch decision {
             case .name(let face, let value): key = face; name = value; kind = "name"
@@ -105,7 +112,7 @@ extension CatalogRepository {
             case .unassign(let face): key = face; kind = "unassign"
             case .notPerson(let face): key = face; kind = "not-person"
             case .rename(let person, let value): target = person; name = value; kind = "rename"
-            case .nameGroup, .excludeGroupMember, .labelGroup, .expectingState: throw DecisionError.conflict
+            case .nameGroup, .excludeGroupMember, .labelGroup, .confirmGroup, .expectingState: throw DecisionError.conflict
             }
             if let name {
                 let value = name.trimmingCharacters(in: .whitespacesAndNewlines)

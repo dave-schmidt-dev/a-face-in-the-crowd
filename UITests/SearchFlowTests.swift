@@ -48,14 +48,14 @@ final class SearchFlowTests: XCTestCase {
         guard records.count == expected else { captureFailure("Unexpected Search chips", app); return nil }
         return records
     }
-    private func count(_ expected: Int, _ app: XCUIApplication) {
+    private func count(_ expected: Int, _ app: XCUIApplication, confirmed: Bool = true) {
         let label = app.staticTexts["search-result-count"]; reveal(label, app)
-        XCTAssertTrue(label.waitForExistence(timeout: 5)); XCTAssertEqual(label.label, "\(expected) \(expected == 1 ? "photo" : "photos")")
+        XCTAssertTrue(label.waitForExistence(timeout: 5)); XCTAssertEqual(label.label, "\(expected)\(confirmed ? " confirmed" : "") \(expected == 1 ? "photo" : "photos")")
     }
     func testManualConfirmationThreeModesUnknownOnlyAndOriginalView() {
         guard let app = fixture() else { return }; name("Fixture A", app)
         guard navigate("Search", app) else { return }
-        XCTAssertTrue(app.staticTexts["possible-unavailable"].exists)
+        XCTAssertTrue(app.staticTexts["search-membership-boundary"].exists)
         guard let chip = chips(app, expected: 1) else { return }; XCTAssertNotNil(UUID(uuidString: String(chip[0].identifier.dropFirst("search-person-".count))))
         chip[0].tap(); count(1, app)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
@@ -72,14 +72,14 @@ final class SearchFlowTests: XCTestCase {
     }
     func testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful() {
         guard let app = fixture(["--uitest-viewer-change-bytes"]) else { return }
-        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app)
+        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app, confirmed: false)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(photo, app); photo.tap()
         let status = app.staticTexts["viewer-status"]
         expectation(for: NSPredicate(format: "label BEGINSWITH 'Preview only'"), evaluatedWith: status); waitForExpectations(timeout: 5)
         XCTAssertTrue(app.images["viewer-image"].exists); tap("close-viewer", app); app.terminate()
         guard let evicted = fixture(["--uitest-viewer-disconnect", "--uitest-viewer-evict-preview"]) else { return }
-        guard navigate("Search", evicted) else { return }; tap("show-photos", evicted); count(3, evicted)
+        guard navigate("Search", evicted) else { return }; tap("show-photos", evicted); count(3, evicted, confirmed: false)
         let item = evicted.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(item, evicted); item.tap()
         let missing = evicted.staticTexts["viewer-status"]
@@ -88,7 +88,7 @@ final class SearchFlowTests: XCTestCase {
     }
     func testMemoryWarningDuringOriginalDecodeReleasesBeforePublication() {
         guard let app = fixture(["--uitest-viewer-memory-warning"]) else { return }
-        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app)
+        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app, confirmed: false)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(photo, app); photo.tap()
         let status = app.staticTexts["viewer-status"]
@@ -98,7 +98,7 @@ final class SearchFlowTests: XCTestCase {
     }
     func testFallbackDecodeErrorAfterMemoryReleasePreservesReleasedStatus() {
         guard let app = fixture(["--uitest-viewer-disconnect", "--uitest-viewer-fallback-error-after-release"]) else { return }
-        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app)
+        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app, confirmed: false)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(photo, app); photo.tap()
         let status = app.staticTexts["viewer-status"]
@@ -113,7 +113,7 @@ final class SearchFlowTests: XCTestCase {
     }
     func testCancelHeldOriginalReadNeverPublishesAfterDismiss() {
         guard let app = fixture(["--uitest-viewer-hold-read"]) else { return }
-        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app)
+        guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app, confirmed: false)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(photo, app); photo.tap()
         let status = app.staticTexts["viewer-status"]; XCTAssertTrue(status.waitForExistence(timeout: 5))

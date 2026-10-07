@@ -191,12 +191,15 @@
 		BB0000020000000000000149 /* FaceAnalysisSQL.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000149 /* FaceAnalysisSQL.swift */; };
 		BB0000020000000000000150 /* FaceAnalysisReuse.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000150 /* FaceAnalysisReuse.swift */; };
 		BB0000020000000000000148 /* FaceGroupDecisions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000148 /* FaceGroupDecisions.swift */; };
+		CD0000020000000000000001 /* FaceGroupSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD0000010000000000000001 /* FaceGroupSearch.swift */; };
 		BB0000020000000000000147 /* FaceGrouping.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000147 /* FaceGrouping.swift */; };
 		BB0000020000000000000146 /* FaceAnalysisEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000010000000000000146 /* FaceAnalysisEncoding.swift */; };
 		CC0000020000000000000143 /* FaceAnalysisPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000143 /* FaceAnalysisPersistenceTests.swift */; };
 		CC0000020000000000000144 /* FaceAnalysisRestoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */; };
 		CC0000020000000000000146 /* FaceGroupDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000146 /* FaceGroupDeletionTests.swift */; };
 		CC0000020000000000000145 /* FaceGroupingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0000010000000000000145 /* FaceGroupingTests.swift */; };
+		CD0000020000000000000003 /* FaceGroupConfirmationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD0000010000000000000003 /* FaceGroupConfirmationTests.swift */; };
+		CD0000020000000000000002 /* FaceGroupSearchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD0000010000000000000002 /* FaceGroupSearchTests.swift */; };
 		CE0000020000000000000005 /* FaceGroupRunnerContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */; };
 		FE0000020000000000000001 /* PersistentFaceAnalysisProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0000010000000000000001 /* PersistentFaceAnalysisProducer.swift */; };
 		FE0000020000000000000002 /* PersistentFaceScanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE0000010000000000000002 /* PersistentFaceScanTests.swift */; };
@@ -445,12 +448,15 @@
 		BB0000010000000000000149 /* FaceAnalysisSQL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisSQL.swift; sourceTree = "<group>"; };
 		BB0000010000000000000150 /* FaceAnalysisReuse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisReuse.swift; sourceTree = "<group>"; };
 		BB0000010000000000000148 /* FaceGroupDecisions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupDecisions.swift; sourceTree = "<group>"; };
+		CD0000010000000000000001 /* FaceGroupSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupSearch.swift; sourceTree = "<group>"; };
 		BB0000010000000000000147 /* FaceGrouping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGrouping.swift; sourceTree = "<group>"; };
 		BB0000010000000000000146 /* FaceAnalysisEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisEncoding.swift; sourceTree = "<group>"; };
 		CC0000010000000000000143 /* FaceAnalysisPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisPersistenceTests.swift; sourceTree = "<group>"; };
 		CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceAnalysisRestoreTests.swift; sourceTree = "<group>"; };
 		CC0000010000000000000146 /* FaceGroupDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupDeletionTests.swift; sourceTree = "<group>"; };
 		CC0000010000000000000145 /* FaceGroupingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupingTests.swift; sourceTree = "<group>"; };
+		CD0000010000000000000003 /* FaceGroupConfirmationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupConfirmationTests.swift; sourceTree = "<group>"; };
+		CD0000010000000000000002 /* FaceGroupSearchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupSearchTests.swift; sourceTree = "<group>"; };
 		CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceGroupRunnerContractTests.swift; sourceTree = "<group>"; };
 		FE0000010000000000000001 /* PersistentFaceAnalysisProducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentFaceAnalysisProducer.swift; sourceTree = "<group>"; };
 		FE0000010000000000000002 /* PersistentFaceScanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentFaceScanTests.swift; sourceTree = "<group>"; };
@@ -665,6 +671,7 @@
 				BB0000010000000000000149 /* FaceAnalysisSQL.swift */,
 				BB0000010000000000000150 /* FaceAnalysisReuse.swift */,
 				BB0000010000000000000148 /* FaceGroupDecisions.swift */,
+				CD0000010000000000000001 /* FaceGroupSearch.swift */,
 				BB0000010000000000000147 /* FaceGrouping.swift */,
 				BB0000010000000000000146 /* FaceAnalysisEncoding.swift */,
 			);
@@ -739,6 +746,8 @@
 				CC0000010000000000000144 /* FaceAnalysisRestoreTests.swift */,
 				CC0000010000000000000146 /* FaceGroupDeletionTests.swift */,
 				CC0000010000000000000145 /* FaceGroupingTests.swift */,
+				CD0000010000000000000003 /* FaceGroupConfirmationTests.swift */,
+				CD0000010000000000000002 /* FaceGroupSearchTests.swift */,
 				CE0000010000000000000005 /* FaceGroupRunnerContractTests.swift */,
 				FE0000010000000000000002 /* PersistentFaceScanTests.swift */,
 				FE0000010000000000000003 /* PersistentFaceAdmissionTests.swift */,
@@ -994,6 +1003,7 @@
 				BB0000020000000000000149 /* FaceAnalysisSQL.swift in Sources */,
 				BB0000020000000000000150 /* FaceAnalysisReuse.swift in Sources */,
 				BB0000020000000000000148 /* FaceGroupDecisions.swift in Sources */,
+				CD0000020000000000000001 /* FaceGroupSearch.swift in Sources */,
 				BB0000020000000000000147 /* FaceGrouping.swift in Sources */,
 				BB0000020000000000000146 /* FaceAnalysisEncoding.swift in Sources */,
 			);
@@ -1112,6 +1122,8 @@
 				CC0000020000000000000144 /* FaceAnalysisRestoreTests.swift in Sources */,
 				CC0000020000000000000146 /* FaceGroupDeletionTests.swift in Sources */,
 				CC0000020000000000000145 /* FaceGroupingTests.swift in Sources */,
+				CD0000020000000000000003 /* FaceGroupConfirmationTests.swift in Sources */,
+				CD0000020000000000000002 /* FaceGroupSearchTests.swift in Sources */,
 				CE0000020000000000000005 /* FaceGroupRunnerContractTests.swift in Sources */,
 				FE0000020000000000000002 /* PersistentFaceScanTests.swift in Sources */,
 				FE0000020000000000000003 /* PersistentFaceAdmissionTests.swift in Sources */,

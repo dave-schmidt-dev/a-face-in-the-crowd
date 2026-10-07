@@ -116,6 +116,45 @@ extension CatalogRepository {
         return record.id
     }
 
+    /// All inspected states and generations are validated before the first write. The ledger
+    /// carries every affected face, so Undo restores the whole batch or refuses it atomically.
+    static func applyGroupConfirmation(_ db: OpaquePointer, group: FaceGroupSnapshot,
+                                       personID: UUID, exemplarRevision: Int,
+                                       failure: DecisionFailurePoint?) throws -> UUID {
+        let person = try PeopleSQL.person(db, personID)
+        guard person.mergedInto == nil, person.exemplarRevision == exemplarRevision,
+              !group.members.isEmpty, Set(group.members).count == group.members.count,
+              Set(group.members) == Set(group.expectedStates.map(\.key)),
+              group.members.count == group.expectedStates.count, group.members.contains(group.seed) else { throw DecisionError.conflict }
+        for state in group.expectedStates {
+            try Task.checkCancellation()
+            _ = try PeopleSQL.currentPhoto(db, state.key)
+            guard try PeopleSQL.faceState(db, state.key) == state,
+                  state.personID == nil || state.personID == personID,
+                  !state.notPerson, !state.deferred, !state.rejectedPeople.contains(personID),
+                  !state.deferredPeople.contains(personID) else { throw DecisionError.conflict }
+        }
+        var updatedPerson = person
+        updatedPerson.exemplarRevision = try CatalogCounters.successor(person.exemplarRevision, minimum: 1)
+        if updatedPerson.cover == nil { updatedPerson.cover = group.seed }
+        let updated = group.expectedStates.map { state -> ManualFaceState in
+            var value = state; value.personID = personID; value.isAnchor = true
+            return value
+        }
+        try PeopleSQL.writePerson(db, updatedPerson)
+        if failure == .afterPersonWrite { throw DecisionError.injectedFailure }
+        for state in updated { try PeopleSQL.writeFace(db, state) }
+        if failure == .afterFaceWrite { throw DecisionError.injectedFailure }
+        let record = DecisionRecord(id: UUID(), kind: "group-confirm",
+            before: DecisionEffect(people: [person], face: nil, faces: group.expectedStates),
+            after: DecisionEffect(people: [updatedPerson], face: nil, faces: updated),
+            createdPersonID: nil, date: Date(),
+            revision: try CatalogCounters.successor(CatalogCounters.read(db, .revision)), undoOf: nil)
+        try PeopleSQL.run(db, "INSERT INTO decisions(id,payload,undo_of) VALUES(?,?,NULL)", strings: [record.id.uuidString], data: JSONEncoder().encode(record))
+        if failure == .afterLedgerWrite { throw DecisionError.injectedFailure }
+        return record.id
+    }
+
     static func separationRecords(_ pairs: Set<FaceGroupPair>) -> [GroupSeparationRecord] {
         pairs.sorted {
             $0.first.storageKey != $1.first.storageKey

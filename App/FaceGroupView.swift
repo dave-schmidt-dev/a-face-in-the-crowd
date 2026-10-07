@@ -13,6 +13,10 @@ struct FaceGroupView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 120
     @State private var name = ""
     @State private var labelPersonID: UUID?
+    @State private var confirmingGroup = false
+    @State private var reviewedDecision: ManualDecision?
+    @State private var reviewedName = ""
+    @State private var reviewedCount = 0
 
     init(services: AppServices, faceGroups: FaceGroupService, seed: String) {
         self.services = services
@@ -37,6 +41,13 @@ struct FaceGroupView: View {
         }
         .modifier(PeoplePalette())
         .modifier(UndoToolbar(services: services))
+        .confirmationDialog("Confirm reviewed group", isPresented: $confirmingGroup, titleVisibility: .visible) {
+            Button("Confirm \(reviewedCount) faces as \(reviewedName)") {
+                if let reviewedDecision { perform(reviewedDecision) }
+                reviewedDecision = nil
+            }.accessibilityIdentifier("confirm-reviewed-group")
+            Button("Cancel", role: .cancel) { reviewedDecision = nil }
+        } message: { Text("Confirm only after reviewing every displayed face. Undo restores this whole batch.") }
         .navigationTitle("Group")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -50,7 +61,18 @@ struct FaceGroupView: View {
         header(cover: cover, members: members, namedPerson: namedPerson)
         DecisionStatus(services: services)
         if let snapshot = group.snapshot(states: states) {
-            if namedPerson != nil {
+            if let namedPerson {
+                if snapshot.expectedStates.contains(where: { $0.personID != namedPerson.id || !$0.isAnchor }) {
+                    Button("Confirm reviewed group") {
+                        reviewedDecision = .confirmGroup(group: snapshot, personID: namedPerson.id,
+                                                          exemplarRevision: namedPerson.person.exemplarRevision)
+                        reviewedName = namedPerson.person.displayName; reviewedCount = snapshot.members.count
+                        confirmingGroup = true
+                    }
+                    .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                    .accessibilityIdentifier("reviewed-group-confirm")
+                }
                 Text("Possible matches remain separate from your confirmed examples.")
                     .font(.subheadline).foregroundStyle(tokens.textSecondary)
                     .accessibilityIdentifier("face-group-named-note")

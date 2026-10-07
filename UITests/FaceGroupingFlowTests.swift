@@ -7,7 +7,7 @@ final class FaceGroupingFlowTests: XCTestCase {
         let app = launchFixture()
         navigateTo("Library", app); scanFixture(app)
         navigateTo("People", app)
-        let group = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'face-group-'")).firstMatch
+        let group = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'face-group-' AND label CONTAINS '3 faces'")).firstMatch
         XCTAssertTrue(group.waitForExistence(timeout: 15)); revealElement(group, app); group.tap()
         let before = app.staticTexts["face-group-member-count"].firstMatch
         XCTAssertTrue(before.waitForExistence(timeout: 10))
@@ -29,5 +29,26 @@ final class FaceGroupingFlowTests: XCTestCase {
         XCTAssertTrue(chip.waitForExistence(timeout: 10)); chip.tap()
         app.buttons["search-mode-any"].tap()
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'")).firstMatch.waitForExistence(timeout: 15))
+        let possible = app.staticTexts["search-possible-count"]
+        XCTAssertTrue(possible.waitForExistence(timeout: 10)); XCTAssertEqual(possible.label, "2 possible photos")
+        let review = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-review-group-'")).firstMatch
+        revealElement(review, app); review.tap()
+        let confirm = app.buttons["reviewed-group-confirm"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10)); revealElement(confirm, app); confirm.tap()
+        let action = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Confirm 3 faces as Fictional Ada'")).firstMatch
+        XCTAssertTrue(action.waitForExistence(timeout: 10)); action.tap()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 10))
+        // Search owns this group destination locally; use its real back action to pop it.
+        let backToSearch = app.navigationBars.buttons["Search"].firstMatch
+        XCTAssertTrue(backToSearch.waitForExistence(timeout: 10)); backToSearch.tap()
+        XCTAssertTrue(app.scrollViews["screen-Search"].waitForExistence(timeout: 10))
+        let confirmedCount = app.staticTexts["search-result-count"]
+        XCTAssertTrue(waitUntilTrue { confirmedCount.label == "3 confirmed photos" })
+        navigateTo("People", app)
+        let undo = app.buttons["decision-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 10)); undo.tap()
+        // Returning preserves filters and captures the metadata decision automatically.
+        navigateTo("Search", app)
+        XCTAssertTrue(waitUntilTrue { possible.label == "2 possible photos" })
     }
 }
