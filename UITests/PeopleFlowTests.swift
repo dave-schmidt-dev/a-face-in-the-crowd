@@ -40,8 +40,14 @@ final class PeopleFlowTests: XCTestCase {
     private func navigate(_ title: String, app: XCUIApplication) { navigateTo(title, app) }
     private func tap(_ identifier: String, app: XCUIApplication) {
         let control = app.buttons[identifier].firstMatch
+        XCTAssertTrue(control.waitForExistence(timeout: 5), identifier)
+        if app.navigationBars.buttons[identifier].firstMatch.exists {
+            XCTAssertTrue(waitUntilTrue(5) { control.isHittable }, identifier)
+            control.tap()
+            return
+        }
         reveal(control, app: app)
-        XCTAssertTrue(control.waitForExistence(timeout: 5)); XCTAssertTrue(isRevealed(control, app), identifier + " " + whyNotRevealed(control, app)); control.tap()
+        XCTAssertTrue(isRevealed(control, app), identifier + " " + whyNotRevealed(control, app)); control.tap()
     }
     private func person(_ name: String, app: XCUIApplication) -> XCUIElement {
         let record = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS %@", name)).firstMatch

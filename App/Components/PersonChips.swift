@@ -16,8 +16,14 @@ struct PersonChips: View {
     let people: [PersonRecord]
     @Binding var selected: Set<UUID>
     @Environment(\.tokens) private var tokens
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    private var columns: [GridItem] {
+        typeSize.isAccessibilitySize ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 160))]
+    }
+
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160))], alignment: .leading, spacing: 12) {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
             ForEach(people.filter { $0.mergedInto == nil }) { person in
                 Button {
                     if selected.contains(person.id) { selected.remove(person.id) } else { selected.insert(person.id) }
@@ -25,7 +31,7 @@ struct PersonChips: View {
                     HStack {
                         Image(systemName: selected.contains(person.id) ? "checkmark.circle.fill" : "circle")
                         VStack(alignment: .leading) {
-                            Text(person.displayName)
+                            Text(person.displayName).fixedSize(horizontal: false, vertical: true)
                             if PersonNames.isAmbiguous(person, among: people) {
                                 Text("Record \(person.id.uuidString.prefix(4))").font(.caption)
                             }

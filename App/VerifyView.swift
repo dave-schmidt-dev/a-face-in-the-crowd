@@ -11,27 +11,28 @@ struct VerifyView: View {
     @Environment(\.tokens) private var tokens
     @State private var confirmingClear = false
     @State private var explaining = false
+    @State private var explainingBanner = false
     private var secondary: Color { tokens.textSecondary }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.m) {
-            Label {
-                Text("Evaluation only. Recognition is not qualified. Suggestions never confirm themselves.")
-            } icon: {
-                Image(systemName: "exclamationmark.shield.fill").foregroundStyle(tokens.warning)
+            HStack(alignment: .center, spacing: DesignTokens.Spacing.xs) {
+                Label("Evaluation only · never confirms itself", systemImage: "exclamationmark.shield.fill")
+                    .foregroundStyle(tokens.warning)
+                    .font(.subheadline)
+                    .accessibilityIdentifier("verify-evaluation-banner")
+                Button { explainingBanner = true } label: {
+                    Label("Evaluation details", systemImage: "info.circle")
+                }
+                .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
+                .accessibilityIdentifier("verify-evaluation-info")
+                .popover(isPresented: $explainingBanner) {
+                    Text("Evaluation only. Recognition is not qualified. Suggestions never confirm themselves.")
+                        .padding().frame(maxWidth: 360).presentationCompactAdaptation(.popover)
+                        .accessibilityIdentifier("verify-evaluation-detail")
+                }
             }
-                .font(.headline)
-                .card(raised: true)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("verify-evaluation-banner")
-            Toggle(isOn: Binding(get: { suggestions.isEnabled }, set: { suggestions.setEnabled($0) })) {
-                Text("Suggestions").font(.headline)
-            }
-            .frame(minHeight: 48)
-            .padding(.horizontal, DesignTokens.Spacing.m)
-            .background(tokens.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card, style: .continuous))
-            .disabled(services.isQuiescingCatalog)
-            .accessibilityIdentifier("evaluation-suggestions-toggle")
+            compactControlRow
             if !suggestions.isEnabled {
                 HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
                     Text("Suggestions are off.").foregroundStyle(secondary).accessibilityIdentifier("verify-off")
@@ -50,7 +51,7 @@ struct VerifyView: View {
                     .accessibilityIdentifier("verify-no-confirmed-faces")
             } else {
                 indexFullNotice
-                jobSection
+                jobNotices
                 resultSection
             }
             if suggestions.isEnabled { statsSection }
@@ -63,6 +64,47 @@ struct VerifyView: View {
             Button("Keep face details", role: .cancel) {}
         } message: {
             Text("Suggestions stay unavailable until Find face details runs again. Confirmed people and decisions are not changed.")
+        }
+    }
+
+    private var compactControlRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.m) {
+                controlRowItems(compact: true)
+            }
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                controlRowItems(compact: false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func controlRowItems(compact: Bool) -> some View {
+        Toggle(isOn: Binding(get: { suggestions.isEnabled }, set: { suggestions.setEnabled($0) })) {
+            Text("Suggestions").font(.headline)
+        }
+        .fixedSize(horizontal: compact, vertical: false)
+        .frame(minHeight: 48)
+        .padding(.horizontal, DesignTokens.Spacing.m)
+        .background(tokens.surface, in: RoundedRectangle(cornerRadius: DesignTokens.Radius.card, style: .continuous))
+        .disabled(services.isQuiescingCatalog)
+        .accessibilityIdentifier("evaluation-suggestions-toggle")
+
+        if suggestions.isEnabled && suggestions.hasConfirmedFaces && !suggestions.jobActive && !services.isScanning {
+            Button { services.startScan() } label: {
+                Label("Find face details", systemImage: "faceid")
+            }
+            .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+            .disabled(!services.canStart || services.selectedFolder == nil)
+            .accessibilityValue("\(suggestions.finishedJobs)")
+            .accessibilityIdentifier("verify-find-face-details")
+
+            if suggestions.indexedFaces > 0 {
+                Button("Clear face details", role: .destructive) { confirmingClear = true }
+                    .foregroundStyle(tokens.destructive)
+                    .frame(minHeight: 48)
+                    .accessibilityIdentifier("verify-clear-face-details")
+            }
         }
     }
 
@@ -83,40 +125,25 @@ struct VerifyView: View {
         }
     }
 
-    @ViewBuilder private var jobSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if suggestions.jobActive {
-                ProgressView("Finding face details").accessibilityIdentifier("verify-job-progress")
-                if let reason = suggestions.pauseReason {
-                    Text(reason).accessibilityIdentifier("verify-pause-reason")
-                }
-            } else if services.isScanning {
-                Text("This scan started before suggestions were turned on. Find face details after it finishes.")
+    @ViewBuilder private var jobNotices: some View {
+        if suggestions.jobActive {
+            ProgressView("Finding face details").accessibilityIdentifier("verify-job-progress")
+            if let reason = suggestions.pauseReason {
+                Text(reason).accessibilityIdentifier("verify-pause-reason")
+            }
+        } else if services.isScanning {
+            Text("This scan started before suggestions were turned on. Find face details after it finishes.")
+                .foregroundStyle(secondary)
+                .accessibilityIdentifier("verify-scan-without-job")
+        } else {
+            if suggestions.indexedFaces == 0 {
+                Text("Face details are not ready. Finding them reads your photo folder once and keeps the details in memory only.")
                     .foregroundStyle(secondary)
-                    .accessibilityIdentifier("verify-scan-without-job")
-            } else {
-                if suggestions.indexedFaces == 0 {
-                    Text("Face details are not ready. Finding them reads your photo folder once and keeps the details in memory only.")
-                        .foregroundStyle(secondary)
-                        .accessibilityIdentifier("verify-index-empty")
-                }
-                Button { services.startScan() } label: {
-                    Label("Find face details", systemImage: "faceid")
-                }
-                .buttonStyle(CapsuleButtonStyle(minHeight: 48))
-                .disabled(!services.canStart || services.selectedFolder == nil)
-                .accessibilityValue("\(suggestions.finishedJobs)")
-                .accessibilityIdentifier("verify-find-face-details")
-                if services.selectedFolder == nil {
-                    Text("Choose the photo folder in Library first.").foregroundStyle(secondary)
-                        .accessibilityIdentifier("verify-needs-folder")
-                }
-                if suggestions.indexedFaces > 0 {
-                    Button("Clear face details", role: .destructive) { confirmingClear = true }
-                        .foregroundStyle(tokens.destructive)
-                        .frame(minHeight: 48)
-                        .accessibilityIdentifier("verify-clear-face-details")
-                }
+                    .accessibilityIdentifier("verify-index-empty")
+            }
+            if services.selectedFolder == nil {
+                Text("Choose the photo folder in Library first.").foregroundStyle(secondary)
+                    .accessibilityIdentifier("verify-needs-folder")
             }
         }
     }
@@ -134,7 +161,7 @@ struct VerifyView: View {
                             .accessibilityIdentifier("review-show-latest")
                     }
                 }
-                // Undo, decision errors and saving progress stay reachable after every answer.
+                // Decision errors and saving progress stay reachable after every answer.
                 DecisionStatus(services: services)
                 if let result = suggestions.result {
                     if result.suggestions.isEmpty {
@@ -158,13 +185,6 @@ struct VerifyView: View {
     /// One card at a time from the session-local queue.
     @ViewBuilder private func review(_ result: SuggestionResult) -> some View {
         let queue = suggestions.queue
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(queue.remaining) to review · \(queue.skippedCount) skipped this session").font(.headline)
-            Text("Compared \(result.compared) · Ambiguous \(result.ambiguous)")
-                .font(.subheadline).foregroundStyle(secondary)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("verify-suggestion-count")
         if !suggestions.canReview {
             ProgressView("Updating suggestions").accessibilityIdentifier("review-updating")
         }
@@ -185,6 +205,13 @@ struct VerifyView: View {
                     .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("review-show-skipped")
             }
         }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(queue.remaining) to review · \(queue.skippedCount) skipped this session").font(.headline)
+            Text("Compared \(result.compared) · Ambiguous \(result.ambiguous)")
+                .font(.subheadline).foregroundStyle(secondary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("verify-suggestion-count")
     }
 
     /// Counts and timings only; never names, paths or vectors.

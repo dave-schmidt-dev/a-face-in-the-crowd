@@ -49,6 +49,11 @@ final class VerificationFlowTests: XCTestCase {
     private func tap(_ id: String, _ app: XCUIApplication) {
         let element = app.buttons[id].firstMatch
         XCTAssertTrue(element.waitForExistence(timeout: 10), id)
+        if app.navigationBars.buttons[id].firstMatch.exists {
+            XCTAssertTrue(waitUntil { element.isHittable }, id)
+            element.tap()
+            return
+        }
         reveal(element, app); XCTAssertTrue(revealed(element, app), id); element.tap()
     }
     private func navigate(_ title: String, _ app: XCUIApplication) {
@@ -147,7 +152,7 @@ final class VerificationFlowTests: XCTestCase {
     func testVerifyIsOffAndLabeledEvaluationByDefault() {
         let app = launch()
         navigate("Verify", app)
-        label("verify-evaluation-banner", contains: "Evaluation only. Recognition is not qualified. Suggestions never confirm themselves.", app)
+        label("verify-evaluation-banner", contains: "Evaluation only · never confirms itself", app)
         XCTAssertEqual(toggleValue(app), "0")
         XCTAssertTrue(app.staticTexts["verify-off"].waitForExistence(timeout: 5))
         navigate("Library", app); scan(app)

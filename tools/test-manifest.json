@@ -469,7 +469,8 @@
             "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtRegularWidth",
             "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtCompactWidth",
             "UITests.DesignScreensTests/testPullToRefreshReloadsPeopleWithoutAButton",
-            "UITests.DesignScreensTests/testScreenshotWalk"
+            "UITests.DesignScreensTests/testScreenshotWalk",
+            "UITests.DesignScreensTests/testVerifyDecisionButtonsVisibleWithoutScrolling"
           ]
         }
       }

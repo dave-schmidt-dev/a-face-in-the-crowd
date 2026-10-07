@@ -9,7 +9,9 @@ public struct RootView: View {
     @ObservedObject private var searchController: SearchService
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.tokens) private var tokens
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var selection: Section = .library
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var navigationPaths: [Section: [UUID]] = [:]
     @State private var settingsPresented = false
     /// Persisted anchors captured once per load that are waiting for their item to appear.
@@ -60,7 +62,7 @@ public struct RootView: View {
                     Button("Open Settings") { settingsPresented = true }.frame(minHeight: 48).accessibilityIdentifier("privacy-open-settings")
                 }.padding(24)
             } else if sizeClass == .regular && !ProcessInfo.processInfo.arguments.contains("--uitest-compact") {
-                NavigationSplitView {
+                NavigationSplitView(columnVisibility: $columnVisibility) {
                     List(Section.allCases) { section in
                         let selected = selection == section
                         Button { if !services.isQuiescingCatalog { select(section) } } label: {
@@ -132,6 +134,8 @@ public struct RootView: View {
         // Tint only: a blanket foregroundStyle here would flatten default buttons into captions.
         .tint(primary)
         .onChange(of: protection.blocksContent) { if protection.blocksContent { settingsPresented = false } }
+        .onAppear { if dynamicTypeSize.isAccessibilitySize { columnVisibility = .detailOnly } }
+        .onChange(of: dynamicTypeSize) { columnVisibility = dynamicTypeSize.isAccessibilitySize ? .detailOnly : .automatic }
         .sheet(isPresented: $settingsPresented) {
             SettingsView(services: services, backup: services.backup)
         }
@@ -197,6 +201,7 @@ public struct RootView: View {
                     // now that the sidebar footer entry point is gone (CLEAR C3).
                     withBottomStatus(PersonDetailView(services: services, personID: personID))
                         .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
+                        .modifier(UndoToolbar(services: services))
                 }
         }.id("\(section.rawValue)-\(services.catalogSessionID)").disabled(services.isQuiescingCatalog)
     }
@@ -240,6 +245,7 @@ public struct RootView: View {
         .navigationBarTitleDisplayMode(.large)
         .accessibilityIdentifier("screen-\(section.rawValue)")
         .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
+        .modifier(UndoToolbar(services: services, enabled: section == .people || section == .verify))
         .modifier(PeopleRefresh(enabled: section == .people, services: services))
         }
     }

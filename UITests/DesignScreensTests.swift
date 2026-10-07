@@ -215,4 +215,32 @@ final class DesignScreensTests: XCTestCase {
         _ = app.buttons["delete-local-catalog"].waitForExistence(timeout: 10)
         attachScreenshot("shot-settings", app)
     }
+
+    func testVerifyDecisionButtonsVisibleWithoutScrolling() {
+        let app = launchFixture(extra: ["--uitest-synthetic-suggestions"])
+        navigateTo("Library", app); scanFixture(app)
+        nameFace("Fixture A", app); nameFace("Fixture B", app)
+        setSuggestions(true, app)
+        let find = app.buttons["verify-find-face-details"].firstMatch
+        XCTAssertTrue(find.waitForExistence(timeout: 10))
+        let before = Int(find.value as? String ?? "") ?? -1
+        find.tap()
+        XCTAssertTrue(waitUntilTrue(30) {
+            find.exists && find.isEnabled && (Int(find.value as? String ?? "") ?? -1) > before
+        }, "Find face details did not complete")
+        let phase = app.staticTexts["scan-phase"]
+        XCTAssertTrue(phase.waitForExistence(timeout: 15))
+        XCTAssertTrue(waitUntilTrue(20) { phase.value as? String == "completed" })
+        let card = app.descendants(matching: .any)["review-card"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 20))
+        let windowFrame = app.windows.firstMatch.frame
+        let decisionButtonIDs = ["review-yes", "review-not-this-person", "review-unsure", "review-not-a-person", "review-skip"]
+        for id in decisionButtonIDs {
+            let button = app.buttons[id].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "\(id) missing")
+            let frame = button.frame
+            XCTAssertFalse(frame.isEmpty, "\(id) frame is empty")
+            XCTAssertTrue(windowFrame.contains(frame), "\(id) frame \(frame) is not inside window \(windowFrame)")
+        }
+    }
 }

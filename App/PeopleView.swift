@@ -76,12 +76,31 @@ struct DecisionStatus: View {
                 Button("Refresh People") { Task { await services.refreshPeople() } }
                     .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision).accessibilityIdentifier("refresh-people")
             }
-            if services.peopleSnapshot.undoID != nil {
-                Button { Task { await services.undoDecision() } } label: { Label("Undo last decision", systemImage: "arrow.uturn.backward") }
-                    .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).disabled(services.isSavingDecision || services.peopleRefreshWarning != nil).accessibilityIdentifier("decision-undo")
-            }
             if services.isSavingDecision { ProgressView("Saving decision") }
             else if services.isRefreshingPeople { ProgressView("Refreshing People").accessibilityIdentifier("people-refresh-progress") }
+        }
+    }
+}
+
+struct UndoToolbar: ViewModifier {
+    @ObservedObject var services: AppServices
+    var enabled: Bool = true
+
+    func body(content: Content) -> some View {
+        content.toolbar {
+            if enabled && services.peopleSnapshot.undoID != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await services.undoDecision() }
+                    } label: {
+                        Image(systemName: "arrow.uturn.backward")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                    .accessibilityLabel("Undo last decision")
+                    .accessibilityIdentifier("decision-undo")
+                }
+            }
         }
     }
 }
