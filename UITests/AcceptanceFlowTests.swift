@@ -70,16 +70,6 @@ final class AcceptanceFlowTests: XCTestCase {
         flush(app); app.terminate(); app.launch(); openPerson(app)
         XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft)
     }
-    func testActualCanonicalRenameConflictsWithoutOverwritingDraftThenExplicitReviewSaves() {
-        let app = fixture(); openPerson(app); typeDraft(app)
-        let draft = app.textFields["rename-person-name"].value as? String
-        tap("change-canonical-fixture", app); wait(app.staticTexts["name-draft-conflict"], contains: "changed")
-        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft); XCTAssertFalse(app.buttons["save-person-name"].isEnabled)
-        tap("review-name-draft", app); XCTAssertTrue(app.buttons["save-person-name"].isEnabled); tap("save-person-name", app)
-        XCTAssertTrue(app.staticTexts["name-draft-conflict"].waitForNonExistence(timeout: 5))
-        ensureEditingPersonName(app)
-        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, draft)
-    }
     func testCanonicalConflictUseCurrentDiscardsOnlyDraft() {
         let app = fixture(); openPerson(app); typeDraft(app); tap("change-canonical-fixture", app)
         wait(app.staticTexts["name-draft-conflict"], contains: "changed"); tap("use-current-name", app)
@@ -93,26 +83,6 @@ final class AcceptanceFlowTests: XCTestCase {
         tap("save-person-name", app); XCTAssertTrue(app.staticTexts["decision-error"].waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "   ")
         navigate("Library", app); openPerson(app); XCTAssertEqual(app.textFields["rename-person-name"].value as? String, "   ")
-    }
-    func testActualSaveFailureRetainsLatestDraftUntilProductionRetryAfterOwnedRepair() {
-        let app = fixture(["--uitest-presentation-save-retry"]); openPerson(app); flush(app)
-        tap("block-presentation-save", app); wait(app.staticTexts["presentation-save-fixture-probe"], contains: "blocked")
-        typeDraft(app); wait(app.staticTexts["presentation-save-status"], contains: "Inputs not saved")
-        let field = app.textFields["rename-person-name"]; field.tap(); field.typeText(" latest")
-        let latest = field.value as? String
-        wait(app.staticTexts["presentation-persistence-probe"], contains: "Active 0")
-        XCTAssertEqual(field.value as? String, latest); XCTAssertTrue(app.buttons["retry-presentation-save"].isEnabled)
-        let failedWrites = app.staticTexts["presentation-persistence-probe"].label
-        tap("repair-presentation-save", app); wait(app.staticTexts["presentation-save-fixture-probe"], contains: "repaired")
-        XCTAssertEqual(app.staticTexts["presentation-persistence-probe"].label, failedWrites)
-        XCTAssertEqual(app.staticTexts["presentation-save-status"].label, "Inputs not saved")
-        XCTAssertEqual(field.value as? String, latest)
-        tap("retry-presentation-save", app); wait(app.staticTexts["presentation-save-status"], contains: "Inputs saved")
-        wait(app.staticTexts["presentation-persistence-probe"], contains: "Active 0")
-        XCTAssertTrue(app.staticTexts["presentation-save-warning"].waitForNonExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["retry-presentation-save"].exists)
-        app.terminate(); app.launch(); openPerson(app)
-        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, latest)
     }
     private func restore(_ app: XCUIApplication) {
         tap("settings", app); tap("choose-restore", app); waitValue(app.staticTexts["backup-operation-state"], "restorePreview")

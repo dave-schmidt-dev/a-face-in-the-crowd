@@ -19,29 +19,6 @@ final class ScanProgressTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["No folder selected"].exists)
         XCTAssertFalse(app.buttons["start-scan"].exists)
     }
-    func testInitialScanPreviewsBeforeCompletionAndCancellation() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--uitest-synthetic-source", "--uitest-hold-after-first", "--uitest-synthetic-detector"]
-        app.launch()
-        XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10))
-        app.buttons["choose-folder"].tap()
-        XCTAssertTrue(app.buttons["start-scan"].waitForExistence(timeout: 5))
-        app.buttons["start-scan"].tap()
-        app.alerts.buttons["Start scan"].tap()
-        let preview = app.images["Photo preview"].firstMatch
-        XCTAssertTrue(preview.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["cancel-scan"].exists)
-        XCTAssertTrue(app.staticTexts["Total unknown until discovery completes"].exists)
-        app.buttons["cancel-scan"].tap()
-        let phase = app.staticTexts["scan-phase"]
-        let cancelled = NSPredicate(format: "value == 'cancelled'")
-        expectation(for: cancelled, evaluatedWith: phase)
-        waitForExpectations(timeout: 5)
-        XCTAssertTrue(preview.exists)
-        XCTAssertTrue(app.buttons["start-scan"].exists)
-        XCTAssertTrue(app.staticTexts["Scan cancelled. Accepted photos remain; resume to check the source."].exists)
-    }
-
     func testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts() {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-hold-after-first", "--uitest-synthetic-detector"]

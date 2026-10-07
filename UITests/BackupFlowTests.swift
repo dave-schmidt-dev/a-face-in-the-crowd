@@ -56,27 +56,6 @@ final class BackupFlowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["backup-operation-message"].label.contains("exported"))
         backupTap("retry-backup-operation", app); backupWait("idle", app)
     }
-    func testValidatedRestorePreviewCancelPreservesCatalogAndSourceSelection() {
-        let app = backupApp(["--uitest-backup-hold-validation"])
-        let before = app.staticTexts["backup-source-state"].label
-        backupTap("choose-restore", app)
-        let held = app.staticTexts["backup-test-status"]
-        expectation(for: NSPredicate(format: "label CONTAINS 'Held 1'"), evaluatedWith: held); waitForExpectations(timeout: 10)
-        XCTAssertFalse(app.buttons["confirm-catalog-restore"].exists)
-        backupTap("release-backup-work", app); backupWait("restorePreview", app); backupProbe("Active 0", app)
-        XCTAssertTrue(app.staticTexts["restore-replacement-warning"].label.contains("does not merge"))
-        XCTAssertTrue(app.staticTexts["restore-current-revision"].label.contains("revision 0"))
-        backupTap("cancel-restore-preview", app); backupWait("idle", app)
-        XCTAssertEqual(app.staticTexts["backup-source-state"].label, before); backupProbe("Restore 0 · Open 0 · Adopt 0", app)
-    }
-    func testInvalidImportCannotReachReplacementConfirmationOrMutateLiveCatalog() {
-        let app = backupApp(["--uitest-backup-invalid"])
-        let before = app.staticTexts["backup-source-state"].label
-        backupTap("choose-restore", app); backupWait("failed", app); backupProbe("Active 0", app)
-        XCTAssertFalse(app.buttons["confirm-catalog-restore"].exists)
-        XCTAssertEqual(app.staticTexts["backup-source-state"].label, before)
-        backupProbe("Restore 0 · Open 0 · Adopt 0", app)
-    }
     func testRestoreDrainTimeoutRequiresExplicitRetryBeforeSingleGraphPublicationAndReconnect() {
         let app = backupApp(["--uitest-session-hold-people", "--uitest-session-short-timeout"])
         restorePreview(app); backupTap("confirm-catalog-restore", app); backupWait("recoveryRequired", app)

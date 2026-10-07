@@ -12,16 +12,6 @@
           "selectors": [
             "AFITCCoreTests.BootstrapTests/testSQLite3LibraryAvailableAndCoreTypesWork"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/LaunchTests.swift"
-          ],
-          "phaseGateOnly": true,
-          "selectors": [
-            "UITests.LaunchTests/testAppLaunchesSuccessfully"
-          ]
         }
       }
     },
@@ -49,17 +39,6 @@
             "AFITCCoreTests.RunnerContractTests/testOwnedSimulatorCleanupOnSuccessAndFailure",
             "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked",
             "AFITCCoreTests.RunnerContractTests/testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/NavigationTests.swift"
-          ],
-          "selectors": [
-            "UITests.NavigationTests/testRegularNavigationAndFolderSelection",
-            "UITests.NavigationTests/testCompactNavigation"
           ]
         }
       }
@@ -109,18 +88,6 @@
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryBuildsOnceForHundredWritesAndReconstructsAfterRestart",
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryReplacementEvictionAndOSRemovalStayWithinBudget"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/ScanProgressTests.swift"
-          ],
-          "selectors": [
-            "UITests.ScanProgressTests/testFolderPickerCanBeCancelledWithoutSourceMutation",
-            "UITests.ScanProgressTests/testInitialScanPreviewsBeforeCompletionAndCancellation",
-            "UITests.ScanProgressTests/testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts"
-          ]
         }
       }
     },
@@ -168,18 +135,6 @@
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryBuildsOnceForHundredWritesAndReconstructsAfterRestart",
             "AFITCCoreTests.CatalogPersistenceTests/testCacheInventoryReplacementEvictionAndOSRemovalStayWithinBudget"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/ScanProgressTests.swift"
-          ],
-          "selectors": [
-            "UITests.ScanProgressTests/testFolderPickerCanBeCancelledWithoutSourceMutation",
-            "UITests.ScanProgressTests/testInitialScanPreviewsBeforeCompletionAndCancellation",
-            "UITests.ScanProgressTests/testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts"
-          ],
-          "phaseGateOnly": true
         }
       }
     },
@@ -206,22 +161,6 @@
             "AFITCCoreTests.IdentityCorrectionTests/testStaleUndoCannotResurrectNewerDecisionOrPhotoGeneration",
             "AFITCCoreTests.IdentityCorrectionTests/testConcurrentPhotoUpdatesAndDecisionsUseCoherentSnapshots",
             "AFITCCoreTests.IdentityCorrectionTests/testInvalidNameGeometryAndCreationUndoDoNotMutateOtherFaces"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/PeopleFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.PeopleFlowTests/testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo",
-            "UITests.PeopleFlowTests/testCompactLargeTextManualUnsureAndFalseDetection",
-            "UITests.PeopleFlowTests/testMemoryWarningDuringFaceDecodeRejectsStalePublication",
-            "UITests.PeopleFlowTests/testBurstRefreshBoundsOutstandingReadsAndPublishesLatestFaces",
-            "UITests.PeopleFlowTests/testCommittedNamingDismissesDespiteRefreshFailureAndPersistsOnce",
-            "UITests.PeopleFlowTests/testInitialPeopleFailurePreservesCachedLibraryCheckpointAndSource",
-            "UITests.PeopleFlowTests/testUndoRenameSynchronizesEditableNameBeforeNextSave"
           ]
         }
       }
@@ -256,19 +195,6 @@
             "AFITCCoreTests.IdentityCorrectionTests/testMergePreservesThirdPersonAndNeverPropagatesDuplicateConfirmation",
             "AFITCCoreTests.IdentityCorrectionTests/testUnavailableSameGenerationMergeRefusesUntilReconnectResolvesConflict",
             "AFITCCoreTests.IdentityCorrectionTests/testLegacySchemaThreePayloadUndoAdvancesEpochWithoutRewindingJobs"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/PeopleFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.PeopleFlowTests/testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo",
-            "UITests.PeopleFlowTests/testCompactLargeTextManualUnsureAndFalseDetection",
-            "UITests.PeopleFlowTests/testMergeConflictCancelApplyRestartAndUndo",
-            "UITests.PeopleFlowTests/testCommittedMergeDismissesDespiteRefreshFailureAndPersistsOnce"
           ]
         }
       }
@@ -437,41 +363,6 @@
             "AFITCCoreTests.ReviewQueueTests/testQueueReconcilesAfterDecisionRefresh",
             "AFITCCoreTests.ReviewQueueTests/testStaleCardIsReplacedNotConfirmed"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/VerificationFlowTests.swift",
-            "UITests/DesignTestSupport.swift",
-            "UITests/DesignFlowTests.swift",
-            "UITests/DesignScreensTests.swift"
-          ],
-          "selectors": [
-            "UITests.VerificationFlowTests/testVerifyIsOffAndLabeledEvaluationByDefault",
-            "UITests.VerificationFlowTests/testYesConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
-            "UITests.VerificationFlowTests/testNotThisPersonUnsureAndFalseDetectionPersistAndAreHonoredAfterRescan",
-            "UITests.VerificationFlowTests/testAmbiguousCandidateIsNeverShown",
-            "UITests.VerificationFlowTests/testStaleCardAfterPersonDetailRejectionCannotConfirm",
-            "UITests.VerificationFlowTests/testCompactLargeTextAndRelaunchShowsSuggestionsUnavailableUntilScan",
-            "UITests.DesignFlowTests/testPersonDetailFitsRegularWidth",
-            "UITests.DesignFlowTests/testPersonDetailFitsCompactWidth",
-            "UITests.DesignFlowTests/testPersonDetailFitsCompactLargestText",
-            "UITests.DesignFlowTests/testRecordSuffixOnlyWhereNamesAreIdentical",
-            "UITests.DesignFlowTests/testNamingSheetAtLargestTextPinsSaveAndValidatesName",
-            "UITests.DesignFlowTests/testPersonDetailLastControlClearsBottomInset",
-            "UITests.DesignScreensTests/testStatusAppearsOnceWithHumanPhaseCopyOnEveryScreen",
-            "UITests.DesignScreensTests/testSettingsPutsDestructiveActionLastAndConfirmsIt",
-            "UITests.DesignScreensTests/testLibraryTileOpensZoomableViewerWithoutEnumText",
-            "UITests.DesignScreensTests/testSearchHasOneModeControlAndAPhotoGrid",
-            "UITests.DesignScreensTests/testVerifyOffExplanationIsAPopoverAndTimingsSitBehindDetails",
-            "UITests.DesignScreensTests/testIndexFullNamesNextActionAndClearingRemovesIt",
-            "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtRegularWidth",
-            "UITests.DesignScreensTests/testOpenPersonSurvivesSectionSwitchAtCompactWidth",
-            "UITests.DesignScreensTests/testPullToRefreshReloadsPeopleWithoutAButton",
-            "UITests.DesignScreensTests/testScreenshotWalk",
-            "UITests.DesignScreensTests/testVerifyDecisionButtonsVisibleWithoutScrolling"
-          ]
         }
       }
     },
@@ -538,26 +429,6 @@
             "AFITCCoreTests.ViewerReadTests/testCapturedUUIDVersionPathAndHashMustMatchCurrentGeneration",
             "AFITCCoreTests.ViewerReadTests/testStoredPayloadUUIDMustAgreeWithPhysicalRecord",
             "AFITCCoreTests.ViewerReadTests/testMissingAndUnhashedPhotosNeverClaimOriginal"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/SearchFlowTests.swift",
-            "UITests/AccessibilityFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.SearchFlowTests/testManualConfirmationThreeModesUnknownOnlyAndOriginalView",
-            "UITests.SearchFlowTests/testEqualNamesKeepDistinctUUIDChipsAndImmutableResultCount",
-            "UITests.SearchFlowTests/testExplicitMergeLeavesOneActiveCanonicalSearchChipAndDeduplicatedPhoto",
-            "UITests.SearchFlowTests/testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful",
-            "UITests.SearchFlowTests/testMemoryWarningDuringOriginalDecodeReleasesBeforePublication",
-            "UITests.SearchFlowTests/testFallbackDecodeErrorAfterMemoryReleasePreservesReleasedStatus",
-            "UITests.SearchFlowTests/testCancelHeldOriginalReadNeverPublishesAfterDismiss",
-            "UITests.SearchFlowTests/testDisconnectedSourceUsesCachedPreview",
-            "UITests.AccessibilityFlowTests/testCompactLargeTextSearchLabelsAndControlSizes",
-            "UITests.SearchFlowTests/testCompactSwitchFromNonmergedPersonReachesCanonicalSearchRoot"
           ]
         }
       }
@@ -727,29 +598,6 @@
             "AFITCCoreTests.MarkerDomainComparisonTests/testLocalOutcomeRemainsIndependentOfOtherTrialAndRequiresSemanticEnd",
             "AFITCCoreTests.MarkerMetadataExperimentTests/testOwnedOutputDirectoryAndFileFoundationEquivalenceAndUnsafeConfigRejection",
             "AFITCCoreTests.MarkerMetadataExperimentTests/testProductionOwnedPolicyUsesPlatformDefaultThroughPublicBackupValidationAndRestore"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/BackupFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.BackupFlowTests/testHeldStartupMustActuallyFinishBeforeDrainWithoutLateSourcePublication",
-            "UITests.BackupFlowTests/testHeldPeopleReadCannotPublishOrSpawnDirtySuccessorAfterQuiescence",
-            "UITests.BackupFlowTests/testHeldActualSearchReadCancelsWithoutPublishingOldSnapshot",
-            "UITests.BackupFlowTests/testFiniteTimeoutRetainsHeldWorkerAndClosedAdmissionUntilActualFinish",
-            "UITests.BackupFlowTests/testHeldActualViewerReadReleasesImageAndDrainsBeforeAnyFallbackPublication",
-            "UITests.BackupFlowTests/testTimedOutSessionRequiresExplicitRedrainAfterActualWorkerFinishes",
-            "UITests.BackupFlowTests/testBackupPreviewShowsExactRevisionCategoriesSizeAndUnencryptedExclusionsBeforeDestinationWrite",
-            "UITests.BackupFlowTests/testDestinationCancelAndCollisionPreserveExistingItemsAndCleanOnlyOwnedOutput",
-            "UITests.BackupFlowTests/testValidatedRestorePreviewCancelPreservesCatalogAndSourceSelection",
-            "UITests.BackupFlowTests/testInvalidImportCannotReachReplacementConfirmationOrMutateLiveCatalog",
-            "UITests.BackupFlowTests/testRestoreDrainTimeoutRequiresExplicitRetryBeforeSingleGraphPublicationAndReconnect",
-            "UITests.BackupFlowTests/testFailedRecoveryRetainsCoordinatorAndExplicitRetryWithoutCompetingOpen",
-            "UITests.BackupFlowTests/testReturnedFreshActorSurvivesSnapshotFailureUntilExplicitReadRetry",
-            "UITests.BackupFlowTests/testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome"
           ]
         }
       }
@@ -2363,29 +2211,6 @@
             "AFITCCoreTests.RestoreCommitTests/testFixedPreparedMarkerFaultRetainsAuthorityAndExplicitRetryReturnsCheckedOriginal",
             "AFITCCoreTests.RestoreCommitTests/testOriginalStatsOnlyDoesNotSampleAndDistinguishesUnobserved"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/BackupFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.BackupFlowTests/testHeldStartupMustActuallyFinishBeforeDrainWithoutLateSourcePublication",
-            "UITests.BackupFlowTests/testHeldPeopleReadCannotPublishOrSpawnDirtySuccessorAfterQuiescence",
-            "UITests.BackupFlowTests/testHeldActualSearchReadCancelsWithoutPublishingOldSnapshot",
-            "UITests.BackupFlowTests/testFiniteTimeoutRetainsHeldWorkerAndClosedAdmissionUntilActualFinish",
-            "UITests.BackupFlowTests/testHeldActualViewerReadReleasesImageAndDrainsBeforeAnyFallbackPublication",
-            "UITests.BackupFlowTests/testTimedOutSessionRequiresExplicitRedrainAfterActualWorkerFinishes",
-            "UITests.BackupFlowTests/testBackupPreviewShowsExactRevisionCategoriesSizeAndUnencryptedExclusionsBeforeDestinationWrite",
-            "UITests.BackupFlowTests/testDestinationCancelAndCollisionPreserveExistingItemsAndCleanOnlyOwnedOutput",
-            "UITests.BackupFlowTests/testValidatedRestorePreviewCancelPreservesCatalogAndSourceSelection",
-            "UITests.BackupFlowTests/testInvalidImportCannotReachReplacementConfirmationOrMutateLiveCatalog",
-            "UITests.BackupFlowTests/testRestoreDrainTimeoutRequiresExplicitRetryBeforeSingleGraphPublicationAndReconnect",
-            "UITests.BackupFlowTests/testFailedRecoveryRetainsCoordinatorAndExplicitRetryWithoutCompetingOpen",
-            "UITests.BackupFlowTests/testReturnedFreshActorSurvivesSnapshotFailureUntilExplicitReadRetry",
-            "UITests.BackupFlowTests/testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome"
-          ]
         }
       }
     },
@@ -2559,24 +2384,6 @@
             "AFITCCoreTests.PresentationPreferenceTests/testDirtyDraftConflictRetainsTextAndCleanDraftFollowsCanonical",
             "AFITCCoreTests.PresentationPreferenceTests/testActualFailedWriteRequiresExplicitLatestInputRetryAfterOwnedRepair"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/AcceptanceFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.AcceptanceFlowTests/testCompletedSearchSurvivesNavigationAndModeChangeInvalidates",
-            "UITests.AcceptanceFlowTests/testRelaunchRestoresInputsButRequiresFreshExplicitSearch",
-            "UITests.AcceptanceFlowTests/testDirtyDraftSurvivesNavigationAndRelaunch",
-            "UITests.AcceptanceFlowTests/testActualCanonicalRenameConflictsWithoutOverwritingDraftThenExplicitReviewSaves",
-            "UITests.AcceptanceFlowTests/testCanonicalConflictUseCurrentDiscardsOnlyDraft",
-            "UITests.AcceptanceFlowTests/testFailedActualRenameKeepsDirtyInputAcrossNavigation",
-            "UITests.AcceptanceFlowTests/testActualCatalogReplacementResetsSavedInputsAndDirtyDraft",
-            "UITests.AcceptanceFlowTests/testCheckedOriginalAfterActualCancellationPreservesDraftAndFilterOnlyAfterExplicitRetry",
-            "UITests.AcceptanceFlowTests/testActualSaveFailureRetainsLatestDraftUntilProductionRetryAfterOwnedRepair"
-          ]
         }
       }
     },
@@ -2590,16 +2397,6 @@
           ],
           "selectors": [
             "AFITCCoreTests.PresentationPreferenceTests/testActualFailedWriteRequiresExplicitLatestInputRetryAfterOwnedRepair"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "phaseGateOnly": true,
-          "testFiles": [
-            "UITests/AcceptanceFlowTests.swift"
-          ],
-          "selectors": [
-            "UITests.AcceptanceFlowTests/testActualSaveFailureRetainsLatestDraftUntilProductionRetryAfterOwnedRepair"
           ]
         }
       }
@@ -2972,21 +2769,6 @@
             "AFITCCoreTests.SourceRecoveryTests/testStorageAndLockPauseChangedGenerationAndResumeWithoutOldFaces",
             "AFITCCoreTests.SourceRecoveryTests/testCancellationRequestIsVisibleBeforeBoundedDetectorFinishesAndResumes"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/PrivacyFlowTests.swift"
-          ],
-          "phaseGateOnly": true,
-          "selectors": [
-            "UITests.PrivacyFlowTests/testDisconnectWaitsForActualSourceWorkerCompletionAndPreventsLateSelection",
-            "UITests.PrivacyFlowTests/testOfflineCacheClearRetainsDecisionsAndExplainsUnavailablePreviews",
-            "UITests.PrivacyFlowTests/testPersonDeletionPreservesEqualNamePeerAndDisclosesRetainedHistoryAndExports",
-            "UITests.PrivacyFlowTests/testCommittedPreferenceCleanupRetryNeverDeletesAgain",
-            "UITests.PrivacyFlowTests/testRetainedRestoreOwnerRefusesPrivacyActionsWithoutCompetingRecovery",
-            "UITests.PrivacyFlowTests/testDrainTimeoutKeepsCatalogFencedUntilExplicitRetry"
-          ]
         }
       }
     },
@@ -3160,19 +2942,6 @@
             "AFITCCoreTests.RestoreValidationTests/testSourceGrowthDuringActualDescriptorCopyRejectsAndCleans",
             "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/PrivacyFlowTests.swift"
-          ],
-          "phaseGateOnly": true,
-          "selectors": [
-            "UITests.PrivacyFlowTests/testWholeDeletionWaitsForHeldActualSourceDrainThenProvesNoLateCatalogOrLogger",
-            "UITests.PrivacyFlowTests/testWholeDeletionAfterRealExportAndImportCancelPreservesExternalCopiesAndOriginals",
-            "UITests.PrivacyFlowTests/testWholeDeletionPreferenceFailureRetainsSameCoreOwnerAndDoesNotPublishEmptySuccess",
-            "UITests.PrivacyFlowTests/testWholeDeletionRefusesRetainedRestoreOwnerWithoutStartingCleanup"
-          ]
         }
       }
     },
@@ -3257,21 +3026,6 @@
           "selectors": [
             "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked"
           ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/ProtectedDataFlowTests.swift"
-          ],
-          "phaseGateOnly": true,
-          "selectors": [
-            "UITests.ProtectedDataFlowTests/testLockedColdLaunchDoesNotAdmitStartupOrSourceAndAvailableEventStaysGated",
-            "UITests.ProtectedDataFlowTests/testActualPreferenceWriterKeepsDrainPendingUntilExplicitRelease",
-            "UITests.ProtectedDataFlowTests/testLateActualScanCompletionRequiresExplicitRedrainBeforePhysicalClose",
-            "UITests.ProtectedDataFlowTests/testRealSQLiteBusyKeepsSameFenceUntilStatementReleaseAndExplicitRetry",
-            "UITests.ProtectedDataFlowTests/testEachActualLibraryFaceAndSearchPreviewWorkerDelaysDrainAndCannotPublishLate",
-            "UITests.ProtectedDataFlowTests/testLockDuringActualPreparedDeletionOwnerClosesWithoutContinuingErase"
-          ]
         }
       }
     },
@@ -3285,26 +3039,6 @@
           ],
           "selectors": [
             "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked"
-          ]
-        },
-        "UITests": {
-          "type": "ui",
-          "testFiles": [
-            "UITests/ProtectedDataFlowTests.swift"
-          ],
-          "phaseGateOnly": true,
-          "selectors": [
-            "UITests.ProtectedDataFlowTests/testLockedColdLaunchDoesNotAdmitStartupOrSourceAndAvailableEventStaysGated",
-            "UITests.ProtectedDataFlowTests/testActualPreferenceWriterKeepsDrainPendingUntilExplicitRelease",
-            "UITests.ProtectedDataFlowTests/testLateActualScanCompletionRequiresExplicitRedrainBeforePhysicalClose",
-            "UITests.ProtectedDataFlowTests/testRealSQLiteBusyKeepsSameFenceUntilStatementReleaseAndExplicitRetry",
-            "UITests.ProtectedDataFlowTests/testEachActualLibraryFaceAndSearchPreviewWorkerDelaysDrainAndCannotPublishLate",
-            "UITests.ProtectedDataFlowTests/testLockDuringActualPreparedDeletionOwnerClosesWithoutContinuingErase",
-            "UITests.ProtectedDataFlowTests/testDirtyDraftAndSearchInputsSurviveOrdinaryUnlockWithoutSourceReadOrScan",
-            "UITests.ProtectedDataFlowTests/testRetainedPreparedRestoreOwnerLockAndExplicitUnlockUsesSameRecoveryAuthority",
-            "UITests.ProtectedDataFlowTests/testUnavailableAgainDuringFreshSnapshotRetainsActorAndPreventsLatePublication",
-            "UITests.ProtectedDataFlowTests/testMissingExistingCatalogAfterLockShowsRecoveryAndNeverCreatesEmptyCatalog",
-            "UITests.ProtectedDataFlowTests/testPausedLoggerActualQueuedRecordCannotRecreateAfterWholeDeleteAndResume"
           ]
         }
       }
@@ -3765,6 +3499,121 @@
           ]
         }
       }
+    },
+    "ui.journeys": {
+      "description": "End-to-end UI journeys: launch, scan, name and undo, search, verify, backup and restore, delete catalog, largest text",
+      "targets": {
+        "UITests": {
+          "type": "ui",
+          "testFiles": [
+            "UITests/AcceptanceFlowTests.swift",
+            "UITests/AccessibilityFlowTests.swift",
+            "UITests/BackupFlowTests.swift",
+            "UITests/DesignFlowTests.swift",
+            "UITests/DesignTestSupport.swift",
+            "UITests/NavigationTests.swift",
+            "UITests/PeopleFlowTests.swift",
+            "UITests/PrivacyFlowTests.swift",
+            "UITests/ScanProgressTests.swift",
+            "UITests/SearchFlowTests.swift",
+            "UITests/VerificationFlowTests.swift"
+          ],
+          "phaseGateOnly": true,
+          "selectors": [
+            "UITests.NavigationTests/testRegularNavigationAndFolderSelection",
+            "UITests.ScanProgressTests/testCancelledScanCanResumeWithCachedPreviewsAndTruthfulCounts",
+            "UITests.PeopleFlowTests/testSingleFaceNamingCancelDuplicateNameCorrectionAndUndo",
+            "UITests.SearchFlowTests/testManualConfirmationThreeModesUnknownOnlyAndOriginalView",
+            "UITests.VerificationFlowTests/testYesConfirmsOnlySelectedFaceAndUndoRestoresBeforeState",
+            "UITests.AcceptanceFlowTests/testActualCatalogReplacementResetsSavedInputsAndDirtyDraft",
+            "UITests.BackupFlowTests/testBackupPreviewShowsExactRevisionCategoriesSizeAndUnencryptedExclusionsBeforeDestinationWrite",
+            "UITests.PrivacyFlowTests/testWholeDeletionAfterRealExportAndImportCancelPreservesExternalCopiesAndOriginals",
+            "UITests.AccessibilityFlowTests/testCompactLargeTextSearchLabelsAndControlSizes",
+            "UITests.DesignFlowTests/testNamingSheetAtLargestTextPinsSaveAndValidatesName"
+          ]
+        }
+      }
+    },
+    "ui.release": {
+      "description": "Release-only UI checks for App-layer session, privacy and protected-data behavior with no unit-test target yet (TASKS); plus the CLEAR screenshot walk",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/BootstrapTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.BootstrapTests/testSQLite3LibraryAvailableAndCoreTypesWork"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "testFiles": [
+            "UITests/AcceptanceFlowTests.swift",
+            "UITests/AccessibilityFlowTests.swift",
+            "UITests/BackupFlowTests.swift",
+            "UITests/DesignFlowTests.swift",
+            "UITests/DesignScreensTests.swift",
+            "UITests/DesignTestSupport.swift",
+            "UITests/LaunchTests.swift",
+            "UITests/NavigationTests.swift",
+            "UITests/PeopleFlowTests.swift",
+            "UITests/PrivacyFlowTests.swift",
+            "UITests/ProtectedDataFlowTests.swift",
+            "UITests/ScanProgressTests.swift",
+            "UITests/SearchFlowTests.swift",
+            "UITests/VerificationFlowTests.swift"
+          ],
+          "phaseGateOnly": true,
+          "selectors": [
+            "UITests.AcceptanceFlowTests/testCanonicalConflictUseCurrentDiscardsOnlyDraft",
+            "UITests.AcceptanceFlowTests/testCheckedOriginalAfterActualCancellationPreservesDraftAndFilterOnlyAfterExplicitRetry",
+            "UITests.AcceptanceFlowTests/testCompletedSearchSurvivesNavigationAndModeChangeInvalidates",
+            "UITests.AcceptanceFlowTests/testDirtyDraftSurvivesNavigationAndRelaunch",
+            "UITests.AcceptanceFlowTests/testFailedActualRenameKeepsDirtyInputAcrossNavigation",
+            "UITests.AcceptanceFlowTests/testRelaunchRestoresInputsButRequiresFreshExplicitSearch",
+            "UITests.BackupFlowTests/testDestinationCancelAndCollisionPreserveExistingItemsAndCleanOnlyOwnedOutput",
+            "UITests.BackupFlowTests/testFailedRecoveryRetainsCoordinatorAndExplicitRetryWithoutCompetingOpen",
+            "UITests.BackupFlowTests/testFiniteTimeoutRetainsHeldWorkerAndClosedAdmissionUntilActualFinish",
+            "UITests.BackupFlowTests/testHeldActualSearchReadCancelsWithoutPublishingOldSnapshot",
+            "UITests.BackupFlowTests/testHeldActualViewerReadReleasesImageAndDrainsBeforeAnyFallbackPublication",
+            "UITests.BackupFlowTests/testHeldPeopleReadCannotPublishOrSpawnDirtySuccessorAfterQuiescence",
+            "UITests.BackupFlowTests/testHeldStartupMustActuallyFinishBeforeDrainWithoutLateSourcePublication",
+            "UITests.BackupFlowTests/testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome",
+            "UITests.BackupFlowTests/testRestoreDrainTimeoutRequiresExplicitRetryBeforeSingleGraphPublicationAndReconnect",
+            "UITests.BackupFlowTests/testReturnedFreshActorSurvivesSnapshotFailureUntilExplicitReadRetry",
+            "UITests.BackupFlowTests/testTimedOutSessionRequiresExplicitRedrainAfterActualWorkerFinishes",
+            "UITests.DesignScreensTests/testScreenshotWalk",
+            "UITests.LaunchTests/testAppLaunchesSuccessfully",
+            "UITests.PeopleFlowTests/testBurstRefreshBoundsOutstandingReadsAndPublishesLatestFaces",
+            "UITests.PeopleFlowTests/testCommittedMergeDismissesDespiteRefreshFailureAndPersistsOnce",
+            "UITests.PeopleFlowTests/testCommittedNamingDismissesDespiteRefreshFailureAndPersistsOnce",
+            "UITests.PeopleFlowTests/testInitialPeopleFailurePreservesCachedLibraryCheckpointAndSource",
+            "UITests.PeopleFlowTests/testMemoryWarningDuringFaceDecodeRejectsStalePublication",
+            "UITests.PeopleFlowTests/testUndoRenameSynchronizesEditableNameBeforeNextSave",
+            "UITests.PrivacyFlowTests/testCommittedPreferenceCleanupRetryNeverDeletesAgain",
+            "UITests.PrivacyFlowTests/testDisconnectWaitsForActualSourceWorkerCompletionAndPreventsLateSelection",
+            "UITests.PrivacyFlowTests/testDrainTimeoutKeepsCatalogFencedUntilExplicitRetry",
+            "UITests.PrivacyFlowTests/testWholeDeletionPreferenceFailureRetainsSameCoreOwnerAndDoesNotPublishEmptySuccess",
+            "UITests.PrivacyFlowTests/testWholeDeletionRefusesRetainedRestoreOwnerWithoutStartingCleanup",
+            "UITests.PrivacyFlowTests/testWholeDeletionWaitsForHeldActualSourceDrainThenProvesNoLateCatalogOrLogger",
+            "UITests.ProtectedDataFlowTests/testActualPreferenceWriterKeepsDrainPendingUntilExplicitRelease",
+            "UITests.ProtectedDataFlowTests/testDirtyDraftAndSearchInputsSurviveOrdinaryUnlockWithoutSourceReadOrScan",
+            "UITests.ProtectedDataFlowTests/testEachActualLibraryFaceAndSearchPreviewWorkerDelaysDrainAndCannotPublishLate",
+            "UITests.ProtectedDataFlowTests/testLateActualScanCompletionRequiresExplicitRedrainBeforePhysicalClose",
+            "UITests.ProtectedDataFlowTests/testLockDuringActualPreparedDeletionOwnerClosesWithoutContinuingErase",
+            "UITests.ProtectedDataFlowTests/testLockedColdLaunchDoesNotAdmitStartupOrSourceAndAvailableEventStaysGated",
+            "UITests.ProtectedDataFlowTests/testUnavailableAgainDuringFreshSnapshotRetainsActorAndPreventsLatePublication",
+            "UITests.ScanProgressTests/testFolderPickerCanBeCancelledWithoutSourceMutation",
+            "UITests.SearchFlowTests/testCancelHeldOriginalReadNeverPublishesAfterDismiss",
+            "UITests.SearchFlowTests/testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful",
+            "UITests.SearchFlowTests/testFallbackDecodeErrorAfterMemoryReleasePreservesReleasedStatus",
+            "UITests.SearchFlowTests/testMemoryWarningDuringOriginalDecodeReleasesBeforePublication",
+            "UITests.VerificationFlowTests/testCompactLargeTextAndRelaunchShowsSuggestionsUnavailableUntilScan",
+            "UITests.VerificationFlowTests/testVerifyIsOffAndLabeledEvaluationByDefault"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -3962,7 +3811,8 @@
       "task1.1",
       "task1.4",
       "task1.2",
-      "task1.5"
+      "task1.5",
+      "ui.journeys"
     ],
     "phase3": [
       "task1.1",
@@ -3977,7 +3827,8 @@
       "task3.2d",
       "task3.2e",
       "task3.2f",
-      "task3.2g"
+      "task3.2g",
+      "ui.journeys"
     ],
     "phase4": [
       "task1.1",
@@ -3988,7 +3839,8 @@
       "task3.3",
       "task4.capture-date",
       "task4.1",
-      "task4.2"
+      "task4.2",
+      "ui.journeys"
     ],
     "phase5": [
       "task1.1",
@@ -4027,7 +3879,8 @@
       "task5.2protectedA",
       "task5.2protectedB",
       "task5.1C2b14-crash-matrix",
-      "task5.retained-export-cleanup"
+      "task5.retained-export-cleanup",
+      "ui.journeys"
     ],
     "phase6": [
       "task1.1",
@@ -4089,7 +3942,11 @@
       "task2.3-yunet-runtime-generic",
       "task2.3-core-face-fence",
       "task2.model-resources",
-      "task2.3-producer"
+      "task2.3-producer",
+      "ui.journeys"
+    ],
+    "phase-release-ui": [
+      "ui.release"
     ]
   }
 }

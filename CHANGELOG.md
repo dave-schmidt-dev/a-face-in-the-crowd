@@ -46,6 +46,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Contracts for preserving originals, local sensitive data, human confirmation, truthful search and recoverable catalogs.
 
 ### Changed
+- The simulator UI suite is cut from 92 tests to 10 end-to-end journeys that run at phase gates (the full phase6 gate now takes about 23 minutes instead of more than 75). 37 tests were removed because Core tests cover the same rule or they only checked layout; 45 App-session tests that have no unit-test home yet run only in the release-only `phase-release-ui` gate.
 - Search updates its results as soon as you change the people or the mode; Refresh results is gone and pull to refresh re-runs the current search. The first search after opening the app still starts with Show photos.
 - Verify shows the review card near the top: a one-line evaluation notice with details behind an info button, one control row for Suggestions, Find face details and Clear face details, and the counts below the card.
 - Undo last decision is a toolbar button on People, Person and Verify instead of a full-width button in the content.

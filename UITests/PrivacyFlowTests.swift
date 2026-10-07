@@ -9,7 +9,6 @@ final class PrivacyFlowTests: XCTestCase {
         app.launch(); XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10)); return app
     }
     private func reveal(_ element: XCUIElement, _ app: XCUIApplication) { revealElement(element, app) }
-    private func revealed(_ element: XCUIElement, _ app: XCUIApplication) -> Bool { isRevealed(element, app) }
     private func tap(_ id: String, _ app: XCUIApplication) {
         let element = app.buttons[id].firstMatch; reveal(element, app)
         XCTAssertTrue(element.waitForExistence(timeout: 10)); XCTAssertTrue(isRevealed(element, app), id + " " + whyNotRevealed(element, app)); element.tap()
@@ -106,27 +105,6 @@ final class PrivacyFlowTests: XCTestCase {
         XCTAssertEqual(app.staticTexts["backup-source-state"].label, "No source folder selected")
         wait("privacy-operation-probe", "Effects 1 · Adopt 1", app)
     }
-    func testOfflineCacheClearRetainsDecisionsAndExplainsUnavailablePreviews() {
-        let app = app(); scan(app); name(app); settings(app); confirm("disconnect-source", app)
-        wait("privacy-operation-state", "finished", app); confirm("clear-cached-previews", app)
-        wait("privacy-operation-state", "finished", app)
-        XCTAssertTrue(app.staticTexts["privacy-operation-message"].label.contains("Offline previews are unavailable"))
-        app.buttons["Done"].tap(); openPerson(app)
-        XCTAssertEqual(app.textFields["rename-person-name"].value as? String, "Fictional Alice")
-        XCTAssertTrue(app.staticTexts["person-confirmed-count"].label.contains("1 confirmed"))
-    }
-    func testPersonDeletionPreservesEqualNamePeerAndDisclosesRetainedHistoryAndExports() {
-        let app = app(); scan(app); name(app); name(app, path: "nested/synthetic-1.jpg"); openPerson(app)
-        tap("delete-person", app)
-        let alert = app.alerts["Confirm privacy action"]; XCTAssertTrue(alert.waitForExistence(timeout: 10))
-        XCTAssertTrue(alert.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Immutable history and prior exports'" )).firstMatch.exists)
-        alert.buttons["Continue"].tap(); settings(app); wait("privacy-operation-state", "finished", app)
-        XCTAssertTrue(app.staticTexts["privacy-operation-message"].label.contains("related Undo is unavailable"))
-        app.buttons["Done"].tap(); navigate("People", app)
-        // Rows below the fold are not rendered by the lazy grid, so the count is read from the heading's value.
-        let heading = app.staticTexts["people-records-start"]; XCTAssertTrue(heading.waitForExistence(timeout: 10))
-        XCTAssertTrue(waitUntilTrue(10) { heading.value as? String == "1" }, "people count: \(heading.value ?? "nil")")
-    }
     func testCommittedPreferenceCleanupRetryNeverDeletesAgain() {
         let app = app(["--uitest-presentation-save-retry"]); scan(app); name(app); openPerson(app)
         let field = app.textFields["rename-person-name"]; field.tap(); field.typeText(" owner draft")
@@ -137,15 +115,6 @@ final class PrivacyFlowTests: XCTestCase {
         tap("privacy-repair-inputs", app); wait("privacy-input-fixture", "repaired", app)
         tap("retry-privacy-action", app); wait("privacy-operation-state", "finished", app)
         wait("privacy-operation-probe", "Deletes 1 · Effects 1 · Adopt 1", app)
-    }
-    func testRetainedRestoreOwnerRefusesPrivacyActionsWithoutCompetingRecovery() {
-        let app = app(["--uitest-backup-prepared-fault"]); settings(app)
-        tap("choose-restore", app); waitValue("backup-operation-state", "restorePreview", app)
-        tap("confirm-catalog-restore", app); waitValue("backup-operation-state", "recoveryRequired", app)
-        tap("clear-cached-previews", app)
-        wait("privacy-operation-message", "Finish catalog recovery", app)
-        XCTAssertFalse(app.alerts["Confirm privacy action"].exists)
-        wait("backup-operation-probe", "Restore 1 · Open 0 · Adopt 0", app)
     }
     func testDrainTimeoutKeepsCatalogFencedUntilExplicitRetry() {
         let app = app(["--uitest-session-hold-people", "--uitest-session-short-timeout"])

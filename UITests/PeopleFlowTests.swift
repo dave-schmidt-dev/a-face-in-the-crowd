@@ -147,17 +147,6 @@ final class PeopleFlowTests: XCTestCase {
         waitForExpectations(timeout: 5)
         XCTAssertFalse(app.staticTexts["decision-error"].exists)
     }
-    func testCompactLargeTextManualUnsureAndFalseDetection() {
-        let app = catalog(compact: true)
-        tap("unidentified-face", app: app); tap("defer-face", app: app)
-        XCTAssertTrue(app.buttons["unidentified-face"].firstMatch.waitForExistence(timeout: 5))
-        count("unidentified-face", 6, app: app)
-        tap("decision-undo", app: app)
-        tap("unidentified-face", app: app); tap("not-a-person", app: app)
-        count("unidentified-face", 5, app: app)
-        tap("decision-undo", app: app); count("unidentified-face", 6, app: app)
-        XCTAssertFalse(app.staticTexts["decision-error"].exists)
-    }
     func testMemoryWarningDuringFaceDecodeRejectsStalePublication() {
         let app = catalog(previewMemoryWarning: true)
         tap("unidentified-face", app: app)
@@ -275,49 +264,6 @@ final class PeopleFlowTests: XCTestCase {
         let records = peopleRecords(app: app)
         assertPeople(records, ids: [survivorID], name: "Fixture B", photoCount: combinedCount)
         XCTAssertFalse(records.keys.contains(sourceID))
-    }
-
-    func testMergeConflictCancelApplyRestartAndUndo() {
-        let app = catalog()
-        tap("unidentified-face", app: app); name("Fixture A", app: app)
-        tap("unidentified-face", app: app); name("Fixture B", app: app)
-        let sourceID = person("Fixture A", app: app).identifier
-        let survivorID = person("Fixture B", app: app).identifier
-        XCTAssertNotEqual(sourceID, survivorID)
-        assertPeople(peopleRecords(app: app), ids: [sourceID, survivorID], photoCount: 1)
-        let targetID = String(survivorID.dropFirst("person-".count))
-        personID(sourceID, app: app).tap(); tap("correct-face", app: app)
-        tap("existing-person", app: app)
-        let target = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Fixture B")).firstMatch
-        XCTAssertTrue(target.waitForExistence(timeout: 5)); target.tap()
-        tap("reject-selected-person", app: app)
-        tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
-        XCTAssertTrue(app.buttons["apply-merge"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["apply-merge"].isEnabled)
-        tap("cancel-merge", app: app)
-        XCTAssertEqual(app.staticTexts["person-confirmed-count"].label, "1 confirmed photo")
-        tap("merge-person", app: app); tap("merge-target-" + targetID, app: app)
-        let confirmation = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'merge-confirm-'" )).firstMatch
-        XCTAssertTrue(confirmation.waitForExistence(timeout: 5)); confirmation.tap()
-        XCTAssertTrue(app.buttons["apply-merge"].isEnabled)
-        let combinedCount = mergeResultCount(app: app)
-        tap("apply-merge", app: app)
-        expectation(for: NSPredicate(format: "label == '0 confirmed photos'"), evaluatedWith: app.staticTexts["person-confirmed-count"])
-        waitForExpectations(timeout: 5)
-        app.terminate(); app.launch()
-        navigate("People", app: app)
-        XCTAssertTrue(app.buttons["decision-undo"].waitForExistence(timeout: 10))
-        assertPeople(peopleRecords(app: app), ids: [survivorID], name: "Fixture B", photoCount: combinedCount)
-        tap("decision-undo", app: app)
-        expectation(for: NSPredicate(format: "exists == true"), evaluatedWith: app.buttons[sourceID])
-        // Reveal before waiting: an existing lazy record may be outside the viewport.
-        personID(sourceID, app: app)
-        waitForExpectations(timeout: 5)
-        let restored = peopleRecords(app: app)
-        assertPeople(restored, ids: [sourceID, survivorID], photoCount: 1)
-        XCTAssertTrue(restored[sourceID]?.contains("Fixture A") == true)
-        XCTAssertTrue(restored[survivorID]?.contains("Fixture B") == true)
-        XCTAssertFalse(app.staticTexts["decision-error"].exists)
     }
 
 }

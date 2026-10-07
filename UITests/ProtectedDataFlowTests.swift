@@ -111,17 +111,6 @@ final class ProtectedDataFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["protected-session-probe"].label.contains("Drained 0"))
         tap("retry-protected-close", app); assertClosed(app)
     }
-    func testRealSQLiteBusyKeepsSameFenceUntilStatementReleaseAndExplicitRetry() {
-        let app = launch(["--uitest-protected-sqlite-busy"])
-        XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10))
-        tap("protected-synthetic-will", app)
-        wait("protected-catalog-state", "retryRequired", app)
-        wait("protected-catalog-message", "same owner", app)
-        tap("protected-synthetic-did", app)
-        XCTAssertEqual(app.staticTexts["protected-catalog-state"].label, "retryRequired")
-        tap("protected-release-workers", app)
-        tap("retry-protected-close", app); assertClosed(app)
-    }
     func testEachActualLibraryFaceAndSearchPreviewWorkerDelaysDrainAndCannotPublishLate() {
         for kind in ["library-preview", "face-preview", "search-preview"] {
             let app = launch(["--uitest-protected-hold-previews", "--uitest-protected-preview-kind", kind,
@@ -191,17 +180,6 @@ final class ProtectedDataFlowTests: XCTestCase {
         waitValue("scan-phase", "completed", app)
         tap("settings", app); XCTAssertEqual(app.staticTexts["backup-source-state"].label, "Original source folder selected")
     }
-    func testRetainedPreparedRestoreOwnerLockAndExplicitUnlockUsesSameRecoveryAuthority() {
-        let app = launch(["--uitest-privacy-controls", "--uitest-backup-prepared-fault"])
-        scan(app); tap("settings", app); tap("choose-restore", app)
-        waitValue("backup-operation-state", "restorePreview", app); tap("confirm-catalog-restore", app)
-        waitValue("backup-operation-state", "recoveryRequired", app)
-        wait("backup-operation-probe", "Restore 1 · Open 0 · Adopt 0", app)
-        tap("protected-synthetic-will", app); assertClosed(app)
-        tap("settings", app); XCTAssertEqual(app.staticTexts["backup-source-state"].label, "No source folder selected")
-        XCTAssertNotEqual(app.staticTexts["backup-operation-state"].value as? String, "recoveryRequired")
-        XCTAssertFalse(app.buttons["start-scan"].exists)
-    }
     func testUnavailableAgainDuringFreshSnapshotRetainsActorAndPreventsLatePublication() {
         let app = launch(["--uitest-protected-hold-fresh-snapshot", "--uitest-session-short-timeout"])
         scan(app); nameAndOpen(app)
@@ -238,34 +216,5 @@ final class ProtectedDataFlowTests: XCTestCase {
         tap("prepare-backup", app); waitValue("backup-operation-state", "exportPreview", app)
         tap("cancel-backup-preview", app); waitValue("backup-operation-state", "idle", app)
         app.buttons["Done"].tap(); wait("protected-retained-backup-probe", "Prepared 0", app)
-    }
-    func testMissingExistingCatalogAfterLockShowsRecoveryAndNeverCreatesEmptyCatalog() {
-        let token = UUID().uuidString
-        let seed = launch(token: token)
-        XCTAssertTrue(seed.buttons["choose-folder"].waitForExistence(timeout: 10))
-        tap("settings", seed); tap("delete-local-catalog", seed)
-        XCTAssertTrue(seed.alerts["Confirm privacy action"].waitForExistence(timeout: 10)); seed.alerts.buttons["Continue"].tap()
-        wait("privacy-operation-state", "finished", seed); seed.terminate()
-        let app = launch(["--uitest-protected-cold-lock"], token: token)
-        wait("protected-catalog-state", "coldLocked", app)
-        tap("protected-synthetic-did", app); XCTAssertFalse(app.buttons["choose-folder"].exists)
-        tap("open-protected-catalog", app); wait("protected-catalog-state", "openRetryRequired", app)
-        XCTAssertFalse(app.buttons["choose-folder"].exists)
-        tap("open-protected-catalog", app); wait("protected-catalog-state", "openRetryRequired", app)
-        XCTAssertFalse(app.buttons["choose-folder"].exists)
-    }
-    func testPausedLoggerActualQueuedRecordCannotRecreateAfterWholeDeleteAndResume() {
-        let app = launch(["--uitest-privacy-controls", "--uitest-protected-hold-deletion", "--uitest-session-short-timeout"])
-        XCTAssertTrue(app.buttons["choose-folder"].waitForExistence(timeout: 10))
-        tap("settings", app); tap("delete-local-catalog", app)
-        XCTAssertTrue(app.alerts["Confirm privacy action"].waitForExistence(timeout: 10)); app.alerts.buttons["Continue"].tap()
-        wait("privacy-operation-probe", "Whole owners 1", app)
-        tap("protected-synthetic-will", app); wait("protected-catalog-state", "retryRequired", app)
-        tap("protected-release-workers", app); tap("retry-protected-close", app); assertClosed(app, reopen: false)
-        tap("open-protected-catalog", app)
-        XCTAssertTrue(app.staticTexts["local-catalog-deleted"].waitForExistence(timeout: 10))
-        tap("settings", app); tap("verify-deletion-fixture", app)
-        wait("privacy-deletion-fixture-probe", "Late log absent 1", app)
-        XCTAssertFalse(app.buttons["choose-folder"].exists)
     }
 }
