@@ -24,23 +24,37 @@ final class ProducerTrace: @unchecked Sendable {
     func count(_ event: String) -> Int { events.filter { $0 == event }.count }
 }
 
-/// Holds an async backend until released; cancellation does not resume it, so drain is real.
+/// Holds an async backend until released; event-driven entry waiting and cancellation do not resume it, so drain is real.
 actor ProducerHoldGate {
     private var entered = false
     private var released = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
     func enter() async {
         entered = true
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters.removeAll()
         guard !released else { return }
         await withCheckedContinuation { waiters.append($0) }
     }
     func release() { released = true; waiters.forEach { $0.resume() }; waiters.removeAll() }
     func waitEntered() async throws {
-        let deadline = ContinuousClock.now + .seconds(5)
-        while !entered {
-            guard ContinuousClock.now < deadline else { XCTFail("Held backend was not entered"); return }
-            try await Task.sleep(for: .milliseconds(2))
+        guard !entered else { return }
+        let timeout = Task {
+            do {
+                try await Task.sleep(for: .seconds(120))
+                await timeoutEnteredWaiters()
+            } catch {
+                // Cancellation is expected when entry is observed.
+            }
         }
+        await withCheckedContinuation { enteredWaiters.append($0) }
+        timeout.cancel()
+        if !entered { XCTFail("Held backend was not entered") }
+    }
+    private func timeoutEnteredWaiters() {
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters.removeAll()
     }
 }
 

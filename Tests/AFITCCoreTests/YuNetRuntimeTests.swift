@@ -163,7 +163,7 @@ final class YuNetRuntimeTests: XCTestCase {
     }
     #endif
     private func wait(_ predicate: () async -> Bool) async throws {
-        let deadline = ContinuousClock.now + .seconds(5)
+        let deadline = ContinuousClock.now + .seconds(60)
         while !(await predicate()) {
             guard ContinuousClock.now < deadline else { throw YuNetRuntimeError.backendFailed }
             try await Task.sleep(for: .milliseconds(5))

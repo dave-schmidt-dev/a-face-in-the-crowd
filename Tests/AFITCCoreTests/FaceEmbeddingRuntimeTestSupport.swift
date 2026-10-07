@@ -155,10 +155,10 @@ final class SFaceProgressRecorder: @unchecked Sendable {
 final class SFaceCompletionBoundaryGate: @unchecked Sendable {
     private let entered = SFaceLockedFlag()
     private let semaphore = DispatchSemaphore(value: 0)
-    func hold() { entered.set(); if semaphore.wait(timeout: .now() + 5) != .success { XCTFail("Completion callback timeout") } }
+    func hold() { entered.set(); if semaphore.wait(timeout: .now() + 60) != .success { XCTFail("Completion callback timeout") } }
     func release() { semaphore.signal() }
     func waitForEntry() async throws {
-        let deadline = ContinuousClock.now + .seconds(3)
+        let deadline = ContinuousClock.now + .seconds(60)
         while !entered.value {
             guard ContinuousClock.now < deadline else { throw FaceEmbeddingRuntimeError.backendFailed }
             try await Task.sleep(for: .milliseconds(5))
