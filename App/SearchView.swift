@@ -17,6 +17,7 @@ struct SearchView: View {
         nonmutating set { presentation.setSearch(mode: newValue) }
     }
     @State private var viewer: PhotoIdentity?
+    @State private var autoSearch = false
     @Environment(\.tokens) private var tokens
     private func title(_ mode: SearchMode) -> String {
         switch mode { case .together: return "Together"; case .any: return "Any selected"; case .only: return "Only selected" }
@@ -25,8 +26,8 @@ struct SearchView: View {
         services.peopleSnapshot.people.map(\.person).filter { $0.mergedInto == nil }
     }
     /// UUID aliases preserve a selection across explicit merges; names never establish identity.
-    private func canonicalID(_ id: UUID) -> UUID? {
-        let records = Dictionary(grouping: services.peopleSnapshot.people.map(\.person), by: \.id)
+    static func canonicalID(_ id: UUID, in people: [PersonRecord]) -> UUID? {
+        let records = Dictionary(grouping: people, by: \.id)
         var current = id, seen: Set<UUID> = []
         while seen.insert(current).inserted {
             guard let matches = records[current], matches.count == 1, let record = matches.first else { return nil }
@@ -35,8 +36,24 @@ struct SearchView: View {
         }
         return nil
     }
-    private var canonicalSelection: Set<UUID> { Set(selected.compactMap { canonicalID($0) }) }
+    static func canonicalSelection(selected: Set<UUID>, in people: [PersonRecord]) -> Set<UUID> {
+        Set(selected.compactMap { canonicalID($0, in: people) })
+    }
+    static func canonicalSelection(services: AppServices) -> Set<UUID> {
+        canonicalSelection(selected: services.presentation.preferences.search.selected, in: services.peopleSnapshot.people.map(\.person))
+    }
+    private func canonicalID(_ id: UUID) -> UUID? {
+        Self.canonicalID(id, in: services.peopleSnapshot.people.map(\.person))
+    }
+    private var canonicalSelection: Set<UUID> { Self.canonicalSelection(services: services) }
     private var selectionUnavailable: Bool { selected.contains { canonicalID($0) == nil } }
+    private struct SearchKey: Equatable {
+        let mode: SearchMode
+        let selection: [UUID]
+    }
+    private var searchKey: SearchKey {
+        SearchKey(mode: mode, selection: canonicalSelection.sorted { $0.uuidString < $1.uuidString })
+    }
     private var chipSelection: Binding<Set<UUID>> {
         Binding(get: { canonicalSelection }, set: { value in
             let unresolved = selected.filter { canonicalID($0) == nil }
@@ -87,10 +104,15 @@ struct SearchView: View {
             #endif
             Text("Only confirmed identities included. Possible matches unavailable.")
                 .font(.caption).foregroundStyle(tokens.secondary).accessibilityIdentifier("possible-unavailable")
-            Button("Show photos") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
+            if controller.snapshot == nil, !controller.searching, !autoSearch {
+                Button("Show photos") {
+                    autoSearch = true
+                    controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages)
+                }
                 .buttonStyle(CapsuleButtonStyle(minHeight: 48))
-                .disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
+                .disabled(selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
                 .accessibilityIdentifier("show-photos")
+            }
             if controller.searching { ProgressView("Searching").accessibilityIdentifier("searching") }
             if let error = controller.error { Text(error).accessibilityIdentifier("search-error") }
             if let snapshot = controller.snapshot {
@@ -100,9 +122,6 @@ struct SearchView: View {
                 if snapshot.selectedPeople.isEmpty {
                     Text("All catalog photos").font(.footnote).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("search-snapshot")
                 }
-                Button("Refresh results") { controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages) }
-                    .buttonStyle(.capsuleSecondary).disabled(controller.searching || selectionUnavailable || (mode == .only && canonicalSelection.isEmpty))
-                    .accessibilityIdentifier("refresh-search")
                 if snapshot.query.mode == .only {
                     Text("\(snapshot.coverage.unresolvedCandidatePhotoCount) candidate \(snapshot.coverage.unresolvedCandidatePhotoCount == 1 ? "photo" : "photos") withheld for unresolved faces; \(snapshot.coverage.extraPeopleCandidatePhotoCount) \(snapshot.coverage.extraPeopleCandidatePhotoCount == 1 ? "photo has" : "photos have") extra people.")
                         .accessibilityIdentifier("only-coverage")
@@ -126,6 +145,19 @@ struct SearchView: View {
                     if presentation.preferences.search.requestedPages >= 64 { Text("Refine this search to view more photos.").foregroundStyle(tokens.secondary) }
                 }
             }
+        }
+        .onChange(of: mode) { autoSearch = true }
+        .onChange(of: selected) { autoSearch = true }
+        .task(id: searchKey) {
+            guard autoSearch else { return }
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            guard !selectionUnavailable, !(mode == .only && canonicalSelection.isEmpty) else { return }
+            controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages)
         }
         .onDisappear { controller.cancelInFlight() }
         .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }

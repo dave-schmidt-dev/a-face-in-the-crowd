@@ -246,7 +246,7 @@ public struct RootView: View {
         .accessibilityIdentifier("screen-\(section.rawValue)")
         .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
         .modifier(UndoToolbar(services: services, enabled: section == .people || section == .verify))
-        .modifier(PeopleRefresh(enabled: section == .people, services: services))
+        .modifier(PeopleRefresh(section: section, services: services))
         }
     }
     private func availableAnchors(_ section: Section) -> Set<UUID> {
@@ -274,11 +274,25 @@ public struct RootView: View {
     }
 }
 
-/// Pull-to-refresh for People: the way to retry after a failed read, with no standing button.
+/// Pull-to-refresh for People and Search: retry after a failed read or re-run current query.
 private struct PeopleRefresh: ViewModifier {
-    let enabled: Bool
+    let section: RootView.Section
     @ObservedObject var services: AppServices
     func body(content: Content) -> some View {
-        if enabled { content.refreshable { await services.refreshPeople() } } else { content }
+        if section == .people {
+            content.refreshable { await services.refreshPeople() }
+        } else if section == .search {
+            content.refreshable {
+                let prefs = services.presentation.preferences.search
+                let selected = SearchView.canonicalSelection(services: services)
+                // Same validity rules as the screen: never silently drop unavailable records.
+                let people = services.peopleSnapshot.people.map(\.person)
+                guard prefs.selected.allSatisfy({ SearchView.canonicalID($0, in: people) != nil }),
+                      !(prefs.mode == .only && selected.isEmpty) else { return }
+                services.presentation.search.search(mode: prefs.mode, selected: selected, services: services, requestedPages: prefs.requestedPages)
+            }
+        } else {
+            content
+        }
     }
 }

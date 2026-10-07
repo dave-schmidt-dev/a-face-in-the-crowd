@@ -50,15 +50,15 @@ final class AcceptanceFlowTests: XCTestCase {
         wait(app.staticTexts["presentation-persistence-probe"], contains: "Active 0")
     }
     func testCompletedSearchSurvivesNavigationAndModeChangeInvalidates() {
-        let app = fixture(); selectSearch(app); tap("show-photos", app)
+        let app = fixture(); selectSearch(app)
         wait(app.staticTexts["search-result-count"], contains: "photo")
         let count = app.staticTexts["search-result-count"].label
         navigate("Library", app); navigate("Search", app)
         XCTAssertEqual(app.staticTexts["search-result-count"].label, count)
-        tap("search-mode-only", app); XCTAssertFalse(app.staticTexts["search-result-count"].exists)
+        tap("search-mode-only", app); wait(app.staticTexts["search-result-count"], contains: "0 photos")
     }
     func testRelaunchRestoresInputsButRequiresFreshExplicitSearch() {
-        let app = fixture(); selectSearch(app); tap("show-photos", app); wait(app.staticTexts["search-result-count"], contains: "photo"); flush(app)
+        let app = fixture(); selectSearch(app); wait(app.staticTexts["search-result-count"], contains: "photo"); flush(app)
         app.terminate(); app.launch(); navigate("Search", app)
         XCTAssertTrue(app.staticTexts["query-sentence"].label.contains("Fictional Alice")); XCTAssertFalse(app.staticTexts["search-result-count"].exists)
         tap("show-photos", app); wait(app.staticTexts["search-result-count"], contains: "photo")

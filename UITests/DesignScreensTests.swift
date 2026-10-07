@@ -101,13 +101,18 @@ final class DesignScreensTests: XCTestCase {
         let chip = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-person-'")).firstMatch
         XCTAssertTrue(chip.waitForExistence(timeout: 10)); chip.tap()
         modes[1].tap(); XCTAssertTrue(modes[1].isSelected); XCTAssertFalse(modes[0].isSelected)
-        tapButton("show-photos", app)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'")).firstMatch
         XCTAssertTrue(photo.waitForExistence(timeout: 15))
         revealElement(photo, app)
         XCTAssertGreaterThanOrEqual(photo.frame.width, 150, "result tiles are at least about 160 pt wide")
         XCTAssertFalse(app.staticTexts["search-snapshot"].exists, "selected chips already say who was searched")
         attachScreenshot("search-results", app)
+        XCTAssertFalse(app.buttons["refresh-search"].exists, "refresh-search does not exist")
+        let count = app.staticTexts["search-result-count"]
+        XCTAssertEqual(count.label, "1 photo")
+        modes[2].tap()
+        XCTAssertTrue(waitUntilTrue(15) { count.label == "0 photos" }, "tapping mode changes result count with no button press")
+        XCTAssertFalse(app.buttons["refresh-search"].exists, "refresh-search does not exist")
     }
 
     // MARK: C15, C17 Verify
@@ -208,7 +213,7 @@ final class DesignScreensTests: XCTestCase {
         attachScreenshot("shot-verify", app)
         navigateTo("Search", app)
         let chip = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-person-'")).firstMatch
-        if chip.waitForExistence(timeout: 10) { chip.tap(); app.buttons["search-mode-any"].tap(); tapButton("show-photos", app) }
+        if chip.waitForExistence(timeout: 10) { chip.tap(); app.buttons["search-mode-any"].tap() }
         _ = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'")).firstMatch.waitForExistence(timeout: 15)
         attachScreenshot("shot-search", app)
         tapToolbar("settings", app)

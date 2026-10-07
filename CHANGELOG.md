@@ -46,6 +46,13 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Contracts for preserving originals, local sensitive data, human confirmation, truthful search and recoverable catalogs.
 
 ### Changed
+- Search updates its results as soon as you change the people or the mode; Refresh results is gone and pull to refresh re-runs the current search. The first search after opening the app still starts with Show photos.
+- Verify shows the review card near the top: a one-line evaluation notice with details behind an info button, one control row for Suggestions, Find face details and Clear face details, and the counts below the card.
+- Undo last decision is a toolbar button on People, Person and Verify instead of a full-width button in the content.
+- Person shows the name once, with an Edit button to rename it; Confirmed faces is a plain heading.
+- Photos open full screen. The caption shows the file name; the read-only note is behind an info button and the pixel size is no longer shown.
+- A completed scan shows one completion label and the counts; the empty Library shows only the welcome card.
+- At the largest text sizes the sidebar starts hidden on iPad, and person names in Search and the naming sheet wrap instead of being cut off.
 - The catalog database now opens with full SQLite `secure_delete`, so deleted names and decisions are overwritten in the file instead of relying on the platform default.
 - `tools/verify.sh` strips File Provider extended attributes from reused build products before building, so codesign no longer fails when the project lives in a synced Documents folder.
 - `tools/verify.sh <phase> --headless` runs an accumulated phase's Core tests and iPad compile without the simulator UI suite; the full UI gate is reserved for release milestones.

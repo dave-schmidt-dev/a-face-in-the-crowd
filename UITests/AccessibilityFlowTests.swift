@@ -11,15 +11,17 @@ final class AccessibilityFlowTests: XCTestCase {
             format: "identifier == %@ OR label == %@", "navigate-Search", "Search")).firstMatch
         XCTAssertTrue(search.waitForExistence(timeout: 5)); XCTAssertTrue(isHittableSafely(search, app)); search.tap()
         let screen = app.scrollViews["screen-Search"]; XCTAssertTrue(screen.waitForExistence(timeout: 5))
+        let show = app.buttons["show-photos"]
+        XCTAssertTrue(show.waitForExistence(timeout: 5)); revealElement(show, app)
+        XCTAssertTrue(isRevealed(show, app), whyNotRevealed(show, app))
+        XCTAssertGreaterThanOrEqual(show.frame.height, 44)
         for id in ["search-mode-together", "search-mode-any", "search-mode-only"] {
             let control = app.buttons[id]
             XCTAssertTrue(control.waitForExistence(timeout: 5)); revealElement(control, app)
             XCTAssertTrue(isRevealed(control, app), id + " " + whyNotRevealed(control, app))
             XCTAssertGreaterThanOrEqual(control.frame.height, 44); control.tap()
         }
-        let show = app.buttons["show-photos"]
-        XCTAssertTrue(show.waitForExistence(timeout: 5)); revealElement(show, app)
-        XCTAssertTrue(show.exists); XCTAssertFalse(show.isEnabled)
+        XCTAssertFalse(app.buttons["show-photos"].exists)
         XCTAssertTrue(app.staticTexts["query-sentence"].exists)
         XCTAssertTrue(app.staticTexts["possible-unavailable"].exists)
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Synthetic compact XXXL search semantic controls"; attachment.lifetime = .keepAlways; add(attachment)

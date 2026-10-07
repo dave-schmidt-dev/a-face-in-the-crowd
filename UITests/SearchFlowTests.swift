@@ -57,7 +57,7 @@ final class SearchFlowTests: XCTestCase {
         guard navigate("Search", app) else { return }
         XCTAssertTrue(app.staticTexts["possible-unavailable"].exists)
         guard let chip = chips(app, expected: 1) else { return }; XCTAssertNotNil(UUID(uuidString: String(chip[0].identifier.dropFirst("search-person-".count))))
-        chip[0].tap(); tap("show-photos", app); count(1, app)
+        chip[0].tap(); count(1, app)
         let photo = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-photo-'" )).firstMatch
         reveal(photo, app); photo.tap()
         let status = app.staticTexts["viewer-status"]
@@ -65,8 +65,8 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertTrue(app.images["viewer-image"].exists)
         let attachment = XCTAttachment(screenshot: app.screenshot()); attachment.name = "Synthetic original read-only viewer"; attachment.lifetime = .keepAlways; add(attachment)
         tap("close-viewer", app)
-        tap("search-mode-any", app); tap("show-photos", app); count(1, app)
-        tap("search-mode-only", app); tap("show-photos", app); count(0, app)
+        tap("search-mode-any", app); count(1, app)
+        tap("search-mode-only", app); count(0, app)
         XCTAssertTrue(app.staticTexts["search-empty"].exists)
         XCTAssertTrue(app.staticTexts["only-coverage"].label.contains("1 candidate photo withheld"))
     }
@@ -76,15 +76,14 @@ final class SearchFlowTests: XCTestCase {
         guard let records = chips(app, expected: 2) else { return }
         XCTAssertNotEqual(records[0].identifier, records[1].identifier)
         XCTAssertTrue(records.allSatisfy { $0.label.contains("Fixture A") })
-        records[0].tap(); records[1].tap(); tap("show-photos", app)
+        records[0].tap(); records[1].tap()
         let frozen = app.staticTexts["search-result-count"]; XCTAssertTrue(frozen.waitForExistence(timeout: 5))
         let value = frozen.label
         XCTAssertEqual(value, "1 photo")
         XCTAssertTrue(records[0].isSelected && records[1].isSelected, "both identical-name records are selected chips")
         XCTAssertEqual(frozen.label, value)
-        tap("search-mode-only", app); tap("show-photos", app)
-        count(1, app)
-        tap("search-mode-any", app); tap("show-photos", app); count(1, app)
+        tap("search-mode-only", app); count(1, app)
+        tap("search-mode-any", app); count(1, app)
     }
     func testExplicitMergeLeavesOneActiveCanonicalSearchChipAndDeduplicatedPhoto() {
         guard let app = fixture() else { return }; name("Fixture A", app); name("Fixture B", app)
@@ -104,9 +103,9 @@ final class SearchFlowTests: XCTestCase {
         guard let records = chips(app, expected: 1) else { return }
         XCTAssertEqual(records[0].identifier, "search-person-" + survivorID)
         XCTAssertTrue(records[0].label.contains("Fixture B")); XCTAssertFalse(records[0].label.contains("Fixture A"))
-        records[0].tap(); tap("show-photos", app); count(1, app)
+        records[0].tap(); count(1, app)
         XCTAssertTrue(records[0].isSelected); XCTAssertFalse(app.staticTexts["search-snapshot"].exists)
-        tap("search-mode-only", app); tap("show-photos", app); count(1, app)
+        tap("search-mode-only", app); count(1, app)
     }
     func testCompactSwitchFromNonmergedPersonReachesCanonicalSearchRoot() {
         guard let app = fixture(["--uitest-compact"]) else { return }; name("Fixture A", app)
@@ -121,7 +120,7 @@ final class SearchFlowTests: XCTestCase {
         guard let records = chips(app, expected: 1) else { return }
         XCTAssertEqual(records[0].identifier, "search-person-" + personID)
         XCTAssertTrue(records[0].label.contains("Fixture A"))
-        records[0].tap(); tap("show-photos", app); count(1, app)
+        records[0].tap(); count(1, app)
         XCTAssertTrue(records[0].isSelected); XCTAssertFalse(app.staticTexts["search-snapshot"].exists)
     }
     func testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful() {
