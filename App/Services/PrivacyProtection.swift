@@ -432,7 +432,8 @@ extension AppServices {
         let task = Task {
             defer { catalogSession.finish(operation) }
             do {
-                let work = Task.detached { try AppSessionFixture.root() }
+                let ownedRoot = launch.ownedRoot
+                let work = Task.detached { try AppSessionFixture.root(in: ownedRoot) }
                 let root = try await withTaskCancellationHandler { try await work.value } onCancel: { work.cancel() }
                 guard sessionIsCurrent(operation.session) else { return }
                 choose(root)

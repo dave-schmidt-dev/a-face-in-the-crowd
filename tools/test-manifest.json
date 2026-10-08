@@ -38,7 +38,8 @@
             "AFITCCoreTests.RunnerContractTests/testManifestDriftAndZeroSelectorsFail",
             "AFITCCoreTests.RunnerContractTests/testOwnedSimulatorCleanupOnSuccessAndFailure",
             "AFITCCoreTests.RunnerContractTests/testPrivateOutputsIgnoredAndPublicChangelogTracked",
-            "AFITCCoreTests.RunnerContractTests/testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion"
+            "AFITCCoreTests.RunnerContractTests/testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion",
+            "AFITCCoreTests.RunnerContractTests/testSwiftPMOnlyUnitTargetNeedsNoXcodeMembership"
           ]
         }
       }
@@ -3580,7 +3581,6 @@
             "UITests.BackupFlowTests/testHeldActualViewerReadReleasesImageAndDrainsBeforeAnyFallbackPublication",
             "UITests.BackupFlowTests/testHeldPeopleReadCannotPublishOrSpawnDirtySuccessorAfterQuiescence",
             "UITests.BackupFlowTests/testHeldStartupMustActuallyFinishBeforeDrainWithoutLateSourcePublication",
-            "UITests.BackupFlowTests/testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome",
             "UITests.BackupFlowTests/testRestoreDrainTimeoutRequiresExplicitRetryBeforeSingleGraphPublicationAndReconnect",
             "UITests.BackupFlowTests/testReturnedFreshActorSurvivesSnapshotFailureUntilExplicitReadRetry",
             "UITests.BackupFlowTests/testTimedOutSessionRequiresExplicitRedrainAfterActualWorkerFinishes",
@@ -4380,6 +4380,31 @@
           ]
         }
       }
+    },
+    "app.services": {
+      "description": "Portable actual AppServices backup progress and owned fixture isolation; explicit SwiftPM-only registration contract",
+      "targets": {
+        "AFITCAppTests": {
+          "type": "unit",
+          "swiftpmOnly": true,
+          "testFiles": [
+            "Tests/AFITCAppTests/BackupServiceTests.swift"
+          ],
+          "selectors": [
+            "AFITCAppTests.BackupServiceTests/testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome",
+            "AFITCAppTests.BackupServiceTests/testOwnedRootContainsSyntheticSourceFixture"
+          ]
+        },
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/RunnerContractTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.RunnerContractTests/testSwiftPMOnlyUnitTargetNeedsNoXcodeMembership"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -4626,7 +4651,8 @@
       "swiftpmOnly": true,
       "sources": [
         "Tests/AFITCAppTests/FaceGroupServiceTests.swift",
-        "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"
+        "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift",
+        "Tests/AFITCAppTests/BackupServiceTests.swift"
       ]
     }
   },
@@ -4767,7 +4793,8 @@
       "task2.3-core-face-fence",
       "task2.model-resources",
       "task2.3-producer",
-      "ui.journeys"
+      "ui.journeys",
+      "app.services"
     ],
     "phase-release-ui": [
       "ui.release"
@@ -4841,7 +4868,8 @@
       "task7.5",
       "ui.group-journey",
       "task7.6",
-      "task7.7"
+      "task7.7",
+      "app.services"
     ]
   }
 }

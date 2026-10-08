@@ -58,7 +58,7 @@ final class FaceGroupRunnerContractTests: XCTestCase {
         XCTAssertEqual(appTestsTarget["type"] as? String, "unit")
         XCTAssertEqual(appTestsTarget["swiftpmOnly"] as? Bool, true)
         XCTAssertEqual(Set(try XCTUnwrap(appTestsTarget["sources"] as? [String])),
-                       Set(["Tests/AFITCAppTests/FaceGroupServiceTests.swift", "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift"]))
+                       Set(["Tests/AFITCAppTests/FaceGroupServiceTests.swift", "Tests/AFITCAppTests/FaceGroupSearchServiceTests.swift", "Tests/AFITCAppTests/BackupServiceTests.swift"]))
         let task75 = try XCTUnwrap(tasks["task7.5"])
         let target75 = try XCTUnwrap(task75["targets"] as? [String: [String: Any]])
         let searchApp = try XCTUnwrap(target75["AFITCAppTests"])

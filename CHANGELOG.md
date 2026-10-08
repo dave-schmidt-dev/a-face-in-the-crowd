@@ -7,6 +7,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 ## [Unreleased]
 
 ### Added
+- Portable AppServices backup-progress coverage now replaces its duplicate release UI check, with generated-source storage isolated beneath the injected test root and actual worker drain before teardown.
 - Group photo crops now open their matching original through the existing guarded read-only viewer and retain the group on close.
 - Search now separates confirmed and possible named matches using one captured catalog revision, independent counts/pages and the same saved grouping engine. Together and Any include provisional matches; Only remains confirmed and unresolved-safe. Explicit reviewed-group confirmation validates the full inspected batch and records atomic Undo, including backup/restore. Synthetic service tests show no added source reads or inference.
 - People now opens saved unnamed groups, names a cover in place while retaining its photos, and separates confirmed from possible photos. Verify shares the same durable membership without a toggle or rescan. Explicit unfinished-analysis retry uses guarded photo admission; labels and navigation cause no source/model work. Portable AppServices tests measure fictional scan/read/inference reuse and reopening. Recognition and owner acceptance remain separate.

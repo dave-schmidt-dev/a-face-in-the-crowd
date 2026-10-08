@@ -166,6 +166,18 @@ final class RunnerContractTests: XCTestCase {
         XCTAssertTrue(empty.1.contains("Empty test files or selectors"))
     }
 
+    func testSwiftPMOnlyUnitTargetNeedsNoXcodeMembership() throws {
+        let accepted = try manifestCheck("app.services")
+        XCTAssertEqual(accepted.0, 0, accepted.1)
+        let rejected = try manifestCheck("app.services") { manifest in
+            var targets = manifest["targets"] as! [String: [String: Any]]
+            targets["AFITCAppTests"]!.removeValue(forKey: "swiftpmOnly")
+            manifest["targets"] = targets
+        }
+        XCTAssertNotEqual(rejected.0, 0)
+        XCTAssertTrue(rejected.1.contains("membership drift"), rejected.1)
+    }
+
     func testManifestDriftAndZeroSelectorsFail() throws {
         let valid = try manifestCheck("task1.4")
         XCTAssertEqual(valid.0, 0, valid.1)
@@ -527,6 +539,7 @@ final class RunnerContractTests: XCTestCase {
     func testResourceMatrixIncludedForFocusedAndAccumulatedTaskIDs() throws { throw XCTSkip("Host runner contract") }
     func testCoreRunsReceiveFreshOwnedEvidenceDirectoryOrCallerValue() throws { throw XCTSkip("Host runner contract") }
     func testMissingAndEmptyMappingsFail() throws { throw XCTSkip("Host runner contract") }
+    func testSwiftPMOnlyUnitTargetNeedsNoXcodeMembership() throws { throw XCTSkip("Host runner contract") }
     func testManifestDriftAndZeroSelectorsFail() throws { throw XCTSkip("Host runner contract") }
     func testSimulatorSelectionUsesRuntimeCompatibilityAndNumericVersion() throws { throw XCTSkip("Host runner contract") }
     func testOwnedSimulatorCleanupOnSuccessAndFailure() throws { throw XCTSkip("Host runner contract") }

@@ -83,17 +83,6 @@ final class BackupFlowTests: XCTestCase {
         backupTap("retry-backup-operation", app); backupWait("finished", app)
         backupProbe("Restore 1 · Open 0 · Adopt 1", app)
     }
-    func testProgressCoalescesWithoutPerRowTasksAndKeepsTerminalOutcome() {
-        let app = backupApp(["--uitest-backup-hold-progress"])
-        backupTap("prepare-backup", app)
-        let held = app.staticTexts["backup-test-status"]
-        expectation(for: NSPredicate(format: "label CONTAINS 'Held 1'"), evaluatedWith: held); waitForExpectations(timeout: 10)
-        backupProbe("Active 1", app); backupTap("release-backup-work", app)
-        backupWait("exportPreview", app); backupProbe("Active 0", app)
-        XCTAssertNotNil(app.staticTexts["backup-operation-probe"].label.range(of: "Dropped [1-9][0-9]*", options: .regularExpression))
-        XCTAssertTrue(app.staticTexts["backup-preview-summary"].exists)
-        backupTap("cancel-backup-preview", app); backupWait("idle", app)
-    }
     private func launch(hold: String) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--uitest-synthetic-source", "--uitest-synthetic-detector",
