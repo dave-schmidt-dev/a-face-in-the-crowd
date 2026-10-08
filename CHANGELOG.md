@@ -7,6 +7,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 ## [Unreleased]
 
 ### Added
+- Added a standalone opt-in physical iPad People analysis-status probe (`AFITC_LIVE_UI_PROBE=1`) with safe aggregate output; `AFITC_LIVE_UI_OBSERVE_ONLY=1` observes an existing scan without tapping Finish.
 - Portable AppServices backup-progress coverage now replaces its duplicate release UI check, with generated-source storage isolated beneath the injected test root and actual worker drain before teardown.
 - Group photo crops now open their matching original through the existing guarded read-only viewer and retain the group on close.
 - Naming or labeling a conservative pinned face group now assigns the chosen person to every safe member in one atomic, undoable transaction, so all group photos appear as confirmed Search results immediately. The cover is the only new training anchor; uncertain faces outside the group remain in the shared Verify review flow. Search still separates confirmed and possible results using one captured revision, and the explicit reviewed-batch API retains its full-state guards and Undo. No source read or inference runs during labeling.

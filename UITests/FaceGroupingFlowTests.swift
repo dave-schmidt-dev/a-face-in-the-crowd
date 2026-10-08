@@ -149,3 +149,249 @@ final class FaceGroupingFlowTests: XCTestCase {
         attachScreenshot("face-analysis-finish-complete", app)
     }
 }
+
+
+/// Opt-in physical-iPad probe. It observes only fixed status categories and may tap Finish once;
+/// it never selects a source, accepts source identity, inspects photos, or mutates people decisions.
+final class LiveAnalysisStatusProbeTests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false }
+
+    func testLivePeopleAnalysisStatusAndFinish() throws {
+        guard ProcessInfo.processInfo.environment["AFITC_LIVE_UI_PROBE"] == "1" else {
+            throw XCTSkip("Set AFITC_LIVE_UI_PROBE=1 to run the live iPad probe.")
+        }
+        #if targetEnvironment(simulator)
+        throw XCTSkip("This probe is for a physical iPad.")
+        #else
+        let app = XCUIApplication(bundleIdentifier: "com.zerodelta.AFITC")
+        app.activate()
+
+        let initial = Self.observe(app)
+        if initial.pendingAlertCategory != "none" || initial.sourcePickerVisible {
+            Self.emit("before", initial)
+            Self.emit("after", Self.observe(app))
+            throw XCTSkip("A pending alert or source picker was left untouched.")
+        }
+
+        navigateTo("People", app)
+        let people = app.scrollViews["screen-People"]
+        XCTAssertTrue(people.waitForExistence(timeout: 20), "People screen must be available in the live app")
+
+        let before = Self.observe(app)
+        Self.emit("before", before)
+        if before.pendingAlertCategory != "none" || before.sourcePickerVisible {
+            Self.emit("after", Self.observe(app))
+            throw XCTSkip("A pending alert or source picker was left untouched.")
+        }
+
+        let observeOnly = ProcessInfo.processInfo.environment["AFITC_LIVE_UI_OBSERVE_ONLY"] == "1"
+        if observeOnly {
+            Self.observeExistingScan(app, timeout: 90)
+        } else if before.finishExists && before.finishEnabled {
+            let finish = app.buttons["finish-face-analysis"].firstMatch
+            if !finish.isHittable { revealElement(finish, app) }
+            if finish.exists && finish.isEnabled && finish.isHittable {
+                finish.tap()
+                Self.waitForSafeOutcome(app, timeout: 90)
+            }
+        }
+
+        Self.emit("after", Self.observe(app))
+        #endif
+    }
+
+    private static func observe(_ app: XCUIApplication) -> LiveAnalysisProbeObservation {
+        let status = app.staticTexts["face-analysis-status"].firstMatch
+        let finish = app.buttons["finish-face-analysis"].firstMatch
+        let source = app.descendants(matching: .any).matching(identifier: "source-status").firstMatch
+        let scanMessage = app.staticTexts["scan-message"].firstMatch
+        let scanMessageText = scanMessage.exists ? scanMessage.label : nil
+        let confirmation = app.alerts["Confirm the original source"].firstMatch.exists
+            || scanMessageText == "Confirm that this is the original source folder before reconnecting. Matching folder names do not establish identity."
+        let picker = app.navigationBars["Browse"].exists
+            || app.navigationBars["Document Browser"].exists
+            || app.otherElements["Document Browser"].exists
+        let pendingAlert = app.alerts.firstMatch.exists
+        let phaseElement = app.staticTexts["scan-phase"].firstMatch
+        let phase = safePhase(phaseElement.exists ? phaseElement.value as? String : nil)
+        let sourceSelected = source.exists && source.label == "Folder selected · cached previews"
+        let counts = safeStatusCounts(status.exists ? status.label : nil)
+        return LiveAnalysisProbeObservation(
+            statusCounts: counts,
+            finishExists: finish.exists,
+            finishEnabled: finish.exists && finish.isEnabled,
+            sourceSelected: sourceSelected,
+            sourceConfirmationRequired: confirmation,
+            sourcePickerVisible: picker,
+            pendingAlertCategory: confirmation ? "source_confirmation" : (pendingAlert ? "other" : "none"),
+            scanActive: app.buttons["cancel-scan"].exists,
+            scanPhase: phase,
+            scanMessageCategory: safeScanMessageCategory(scanMessageText),
+            pauseCategory: safePauseCategory(counts),
+            errorCategory: safeErrorCategory(app),
+            peopleVisible: app.scrollViews["screen-People"].exists
+        )
+    }
+
+    private static func safePhase(_ value: String?) -> String {
+        guard let value else { return "not_visible" }
+        switch value {
+        case "ready", "discovering", "processing", "completed", "cancelled", "paused", "failed", "interrupted", "cancelling":
+            return value
+        default:
+            return "not_visible"
+        }
+    }
+
+    private static func safeStatusCounts(_ label: String?) -> [String: Int] {
+        guard let label else { return [:] }
+        let patterns: [(String, String)] = [
+            ("photo: analysis failed", "analysis_failed"), ("photos: analysis failed", "analysis_failed"),
+            ("photo: faces could not be matched automatically", "unmatched"),
+            ("photos: faces could not be matched automatically", "unmatched"),
+            ("photo paused: device is warm", "paused_thermal"), ("photos paused: device is warm", "paused_thermal"),
+            ("photo paused: memory is low", "paused_memory"), ("photos paused: memory is low", "paused_memory"),
+            ("photo paused: analysis is unavailable", "paused_unavailable"),
+            ("photos paused: analysis is unavailable", "paused_unavailable"),
+            ("photo paused: analysis is paused", "paused_other"), ("photos paused: analysis is paused", "paused_other"),
+            ("photo needs analysis: device is warm", "needs_analysis_thermal"),
+            ("photos need analysis: device is warm", "needs_analysis_thermal"),
+            ("photo needs analysis: memory is low", "needs_analysis_memory"),
+            ("photos need analysis: memory is low", "needs_analysis_memory"),
+            ("photo needs analysis: analysis is unavailable", "needs_analysis_unavailable"),
+            ("photos need analysis: analysis is unavailable", "needs_analysis_unavailable"),
+            ("photo needs face analysis", "needs_analysis"), ("photos need face analysis", "needs_analysis"),
+            ("photo: local face capacity reached", "capacity_reached"),
+            ("photos: local face capacity reached", "capacity_reached"),
+            ("photo: capacity is available; retry to continue", "capacity_available"),
+            ("photos: capacity is available; retry to continue", "capacity_available")
+        ]
+        var counts: [String: Int] = [:]
+        for component in label.components(separatedBy: " · ") {
+            guard let (suffix, category) = patterns.first(where: { component.hasSuffix($0.0) }) else {
+                counts["unrecognized_components", default: 0] += 1
+                continue
+            }
+            let countText = String(component.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+            guard let count = Int(countText), count >= 0 else {
+                counts["unrecognized_components", default: 0] += 1
+                continue
+            }
+            counts[category, default: 0] += count
+        }
+        return counts
+    }
+
+    private static func safeScanMessageCategory(_ value: String?) -> String {
+        guard let value, !value.isEmpty else { return "none" }
+        switch value {
+        case "Saved face details remain incomplete. The verified photo will be analyzed on a later scan.":
+            return "admitted_read_failed"
+        case "Checking source integrity. Cached previews show the last verified content.":
+            return "source_check"
+        case "Preparing preview and detecting faces.":
+            return "detecting"
+        default:
+            return "other"
+        }
+    }
+
+    private static func safePauseCategory(_ counts: [String: Int]) -> String {
+        if counts["paused_thermal"] != nil || counts["needs_analysis_thermal"] != nil { return "thermal" }
+        if counts["paused_memory"] != nil || counts["needs_analysis_memory"] != nil { return "memory" }
+        if counts["paused_unavailable"] != nil || counts["needs_analysis_unavailable"] != nil { return "unavailable" }
+        if counts["paused_other"] != nil { return "other_paused" }
+        return "none"
+    }
+
+    private static func safeErrorCategory(_ app: XCUIApplication) -> String {
+        let error = app.staticTexts["setup-error"].firstMatch
+        guard error.exists else { return "none" }
+        switch error.label {
+        case "Choose the original source folder to resume.",
+             "Choose the original source folder before finishing face analysis.":
+            return "source_missing"
+        case "Source permission needs renewal. Choose the original folder again.",
+             "Saved source permission could not be restored. Choose the original folder again. Cached photos remain available.",
+             "Reconnect the original source folder. Restored permission is not reused.",
+             "Reconnect the original source folder to access originals or resume indexing.":
+            return "source_permission"
+        case "Saved face analysis changed. Refresh People before finishing.":
+            return "analysis_refresh_required"
+        case "Catalog unavailable. Existing data has been preserved. Retry opening the catalog.":
+            return "catalog_unavailable"
+        default:
+            return "other"
+        }
+    }
+
+    private static func observeExistingScan(_ app: XCUIApplication, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        var nextObservation = Date().addingTimeInterval(15)
+        while Date() < deadline {
+            let current = observe(app)
+            if current.sourceConfirmationRequired || current.sourcePickerVisible
+                || current.pendingAlertCategory != "none" || !current.scanActive { return }
+            if Date() >= nextObservation {
+                emit("during_scan", current)
+                nextObservation = Date().addingTimeInterval(15)
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
+        emit("wait_timed_out", observe(app))
+    }
+
+    private static func waitForSafeOutcome(_ app: XCUIApplication, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        let startedAt = Date()
+        var sawScan = false
+        while Date() < deadline {
+            let current = observe(app)
+            if current.sourceConfirmationRequired || current.sourcePickerVisible || current.pendingAlertCategory != "none" { return }
+            if current.scanActive { sawScan = true }
+            if sawScan && !current.scanActive { return }
+            let phaseStillWorking = ["discovering", "processing", "cancelling"].contains(current.scanPhase)
+            if !sawScan && Date().timeIntervalSince(startedAt) >= 2 && !current.scanActive && (!current.finishExists || current.finishEnabled) && !phaseStillWorking { return }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+        }
+        emit("wait_timed_out", observe(app))
+    }
+
+    private static func emit(_ stage: String, _ value: LiveAnalysisProbeObservation) {
+        let output: [String: Any] = [
+            "stage": stage,
+            "statusCounts": value.statusCounts,
+            "finishExists": value.finishExists,
+            "finishEnabled": value.finishEnabled,
+            "sourceSelected": value.sourceSelected,
+            "sourceConfirmationRequired": value.sourceConfirmationRequired,
+            "sourcePickerVisible": value.sourcePickerVisible,
+            "pendingAlertCategory": value.pendingAlertCategory,
+            "scanActive": value.scanActive,
+            "scanPhase": value.scanPhase,
+            "scanMessageCategory": value.scanMessageCategory,
+            "pauseCategory": value.pauseCategory,
+            "errorCategory": value.errorCategory,
+            "peopleVisible": value.peopleVisible
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: output, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else { return }
+        print("AFITC_LIVE_UI_PROBE \(json)")
+    }
+}
+
+private struct LiveAnalysisProbeObservation {
+    let statusCounts: [String: Int]
+    let finishExists: Bool
+    let finishEnabled: Bool
+    let sourceSelected: Bool
+    let sourceConfirmationRequired: Bool
+    let sourcePickerVisible: Bool
+    let pendingAlertCategory: String
+    let scanActive: Bool
+    let scanPhase: String
+    let scanMessageCategory: String
+    let pauseCategory: String
+    let errorCategory: String
+    let peopleVisible: Bool
+}

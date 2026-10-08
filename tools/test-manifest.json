@@ -4655,6 +4655,21 @@
           ]
         }
       }
+    },
+    "ui.live-analysis-probe": {
+      "description": "Opt-in physical iPad observation of People face-analysis status and one guarded Finish action",
+      "targets": {
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/FaceGroupingFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.LiveAnalysisStatusProbeTests/testLivePeopleAnalysisStatusAndFinish"
+          ]
+        }
+      }
     }
   },
   "targets": {
@@ -5132,6 +5147,9 @@
     ],
     "phase-analysis-finish": [
       "ui.analysis-finish"
+    ],
+    "phase-live-analysis-probe": [
+      "ui.live-analysis-probe"
     ]
   }
 }
