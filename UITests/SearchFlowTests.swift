@@ -49,12 +49,16 @@ final class SearchFlowTests: XCTestCase {
         return records
     }
     private func singleViewerStatus(_ app: XCUIApplication) {
-        let status = app.staticTexts["viewer-status"]
+        let statusIdentifier = NSPredicate(format: "identifier == %@", "viewer-status")
+        let viewer = app.scrollViews.containing(statusIdentifier).allElementsBoundByIndex.last
+        XCTAssertNotNil(viewer, "The viewer status must be inside its scroll view")
+        guard let viewer else { return }
+        let status = viewer.staticTexts.matching(statusIdentifier).firstMatch
         XCTAssertTrue(status.exists)
-        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", status.label)).count, 1)
-        let filename = app.staticTexts["viewer-filename"]
-        XCTAssertTrue(filename.exists)
-        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", filename.label)).count, 1)
+        XCTAssertEqual(viewer.staticTexts.matching(NSPredicate(format: "label == %@", status.label)).count, 1)
+        let filename = viewer.staticTexts.matching(NSPredicate(format: "identifier == %@", "viewer-filename")).firstMatch
+        XCTAssertTrue(filename.exists, "The viewer scroll view must contain its filename")
+        XCTAssertEqual(viewer.staticTexts.matching(NSPredicate(format: "label == %@", filename.label)).count, 1)
     }
     private func count(_ expected: Int, _ app: XCUIApplication, confirmed: Bool = true) {
         let label = app.staticTexts["search-result-count"]; reveal(label, app)

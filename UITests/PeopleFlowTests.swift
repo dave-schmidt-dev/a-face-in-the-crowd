@@ -58,7 +58,7 @@ final class PeopleFlowTests: XCTestCase {
     private func peopleRecords(app: XCUIApplication) -> [String: String] {
         let scroll = app.scrollViews["screen-People"]
         let heading = scroll.staticTexts["people-records-start"]
-        let boundary = scroll.staticTexts["Unidentified faces"]
+        let boundary = scroll.staticTexts["Individual face review"]
         reveal(heading, app: app, passive: true)
         XCTAssertTrue(inViewport(heading, app: app), "People traversal must start at its confirmed records subsection")
         guard inViewport(heading, app: app) else { return [:] }
