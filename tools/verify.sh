@@ -499,7 +499,8 @@ if native or runtime_admission:
     print(f'[verify] Compatible destination: {selection["deviceName"]}; iOS {selection["runtimeVersion"]}', flush=True)
     command = ['xcodebuild', 'test-without-building', '-project', 'AFITC.xcodeproj',
                '-scheme', 'AFITC', '-derivedDataPath', 'build/DerivedData',
-               '-parallel-testing-enabled', 'NO', 'CODE_SIGNING_ALLOWED=NO']
+               '-parallel-testing-enabled', 'NO', '-collect-test-diagnostics', 'never',
+               'CODE_SIGNING_ALLOWED=NO']
     selected_native = native_test_selection(runtime_admission, ui_filters, native_unit_filters)
     command += ['-only-testing:' + selector.replace('.', '/', 1) for selector in selected_native]
     # Source in the real Bash parent: shared EXIT/signal cleanup survives the

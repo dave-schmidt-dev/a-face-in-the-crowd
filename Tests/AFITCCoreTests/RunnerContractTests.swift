@@ -206,6 +206,21 @@ final class RunnerContractTests: XCTestCase {
         nodes = ast.Module(body=[node for node in tree.body
                                 if isinstance(node, ast.FunctionDef) and node.name in names], type_ignores=[])
         exec(compile(nodes, str(root / 'tools/verify.sh'), 'exec'), namespace)
+        native_commands = [ast.literal_eval(node.value) for node in ast.walk(tree)
+                           if isinstance(node, ast.Assign) and isinstance(node.value, ast.List)
+                           and any(isinstance(target, ast.Name) and target.id == 'command' for target in node.targets)]
+        assert len(native_commands) == 1, native_commands
+        native_command = native_commands[0]
+        assert native_command[:2] == ['xcodebuild', 'test-without-building'], native_command
+        assert native_command.count('-collect-test-diagnostics') == 1, native_command
+        diagnostic_index = native_command.index('-collect-test-diagnostics')
+        assert native_command[diagnostic_index + 1] == 'never', native_command
+        build_commands = [ast.literal_eval(node.args[0]) for node in ast.walk(tree)
+                          if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                          and node.func.id == 'run' and node.args and isinstance(node.args[0], ast.List)
+                          and all(isinstance(value, ast.Constant) for value in node.args[0].elts)
+                          and ast.literal_eval(node.args[0])[:2] == ['xcodebuild', 'build-for-testing']]
+        assert len(build_commands) == 1 and '-collect-test-diagnostics' not in build_commands[0], build_commands
         ui = ['UITests.SyntheticTests/testNativeCase']
         unit = ['AFITCCoreTests.SyntheticRuntime/testArithmetic']
         selectors = namespace['native_test_selection'](False, ui + ui, unit + unit)
@@ -242,6 +257,7 @@ final class RunnerContractTests: XCTestCase {
             except SystemExit as failure:
                 assert failure.code != 0
             assert admitted is expected, (name, admitted, expected)
+        print('NATIVE_DIAGNOSTICS_POLICY_PASSED')
         print('NATIVE_SELECTION_UNION_PASSED')
         print('NATIVE_MARKER_CONTRACT_PASSED')
         """#
@@ -249,6 +265,7 @@ final class RunnerContractTests: XCTestCase {
         let markers = try run(["-c", "python3 \"$1\" \"$2\" \"$3\"", "_",
                                markerDriver.path, root.path, temporary.path])
         XCTAssertEqual(markers.0, 0, markers.1)
+        XCTAssertTrue(markers.1.contains("NATIVE_DIAGNOSTICS_POLICY_PASSED"), markers.1)
         XCTAssertTrue(markers.1.contains("NATIVE_MARKER_CONTRACT_PASSED"), markers.1)
         XCTAssertTrue(markers.1.contains("NATIVE_SELECTION_UNION_PASSED"), markers.1)
     }

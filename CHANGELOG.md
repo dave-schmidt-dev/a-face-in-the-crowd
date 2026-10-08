@@ -70,6 +70,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Separated synthetic core checks and simulator compilation from native UI, physical compatibility and M4 performance acceptance.
 
 ### Fixed
+- Native verification disables Xcode verbose post-test diagnostics to avoid simulator diagnosis stalls while retaining logs, XCTest attachments, strict test results and owned simulator cleanup.
 - Checked catalog startup now lets SQLite recover supported hot journals after an interrupted write, including read-only file permissions, while preserving committed names and rechecking the restored schema before migration/publication. Unsupported versions identifiable before recovery remain unchanged.
 - Analysis writes preserve valid temporarily missing photos and inspect only the admitted photo. Saved completion/group catch-up state now matches the pinned pipeline and source; checked existing opens reject unsupported versions identifiable before recovery without changing files. Restore regressions compare photo values and propagate crash-checkpoint errors while retaining strict kill witnesses.
 - Scan activity, all-photos Search and photo-viewer status show their message once; root-level filenames no longer repeat as an identical path. Existing native journeys assert single status values and group preservation around photo viewing.
