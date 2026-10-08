@@ -3,10 +3,12 @@ import AFITCCore
 
 struct SearchView: View {
     @ObservedObject var services: AppServices
+    let onReviewPossible: (Set<UUID>) -> Void
     @ObservedObject private var presentation: AppPresentationState
     @ObservedObject private var controller: SearchService
-    init(services: AppServices) {
-        self.services = services; presentation = services.presentation; controller = services.presentation.search
+    init(services: AppServices, onReviewPossible: @escaping (Set<UUID>) -> Void) {
+        self.services = services; self.onReviewPossible = onReviewPossible
+        presentation = services.presentation; controller = services.presentation.search
     }
     private var selected: Set<UUID> {
         get { presentation.preferences.search.selected }
@@ -18,7 +20,6 @@ struct SearchView: View {
     }
     @State private var viewer: PhotoIdentity?
     @State private var autoSearch = false
-    @State private var selectedGroupSeed: String?
     @Environment(\.tokens) private var tokens
     private func title(_ mode: SearchMode) -> String {
         switch mode { case .together: return "Together"; case .any: return "Any selected"; case .only: return "Only selected" }
@@ -158,9 +159,6 @@ struct SearchView: View {
             guard !selectionUnavailable, !(mode == .only && canonicalSelection.isEmpty) else { return }
             controller.search(mode: mode, selected: canonicalSelection, services: services, requestedPages: presentation.preferences.search.requestedPages)
         }
-        .navigationDestination(isPresented: Binding(get: { selectedGroupSeed != nil }, set: { if !$0 { selectedGroupSeed = nil } })) {
-            if let seed = selectedGroupSeed { FaceGroupView(services: services, faceGroups: services.faceGroups, seed: seed) }
-        }
         .onDisappear { controller.cancelInFlight() }
         .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
     }
@@ -170,7 +168,7 @@ struct SearchView: View {
                 Text("\(grouped.possibleCount) possible \(grouped.possibleCount == 1 ? "photo" : "photos")").font(.headline)
                     .accessibilityIdentifier("search-possible-count")
                 if grouped.possibleCount > 0 {
-                    Text("Review possible matches before confirming them.").foregroundStyle(tokens.textSecondary)
+                    Text("Possible matches need a human decision.").foregroundStyle(tokens.textSecondary)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: DesignTokens.Spacing.s)]) {
                         ForEach(controller.visiblePossibleResults, id: \.photo.id) { result in
                             Button { viewer = result.photo } label: {
@@ -183,14 +181,11 @@ struct SearchView: View {
                                 .accessibilityLabel("Open possible match \(result.photo.relativePath)")
                         }
                     }
-                    let selected = grouped.confirmed.query.selectedPersonIDs
-                    ForEach(grouped.membership.groups.filter { group in
-                        group.members.contains { grouped.membership.memberships[$0]?.personID.map(selected.contains) == true }
-                    }) { group in
-                        Button("Review group · \(group.members.count) photos") { selectedGroupSeed = group.id }
-                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
-                            .accessibilityIdentifier("search-review-group-\(group.id)")
+                    Button("Review matches in Verify") {
+                        onReviewPossible(grouped.confirmed.query.selectedPersonIDs)
                     }
+                        .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+                        .accessibilityIdentifier("search-review-possible-matches")
                     if controller.visiblePossibleResults.count < grouped.possibleCount {
                         Button("Load more possible matches") { controller.nextPossiblePage() }
                             .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))

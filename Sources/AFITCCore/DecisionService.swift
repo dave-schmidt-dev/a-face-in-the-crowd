@@ -2,7 +2,7 @@ import Foundation
 
 public enum ManualDecision: Sendable {
     case name(face: FaceKey, displayName: String)
-    /// Names only the inspected cover, preserving provisional membership and seed identity.
+    /// Names and confirms every safe member of the inspected conservative group in one decision.
     case nameGroup(cover: FaceKey, group: FaceGroupSnapshot, displayName: String)
     case confirm(face: FaceKey, personID: UUID)
     /// Confirms an evaluation suggestion only if the face state and the person's exemplar
@@ -74,25 +74,19 @@ extension CatalogRepository {
                 decision = inner; expectedState = state
             }
             if case .nameGroup(let cover, let group, let displayName) = decision {
-                guard Set(group.members) == Set(group.expectedStates.map(\.key)),
-                      Set(group.members).count == group.members.count, group.members.contains(group.seed),
-                      group.expectedStates.count == group.members.count, let captured = group.state(for: cover) else {
-                    throw DecisionError.conflict
-                }
-                for state in group.expectedStates {
-                    _ = try PeopleSQL.currentPhoto(db, state.key)
-                    guard try PeopleSQL.faceState(db, state.key) == state else { throw DecisionError.conflict }
-                }
+                guard let captured = group.state(for: cover) else { throw DecisionError.conflict }
                 if let expectedState, expectedState != captured { throw DecisionError.conflict }
-                expectedState = captured
-                decision = .name(face: cover, displayName: displayName)
+                return try Self.applyGroupName(db, cover: cover, group: group, displayName: displayName,
+                                               failure: failure)
             }
             if case .excludeGroupMember(let face, let group) = decision {
                 if let expectedState, try PeopleSQL.faceState(db, face) != expectedState { throw DecisionError.conflict }
                 return try Self.applyGroupExclusion(db, face: face, group: group, failure: failure)
             }
             if case .labelGroup(let cover, let group, let personID, let revision) = decision {
-                if let expectedState, try PeopleSQL.faceState(db, cover) != expectedState { throw DecisionError.conflict }
+                if let expectedState, (expectedState.key != cover || group.state(for: cover) != expectedState) {
+                    throw DecisionError.conflict
+                }
                 return try Self.applyGroupLabel(db, cover: cover, group: group, personID: personID,
                                                 exemplarRevision: revision, failure: failure)
             }

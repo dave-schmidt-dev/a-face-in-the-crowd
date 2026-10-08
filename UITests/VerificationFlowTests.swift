@@ -1,6 +1,6 @@
 import XCTest
 
-/// Evaluation suggestions over the generated synthetic fixture with fixed fictional vectors
+/// Possible matches over the generated synthetic fixture with fixed fictional vectors
 /// (persisted by the first ordinary scan). Proves the review workflow only; recognition is not qualified.
 ///
 /// Fixture outcome (see `SyntheticFaceVectorProducer`): the two synthetic-0 faces are named as the
@@ -123,7 +123,7 @@ final class VerificationFlowTests: XCTestCase {
     func testVerifyUsesSavedAnalysisWithoutToggleOrRescan() {
         let app = launch()
         navigate("Verify", app)
-        label("verify-evaluation-banner", contains: "Evaluation only", app)
+        label("verify-review-heading", contains: "Review possible matches", app)
         XCTAssertTrue(app.staticTexts["verify-no-confirmed-faces"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.switches["evaluation-suggestions-toggle"].exists)
         navigate("Library", app); scan(app)

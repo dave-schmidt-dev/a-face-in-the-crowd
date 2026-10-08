@@ -1,7 +1,7 @@
 import SwiftUI
 import AFITCCore
 
-/// One unnamed group's photos with naming in place. Every action is guarded by the pinned
+/// One conservative face group's photos with naming in place. Every action is guarded by the pinned
 /// group snapshot captured from the current face states; saving a name or label keeps this
 /// screen and its photos in place. Opening or naming never reads a source and never scans.
 struct FaceGroupView: View {
@@ -14,10 +14,6 @@ struct FaceGroupView: View {
     @State private var viewer: PhotoIdentity?
     @State private var name = ""
     @State private var labelPersonID: UUID?
-    @State private var confirmingGroup = false
-    @State private var reviewedDecision: ManualDecision?
-    @State private var reviewedName = ""
-    @State private var reviewedCount = 0
 
     init(services: AppServices, faceGroups: FaceGroupService, seed: String) {
         self.services = services
@@ -43,13 +39,6 @@ struct FaceGroupView: View {
         .fullScreenCover(item: $viewer) { PhotoViewer(photo: $0, services: services) }
         .modifier(PeoplePalette())
         .modifier(UndoToolbar(services: services))
-        .confirmationDialog("Confirm reviewed group", isPresented: $confirmingGroup, titleVisibility: .visible) {
-            Button("Confirm \(reviewedCount) faces as \(reviewedName)") {
-                if let reviewedDecision { perform(reviewedDecision) }
-                reviewedDecision = nil
-            }.accessibilityIdentifier("confirm-reviewed-group")
-            Button("Cancel", role: .cancel) { reviewedDecision = nil }
-        } message: { Text("Confirm only after reviewing every displayed face. Undo restores this whole batch.") }
         .navigationTitle("Group")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -64,18 +53,7 @@ struct FaceGroupView: View {
         DecisionStatus(services: services)
         if let snapshot = group.snapshot(states: states) {
             if let namedPerson {
-                if snapshot.expectedStates.contains(where: { $0.personID != namedPerson.id || !$0.isAnchor }) {
-                    Button("Confirm reviewed group") {
-                        reviewedDecision = .confirmGroup(group: snapshot, personID: namedPerson.id,
-                                                          exemplarRevision: namedPerson.person.exemplarRevision)
-                        reviewedName = namedPerson.person.displayName; reviewedCount = snapshot.members.count
-                        confirmingGroup = true
-                    }
-                    .buttonStyle(CapsuleButtonStyle(minHeight: 48))
-                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
-                    .accessibilityIdentifier("reviewed-group-confirm")
-                }
-                Text("Possible matches remain separate from your confirmed examples.")
+                Text("This matching group is assigned to \(namedPerson.person.displayName). Review any remaining matches in Verify.")
                     .font(.subheadline).foregroundStyle(tokens.textSecondary)
                     .accessibilityIdentifier("face-group-named-note")
             } else {
@@ -84,7 +62,7 @@ struct FaceGroupView: View {
             }
             memberGrid(members: members, snapshot: snapshot)
         } else {
-            Text("This group changed while it was open. Refresh People and open it again before naming.")
+            Text("This group changed while it was open. Refresh People and open it again before assigning it.")
                 .accessibilityIdentifier("face-group-stale")
         }
     }
@@ -148,15 +126,15 @@ struct FaceGroupView: View {
         }
     }
 
-    /// Name in place: names exactly the inspected cover, keeps the group's photos here.
+    /// Naming assigns every member of the pinned conservative group and keeps its photos here.
     private func naming(snapshot: FaceGroupSnapshot) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
             Text("Name this group").font(.headline).foregroundStyle(tokens.textSecondary).accessibilityAddTraits(.isHeader)
-            Text("One face becomes your confirmed example. Other photos remain possible matches until you confirm them.")
+            Text("Saving assigns this name to every photo in this matching group.")
                 .font(.subheadline).foregroundStyle(tokens.textSecondary)
             TextField("New person name", text: $name).textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("group-name-field")
-            Button("Save name") {
+            Button("Assign name to group") {
                 perform(.nameGroup(cover: snapshot.seed, group: snapshot, displayName: name))
             }
             .buttonStyle(CapsuleButtonStyle(minHeight: 48))
@@ -165,7 +143,7 @@ struct FaceGroupView: View {
         }.card()
     }
 
-    /// Label the group to an existing person; aggregation happens through that person.
+    /// Assign every member of this pinned group to an existing person.
     private func labeling(snapshot: FaceGroupSnapshot) -> some View {
         let people = services.peopleSnapshot.people.filter { $0.person.mergedInto == nil }
         return VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
@@ -182,7 +160,7 @@ struct FaceGroupView: View {
                     }
                 } label: { EmptyView() }
                 .pickerStyle(.menu).accessibilityIdentifier("label-group-person")
-                Button("Add to person") {
+                Button("Add whole group to person") {
                     if let labelPersonID,
                        let person = people.first(where: { $0.id == labelPersonID }) {
                         perform(.labelGroup(cover: snapshot.seed, group: snapshot, personID: labelPersonID,

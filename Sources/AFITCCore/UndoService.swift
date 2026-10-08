@@ -35,10 +35,12 @@ extension CatalogRepository {
                 guard try PeopleSQL.person(db, person.id).matchesDomain(person) else { throw DecisionError.conflict }
             }
             if let created = record.createdPersonID {
-                let key = record.after.face?.key.storageKey ?? ""
-                guard try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM manual_faces WHERE key!=? AND person_id=?", strings: [key, created.uuidString]) == 0,
-                      try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM pair_negatives WHERE face_key!=? AND person_id=?", strings: [key, created.uuidString]) == 0,
-                      try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM deferrals WHERE face_key!=? AND scope=?", strings: [key, created.uuidString]) == 0 else { throw DecisionError.conflict }
+                let expectedAssignments = Set(record.after.allFaces.filter { $0.personID == created }.map { $0.key.storageKey })
+                let currentAssignments: [ManualFaceState] = try PeopleSQL.rows(db, "SELECT payload FROM manual_faces WHERE person_id=?", strings: [created.uuidString])
+                guard !expectedAssignments.isEmpty,
+                      Set(currentAssignments.map { $0.key.storageKey }) == expectedAssignments,
+                      try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM pair_negatives WHERE person_id=?", strings: [created.uuidString]) == 0,
+                      try PeopleSQL.scalar(db, "SELECT COUNT(*) FROM deferrals WHERE scope=?", strings: [created.uuidString]) == 0 else { throw DecisionError.conflict }
             }
             if record.kind == "merge" {
                 let ids = Set(record.after.people.map(\.id))

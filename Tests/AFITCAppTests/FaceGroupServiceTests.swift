@@ -61,19 +61,61 @@ final class FaceGroupServiceTests: XCTestCase {
         XCTAssertEqual(analysis.photoRecords.filter { $0.status == .completed }.count, 3)
         try await retire(services, root: root)
     }
-    @MainActor func testNameKeepsSeedPhotosAndConfirmsOnlyCoverWithoutWork() async throws {
+    @MainActor func testNameKeepsSeedPhotosAndLabelsWholeGroupWithoutWork() async throws {
         let (services, root, _) = try await fixture()
         let (before, snapshot) = try pinned(services)
         let saved = await services.decide(.nameGroup(cover: snapshot.seed, group: snapshot, displayName: "Fictional Ada"))
         XCTAssertTrue(saved)
         let after = try XCTUnwrap(services.faceGroups.result?.groups.first { $0.id == before.id })
         XCTAssertEqual(after.members, before.members)
-        XCTAssertEqual(services.peopleSnapshot.faces.filter { $0.state.isAnchor }.count, 1)
         let person = try XCTUnwrap(services.peopleSnapshot.people.first)
         XCTAssertEqual(person.person.displayName, "Fictional Ada")
-        XCTAssertTrue(before.members.allSatisfy { services.faceGroups.result?.memberships[$0]?.personID == person.id })
+        XCTAssertTrue(before.members.allSatisfy { key in services.peopleSnapshot.faces.first { $0.key == key }?.state.personID == person.id })
+        let labeled = services.peopleSnapshot.faces.filter { $0.state.personID == person.id }
+        XCTAssertEqual(labeled.count, before.members.count)
+        XCTAssertEqual(labeled.filter(\.state.isAnchor).map(\.key), [snapshot.seed], "Only the chosen cover becomes an example")
+        XCTAssertEqual(before.members.count, after.members.count)
         await services.faceGroups.refresh()
         _ = services.suggestions.queue
+        XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 1)
+        XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3)
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3)
+        try await retire(services, root: root)
+    }
+
+    @MainActor func testFocusedQueueFiltersPersonAndShowAllPreservesSkippedCards() async throws {
+        let (services, root, _) = try await fixture()
+        let examples = services.peopleSnapshot.faces.filter { $0.photo.relativePath.hasSuffix("synthetic-0.jpg") }
+        let left = try XCTUnwrap(examples.first { ($0.geometry.rectangle.first ?? 1) < 0.5 })
+        let right = try XCTUnwrap(examples.first { ($0.geometry.rectangle.first ?? 0) >= 0.5 })
+        let namedLeft = await services.decide(.name(face: left.key, displayName: "Fixture Ada"))
+        XCTAssertTrue(namedLeft)
+        let namedRight = await services.decide(.name(face: right.key, displayName: "Fixture Bob"))
+        XCTAssertTrue(namedRight)
+        let result = try XCTUnwrap(services.faceGroups.result)
+        XCTAssertGreaterThanOrEqual(result.suggestions.count, 3)
+        let peopleWithMatches = Set(result.suggestions.map(\.personID))
+        XCTAssertGreaterThanOrEqual(peopleWithMatches.count, 2)
+        let review = services.suggestions
+        let first = try XCTUnwrap(review.queue.current)
+        await review.review(.skip, card: first)
+        XCTAssertEqual(review.queue.skippedCount, 1)
+
+        let focusedID = try XCTUnwrap(result.suggestions.first { $0.personID != first.personID }?.personID)
+        review.focus(on: [focusedID])
+        XCTAssertEqual(review.focusedPersonIDs, [focusedID])
+        XCTAssertEqual(review.queue.current?.personID, focusedID, "The focused queue must not show another person's card")
+        XCTAssertFalse(review.staleNotice, "A requested person change is explicit")
+        review.showAllMatches()
+        XCTAssertNil(review.focusedPersonIDs)
+        XCTAssertEqual(review.queue.skippedCount, 1, "Show all preserves the session's earlier skip")
+
+        let rendered = try XCTUnwrap(review.queue.current)
+        let deferred = await services.decide(.unsure(face: rendered.face, personID: rendered.personID))
+        XCTAssertTrue(deferred)
+        XCTAssertTrue(review.staleNotice, "An external answer must lock a replaced current card")
+        review.showLatest()
+        XCTAssertFalse(review.staleNotice)
         XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 1)
         XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3)
         XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3)
@@ -107,10 +149,12 @@ final class FaceGroupServiceTests: XCTestCase {
     @MainActor func testVerifyConsumesSharedResultsAndSettlesAnswer() async throws {
         let (services, root, _) = try await fixture()
         let (_, snapshot) = try pinned(services)
-        let saved = await services.decide(.nameGroup(cover: snapshot.seed, group: snapshot, displayName: "Fictional Ada"))
+        let saved = await services.decide(.name(face: snapshot.seed, displayName: "Fictional Ada"))
         XCTAssertTrue(saved)
         let suggestions = services.suggestions
         let card = try XCTUnwrap(suggestions.queue.current)
+        XCTAssertNotEqual(card.face, snapshot.seed, "Verify reviews an unresolved face, never the assigned anchor")
+        XCTAssertNil(card.expectedState.personID, "The card must remain an unassigned possible match")
         XCTAssertTrue(services.faceGroups.result?.suggestions.contains(card) == true)
         await suggestions.review(.yes, card: card)
         XCTAssertTrue(suggestions.canReview)

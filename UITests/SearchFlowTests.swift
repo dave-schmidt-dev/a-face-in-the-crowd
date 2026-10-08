@@ -83,6 +83,53 @@ final class SearchFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["search-empty"].exists)
         XCTAssertTrue(app.staticTexts["only-coverage"].label.contains("1 candidate photo withheld"))
     }
+
+    func testPersonAndSearchReviewLinksFocusRequestedPerson() {
+        guard let app = fixture() else { return }
+        name("Fixture A", app); name("Fixture B", app)
+        let person = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'person-' AND label CONTAINS 'Fixture B'" )).firstMatch
+        reveal(person, app); XCTAssertTrue(person.waitForExistence(timeout: 10)); person.tap()
+        XCTAssertTrue(app.staticTexts["person-confirmed-count"].waitForExistence(timeout: 10))
+        let personPossibleCount = app.staticTexts["person-possible-count"]
+        XCTAssertTrue(waitUntilTrue { personPossibleCount.exists && personPossibleCount.label.contains("possible match") })
+        XCTAssertFalse(app.buttons["possible-confirm"].exists)
+        XCTAssertFalse(app.buttons["possible-reject"].exists)
+        tap("person-review-matches", app)
+        XCTAssertTrue(app.staticTexts["verify-focused-person"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["verify-focused-person"].label, "Matches for Fixture B")
+        XCTAssertEqual(app.staticTexts["review-person-name"].label, "Is this Fixture B?")
+        let verifyQueue = app.descendants(matching: .any)["verify-suggestion-count"]
+        XCTAssertTrue(verifyQueue.waitForExistence(timeout: 10))
+        let focusedReviewCount = Int(verifyQueue.label.split(separator: " ").first ?? "") ?? -1
+        XCTAssertGreaterThan(focusedReviewCount, 0)
+        tap("verify-show-all-matches", app)
+        XCTAssertFalse(app.staticTexts["verify-focused-person"].exists)
+        XCTAssertEqual(app.staticTexts["review-person-name"].label, "Is this Fixture B?")
+        let allReviewCount = Int(verifyQueue.label.split(separator: " ").first ?? "") ?? -1
+        XCTAssertGreaterThan(allReviewCount, focusedReviewCount, "Show all must expand the same queue while preserving its current card")
+
+        guard navigate("Search", app) else { return }
+        let chips = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-person-'" )).allElementsBoundByIndex
+        XCTAssertEqual(chips.count, 2)
+        let target = chips.first { $0.label.contains("Fixture B") }
+        XCTAssertNotNil(target); target?.tap()
+        tap("search-mode-any", app)
+        let possible = app.staticTexts["search-possible-count"]
+        XCTAssertTrue(waitUntilTrue { possible.exists && possible.label.contains("possible") })
+        tap("search-review-possible-matches", app)
+        XCTAssertTrue(app.staticTexts["verify-focused-person"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["verify-focused-person"].label, "Matches for Fixture B")
+        XCTAssertEqual(app.staticTexts["review-person-name"].label, "Is this Fixture B?")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'search-review-group-'" )).count, 0)
+        let focusedSearchCount = Int(verifyQueue.label.split(separator: " ").first ?? "") ?? -1
+        XCTAssertGreaterThan(focusedSearchCount, 0)
+        tap("verify-show-all-matches", app)
+        XCTAssertFalse(app.staticTexts["verify-focused-person"].exists)
+        XCTAssertEqual(app.staticTexts["review-person-name"].label, "Is this Fixture B?")
+        let allSearchCount = Int(verifyQueue.label.split(separator: " ").first ?? "") ?? -1
+        XCTAssertGreaterThan(allSearchCount, focusedSearchCount, "Show all must expose the shared queue without moving its current card")
+        attachScreenshot("verify-show-all-retains-fixture-b-card", app)
+    }
     func testChangedOriginalHashFallsBackAndEvictedPreviewIsTruthful() {
         guard let app = fixture(["--uitest-viewer-change-bytes"]) else { return }
         guard navigate("Search", app) else { return }; tap("show-photos", app); count(3, app, confirmed: false)

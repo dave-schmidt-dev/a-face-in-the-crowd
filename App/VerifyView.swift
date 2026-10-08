@@ -1,9 +1,8 @@
 import SwiftUI
 import AFITCCore
 
-/// Verify tab shell for evaluation-only suggestions from the one shared saved-analysis result
-/// (`FaceGroupService`). Recognition is not qualified; nothing on this screen confirms a face,
-/// and no control here rescans: the queue is reconciled after ordinary scans and relaunches.
+/// The single decision surface for uncertain matches from the shared saved-analysis result.
+/// Answers use the guarded, undoable decision path; this screen never starts a scan.
 struct VerifyView: View {
     @ObservedObject var services: AppServices
     @ObservedObject private var suggestions: SuggestionService
@@ -21,23 +20,33 @@ struct VerifyView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.m) {
             HStack(alignment: .center, spacing: DesignTokens.Spacing.xs) {
-                Label("Evaluation only · never confirms itself", systemImage: "exclamationmark.shield.fill")
+                Label("Review possible matches", systemImage: "person.crop.circle.badge.questionmark")
                     .foregroundStyle(tokens.warning)
                     .font(.subheadline)
-                    .accessibilityIdentifier("verify-evaluation-banner")
+                    .accessibilityIdentifier("verify-review-heading")
                 Button { explainingBanner = true } label: {
-                    Label("Evaluation details", systemImage: "info.circle")
+                    Label("About matches", systemImage: "info.circle")
                 }
                 .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
-                .accessibilityIdentifier("verify-evaluation-info")
+                .accessibilityIdentifier("verify-match-info")
                 .popover(isPresented: $explainingBanner) {
-                    Text("Evaluation only. Recognition is not qualified. Suggestions never confirm themselves.")
+                    Text("Matches come from saved face analysis and can be wrong or miss someone. Check the photo before you confirm a match.")
                         .padding().frame(maxWidth: 360).presentationCompactAdaptation(.popover)
-                        .accessibilityIdentifier("verify-evaluation-detail")
+                        .accessibilityIdentifier("verify-match-details")
+                }
+            }
+            if let focusedPersonIDs = suggestions.focusedPersonIDs {
+                HStack(alignment: .center, spacing: DesignTokens.Spacing.s) {
+                    Text("Matches for \(focusedName(focusedPersonIDs))")
+                        .font(.headline).accessibilityIdentifier("verify-focused-person")
+                    Spacer(minLength: 0)
+                    Button("Show all matches") { suggestions.showAllMatches() }
+                        .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 44))
+                        .accessibilityIdentifier("verify-show-all-matches")
                 }
             }
             if !suggestions.hasConfirmedFaces {
-                Text("No confirmed faces yet. Name faces in People so suggestions have examples to compare.")
+                Text("Name a matching group or face in People to find possible matches here.")
                     .foregroundStyle(secondary)
                     .accessibilityIdentifier("verify-no-confirmed-faces")
             } else {
@@ -69,9 +78,13 @@ struct VerifyView: View {
                 }
                 // Decision errors and saving progress stay reachable after every answer.
                 DecisionStatus(services: services)
-                if result.suggestions.isEmpty {
+                if suggestions.focusedPersonIDs != nil, suggestions.queue.current == nil,
+                   suggestions.queue.skippedCount == 0 {
+                    Text("No possible matches for \(focusedName(suggestions.focusedPersonIDs ?? [])) need review.")
+                        .accessibilityIdentifier("verify-focused-empty")
+                } else if result.suggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("No suggestions above the evaluation threshold.")
+                        Text("No possible matches need review.")
                         Text("Compared \(result.compared) · Ambiguous \(result.ambiguous)")
                             .font(.subheadline).foregroundStyle(secondary)
                     }
@@ -116,8 +129,10 @@ struct VerifyView: View {
         }
         VStack(alignment: .leading, spacing: 4) {
             Text("\(queue.remaining) to review · \(queue.skippedCount) skipped this session").font(.headline)
-            Text("Compared \(result.compared) · Ambiguous \(result.ambiguous)")
-                .font(.subheadline).foregroundStyle(secondary)
+            if suggestions.focusedPersonIDs == nil {
+                Text("Compared \(result.compared) · Ambiguous \(result.ambiguous)")
+                    .font(.subheadline).foregroundStyle(secondary)
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("verify-suggestion-count")
@@ -127,5 +142,12 @@ struct VerifyView: View {
     private func showsRecord(_ personID: UUID) -> Bool {
         let people = services.peopleSnapshot.people.map(\.person)
         return people.first { $0.id == personID }.map { PersonNames.isAmbiguous($0, among: people) } ?? false
+    }
+
+    private func focusedName(_ ids: Set<UUID>) -> String {
+        let names = services.peopleSnapshot.people.compactMap { summary in
+            ids.contains(summary.id) && summary.person.mergedInto == nil ? summary.person.displayName : nil
+        }
+        return names.isEmpty ? "selected people" : names.joined(separator: ", ")
     }
 }

@@ -46,18 +46,18 @@ final class FaceGroupSearchServiceTests: XCTestCase {
         XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3)
         XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3)
     }
-    @MainActor func testNamedThreePhotoGroupSearchSharesSavedResultWithoutWork() async throws {
+    @MainActor func testNamingThreePhotoGroupConfirmsSearchResultsWithoutWork() async throws {
         let (services, person, _) = try await fixture()
         let shared = try XCTUnwrap(services.faceGroups.result)
         let search = try await query(services, person: person)
-        XCTAssertEqual(search.snapshot?.totalCount, 1)
-        XCTAssertEqual(search.groupedSnapshot?.possibleCount, 2)
-        XCTAssertEqual(search.visiblePossibleResults.count, 2)
+        XCTAssertEqual(search.snapshot?.totalCount, 3)
+        XCTAssertEqual(search.groupedSnapshot?.possibleCount, 0)
+        XCTAssertTrue(search.visiblePossibleResults.isEmpty)
         XCTAssertEqual(search.groupedSnapshot?.membership, shared)
         XCTAssertEqual(search.snapshot?.revision, search.groupedSnapshot?.membership.revision)
         assertNoSourceWork()
     }
-    @MainActor func testReviewedBulkConfirmationUpdatesConfirmedAndUndoRestoresPossible() async throws {
+    @MainActor func testExplicitBulkConfirmationAddsAnchorsAndUndoRestoresGroupNameState() async throws {
         let (services, person, group) = try await fixture()
         let before = try await query(services, person: person)
         let frozen = try XCTUnwrap(before.groupedSnapshot)
@@ -71,16 +71,16 @@ final class FaceGroupSearchServiceTests: XCTestCase {
         XCTAssertEqual(after.snapshot?.query.mode, .any)
         XCTAssertEqual(after.snapshot?.query.selectedPersonIDs, [person])
         XCTAssertEqual(after.snapshot?.totalCount, 3); XCTAssertEqual(after.groupedSnapshot?.possibleCount, 0)
-        XCTAssertEqual(frozen.confirmed.totalCount, 1); XCTAssertEqual(frozen.possibleCount, 2)
+        XCTAssertEqual(frozen.confirmed.totalCount, 3); XCTAssertEqual(frozen.possibleCount, 0)
         await services.undoDecision()
         after.refreshIfNeeded(services: services)
         try await wait { !after.searching }
         let undone = after
         XCTAssertEqual(undone.snapshot?.query.mode, .any)
-        XCTAssertEqual(undone.snapshot?.totalCount, 1); XCTAssertEqual(undone.groupedSnapshot?.possibleCount, 2)
+        XCTAssertEqual(undone.snapshot?.totalCount, 3); XCTAssertEqual(undone.groupedSnapshot?.possibleCount, 0)
         assertNoSourceWork()
     }
-    @MainActor func testOnlyWithholdsOtherUnresolvedFacesEvenAfterGroupConfirmation() async throws {
+    @MainActor func testOnlyWithholdsPhotosWithUnresolvedFacesAfterGroupLabel() async throws {
         let (services, person, group) = try await fixture()
         let states = Dictionary(uniqueKeysWithValues: services.peopleSnapshot.faces.map { ($0.key, $0.state) })
         let pinned = try XCTUnwrap(group.snapshot(states: states))

@@ -34,7 +34,7 @@ struct PeopleView: View {
                     .accessibilityIdentifier("people-data-unavailable")
             } else {
             if active.isEmpty {
-                Text("Open an unnamed group to add a name, or review individual faces below.").foregroundStyle(tokens.textSecondary)
+                Text("Open an unnamed group to assign one name to every face in it, or name an individual face below.").foregroundStyle(tokens.textSecondary)
             } else {
                 LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.l) {
                     ForEach(active) { summary in
@@ -101,7 +101,7 @@ struct PeopleView: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
                     Text("Unnamed groups").font(.headline).foregroundStyle(tokens.textSecondary)
                         .accessibilityAddTraits(.isHeader).accessibilityIdentifier("unnamed-groups-start")
-                    Text("Open a group to name it or correct its photos.")
+                    Text("Name a matching group once to assign it to every photo.")
                         .font(.subheadline).foregroundStyle(tokens.textSecondary)
                     LazyVGrid(columns: columns, spacing: DesignTokens.Spacing.l) {
                         ForEach(groups) { group in

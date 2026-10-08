@@ -200,7 +200,11 @@ public struct RootView: View {
                 .navigationDestination(for: UUID.self) { personID in
                     // Same single gear on pushed screens, so Settings stays reachable from Person
                     // now that the sidebar footer entry point is gone (CLEAR C3).
-                    withBottomStatus(PersonDetailView(services: services, personID: personID))
+                    withBottomStatus(PersonDetailView(services: services, personID: personID,
+                                                      onReviewMatches: { personID in
+                                                          services.suggestions.focus(on: [personID])
+                                                          select(.verify)
+                                                      }))
                         .toolbar { ToolbarItem(placement: .topBarTrailing) { settingsButton } }
                         .modifier(UndoToolbar(services: services))
                 }
@@ -225,7 +229,10 @@ public struct RootView: View {
                 } else if section == .people {
                     PeopleView(services: services)
                 } else if section == .search {
-                    SearchView(services: services)
+                    SearchView(services: services, onReviewPossible: { personIDs in
+                        services.suggestions.focus(on: personIDs)
+                        select(.verify)
+                    })
                 } else {
                     VerifyView(services: services)
                 }

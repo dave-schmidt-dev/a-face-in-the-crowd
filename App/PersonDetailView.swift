@@ -1,17 +1,25 @@
 import SwiftUI
 import AFITCCore
 
+private struct PersonGroupRepair: Identifiable {
+    let group: FaceGroup
+    let snapshot: FaceGroupSnapshot
+    let anchor: FaceKey
+    var id: String { group.id }
+}
+
 struct PersonDetailView: View {
     @ObservedObject var services: AppServices
     let personID: UUID
+    let onReviewMatches: (UUID) -> Void
     @ObservedObject private var privacy: CatalogPrivacyService
     @ObservedObject private var presentation: AppPresentationState
     @ObservedObject private var faceGroups: FaceGroupService
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .largeTitle) private var portrait: CGFloat = 120
-    init(services: AppServices, personID: UUID) {
-        self.services = services; self.personID = personID
+    init(services: AppServices, personID: UUID, onReviewMatches: @escaping (UUID) -> Void) {
+        self.services = services; self.personID = personID; self.onReviewMatches = onReviewMatches
         presentation = services.presentation; privacy = services.privacy; faceGroups = services.faceGroups
     }
     private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
@@ -31,8 +39,10 @@ struct PersonDetailView: View {
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { draftEditor(summary.person) }.card()
                     }
                     DecisionStatus(services: services)
-                    Text("Confirmed faces").font(.headline).foregroundStyle(tokens.textSecondary).accessibilityAddTraits(.isHeader)
-                    let confirmed = services.peopleSnapshot.faces.filter { $0.state.personID == personID }
+                    groupRepairs(summary)
+                    Text("Photos").font(.headline).foregroundStyle(tokens.textSecondary)
+                        .accessibilityAddTraits(.isHeader).accessibilityIdentifier("person-photos-start")
+                    let confirmed = assignedPhotos
                     LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
                         ForEach(confirmed) { face in
                             Button { selectedFace = face } label: {
@@ -47,7 +57,7 @@ struct PersonDetailView: View {
                             .optionalPresentationAnchor(confirmed.first(where: { $0.photo.id == face.photo.id })?.key == face.key ? face.photo.id : nil, section: "Person-" + personID.uuidString)
                         }
                     }
-                    possiblePhotos(summary)
+                    uncertainMatches(summary)
                     manage(summary)
                 } else {
                     Text("This person is no longer available.")
@@ -83,52 +93,68 @@ struct PersonDetailView: View {
         typeSize.isAccessibilitySize ? [GridItem(.flexible())]
             : [GridItem(.adaptive(minimum: DesignTokens.Layout.photoCardMin), spacing: DesignTokens.Spacing.s)]
     }
-    /// Possible photos from the one shared saved-analysis result; there is no second match
-    /// engine. Confirm and reject are guarded by the rendered face state and the person's
-    /// current exemplar revision, and both are undoable decisions.
-    @ViewBuilder private func possiblePhotos(_ summary: PersonSummary) -> some View {
-        let possible = possibleMembers()
-        if !possible.isEmpty {
+    /// Uncertain matches have one decision surface: Verify.
+    @ViewBuilder private func uncertainMatches(_ summary: PersonSummary) -> some View {
+        let count = possibleMatchCount
+        if count > 0 {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
-                Text("Possible photos").font(.headline).foregroundStyle(tokens.textSecondary)
-                    .accessibilityAddTraits(.isHeader).accessibilityIdentifier("possible-photos-start")
-                Text("Saved analysis suggests these faces may be \(summary.person.displayName). Confirmation is yours.")
+                Text(count == 1 ? "1 possible match needs review" : "\(count) possible matches need review")
+                    .font(.headline).foregroundStyle(tokens.textSecondary)
+                    .accessibilityAddTraits(.isHeader).accessibilityIdentifier("person-possible-count")
+                Text("Review possible matches for \(summary.person.displayName) in Verify.")
                     .font(.subheadline).foregroundStyle(tokens.textSecondary)
-                LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.s) {
-                    ForEach(possible) { face in
-                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.xxs) {
-                            FacePreview(services: services, face: face, wholePhoto: false, style: .tile)
-                            Text((face.photo.relativePath as NSString).lastPathComponent)
-                                .font(.caption).foregroundStyle(tokens.textSecondary).lineLimit(1)
-                            Button("Confirm") {
-                                perform(.confirmSuggestion(face: face.key, personID: personID,
-                                                           exemplarRevision: summary.person.exemplarRevision,
-                                                           expectedState: face.state))
-                            }
-                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 44))
-                            .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
-                            .accessibilityIdentifier("possible-confirm")
-                            Button("Not this person") {
-                                perform(.expectingState(.reject(face: face.key, personID: personID),
-                                                        expectedState: face.state))
-                            }
-                            .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 44))
-                            .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
-                            .accessibilityIdentifier("possible-reject")
-                        }.card()
-                    }
-                }
+                Button("Review in Verify") { onReviewMatches(personID) }
+                    .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                    .accessibilityIdentifier("person-review-matches")
             }
         }
     }
-    private func possibleMembers() -> [FaceItem] {
-        guard let result = faceGroups.result else { return [] }
-        return services.peopleSnapshot.faces.filter { face in
-            face.state.personID != personID && result.memberships[face.key]?.personID == personID
-        }
+
+    private var assignedPhotos: [FaceItem] {
+        services.peopleSnapshot.faces.filter { $0.state.personID == personID }
     }
-    private func perform(_ decision: ManualDecision) {
-        Task { _ = await services.decide(decision) }
+
+    private var possibleMatchCount: Int {
+        faceGroups.result?.suggestions.filter { $0.personID == personID }.count ?? 0
+    }
+
+    /// A previous version named only the cover. Offer one explicit batch repair for any still
+    /// unassigned members of that same conservatively admitted group.
+    @ViewBuilder private func groupRepairs(_ summary: PersonSummary) -> some View {
+        let states = Dictionary(uniqueKeysWithValues: services.peopleSnapshot.faces.map { ($0.key, $0.state) })
+        let repairs = (faceGroups.result?.groups ?? []).compactMap { group -> PersonGroupRepair? in
+            guard group.members.count > 1,
+                  let anchor = group.members.first(where: { states[$0]?.personID == personID && states[$0]?.isAnchor == true }),
+                  group.members.contains(where: { states[$0]?.personID == nil }),
+                  group.members.allSatisfy({ key in
+                      guard let state = states[key] else { return false }
+                      return (state.personID == nil || state.personID == personID)
+                          && !state.notPerson && !state.deferred
+                          && !state.rejectedPeople.contains(personID) && !state.deferredPeople.contains(personID)
+                  }),
+                  let snapshot = group.snapshot(states: states) else { return nil }
+            return PersonGroupRepair(group: group, snapshot: snapshot, anchor: anchor)
+        }
+        if !repairs.isEmpty {
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                Text("Finish assigning matching groups").font(.headline).foregroundStyle(tokens.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(repairs) { repair in
+                    Button {
+                        Task {
+                            _ = await services.decide(.labelGroup(cover: repair.anchor, group: repair.snapshot, personID: personID,
+                                                                  exemplarRevision: summary.person.exemplarRevision))
+                        }
+                    } label: {
+                        Label("Apply name to matching group · \(repair.group.members.count) photos", systemImage: "person.crop.circle.badge.checkmark")
+                    }
+                    .buttonStyle(CapsuleButtonStyle(minHeight: 48))
+                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                    .accessibilityIdentifier("repair-partial-group-\(repair.id)")
+                }
+            }
+        }
     }
     /// Large circular cover, name and confirmed count; stacks vertically at accessibility sizes.
     @ViewBuilder private func header(_ summary: PersonSummary) -> some View {
@@ -253,7 +279,7 @@ struct ManualFaceView: View {
                     .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48)).accessibilityIdentifier("whole-photo-context")
                 }.frame(maxWidth: .infinity)
                 if context { FacePreview(services: services, face: face, wholePhoto: true) }
-                Text("This names the selected face. Other faces need separate decisions.")
+                Text("Name this face only. To assign similar faces together, name their group in People.")
                     .font(.subheadline).foregroundStyle(tokens.textSecondary)
                 Text("Name").font(.subheadline.bold()).foregroundStyle(tokens.textSecondary)
                 TextField("New person name", text: $name).textFieldStyle(.roundedBorder).accessibilityIdentifier("new-person-name")

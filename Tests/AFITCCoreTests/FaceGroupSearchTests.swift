@@ -11,26 +11,26 @@ final class FaceGroupSearchTests: XCTestCase {
         let people = try await f.catalog.peopleSnapshot()
         return (f, try XCTUnwrap(people.people.first?.id))
     }
-    func testNamedThreePhotoGroupAddsPossibleWhileDefaultStaysConfirmed() async throws {
+    func testNamingGroupConfirmsEveryPinnedPhotoForSearch() async throws {
         let (f, person) = try await namedFixture()
         let query = try PeopleQuery(mode: .any, selectedPersonIDs: [person])
         let plain = try await f.catalog.searchSnapshot(query: query)
         let grouped = try await f.catalog.faceGroupSearchSnapshot(query: query)
-        XCTAssertEqual(plain.totalCount, 1)
+        XCTAssertEqual(plain.totalCount, 3)
         XCTAssertEqual(grouped.confirmed.orderedPhotoIDs, plain.orderedPhotoIDs)
-        XCTAssertEqual(grouped.possibleCount, 2)
-        XCTAssertEqual(Set(grouped.confirmed.orderedPhotoIDs + grouped.possibleResults.map(\.photo.id)), Set(f.photos.map(\.id)))
+        XCTAssertEqual(grouped.possibleCount, 0)
+        XCTAssertEqual(Set(grouped.confirmed.orderedPhotoIDs), Set(f.photos.map(\.id)))
         XCTAssertEqual(grouped.revision, grouped.membership.revision)
-        XCTAssertTrue(grouped.possibleResults.allSatisfy { $0.confirmedPersonIDs.isEmpty && $0.possiblePersonIDs == [person] })
+        XCTAssertTrue(grouped.possibleResults.isEmpty)
     }
-    func testTogetherAnyUsePossibleAndOnlyNeverResolvesUnknown() async throws {
+    func testTogetherAnyAndOnlySearchEveryNamedGroupMember() async throws {
         let (f, person) = try await namedFixture()
         for mode in [SearchMode.together, .any] {
             let result = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: mode, selectedPersonIDs: [person]))
-            XCTAssertEqual(result.confirmed.totalCount, 1); XCTAssertEqual(result.possibleCount, 2)
+            XCTAssertEqual(result.confirmed.totalCount, 3); XCTAssertEqual(result.possibleCount, 0)
         }
         let only = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: .only, selectedPersonIDs: [person]))
-        XCTAssertEqual(only.confirmed.totalCount, 1); XCTAssertEqual(only.possibleCount, 0)
+        XCTAssertEqual(only.confirmed.totalCount, 3); XCTAssertEqual(only.possibleCount, 0)
         let empty = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: .any, selectedPersonIDs: []))
         XCTAssertEqual(empty.confirmed.totalCount, 3); XCTAssertEqual(empty.possibleCount, 0)
     }
@@ -38,19 +38,18 @@ final class FaceGroupSearchTests: XCTestCase {
         let (f, person) = try await namedFixture()
         let query = try PeopleQuery(mode: .any, selectedPersonIDs: [person])
         let frozen = try await f.catalog.faceGroupSearchSnapshot(query: query)
-        let first = try frozen.possiblePage(offset: 0, limit: 1)
-        let second = try frozen.possiblePage(offset: 1, limit: 1)
-        XCTAssertNotEqual(first.first?.photo.id, second.first?.photo.id)
+        XCTAssertEqual(frozen.confirmed.totalCount, 3)
+        XCTAssertEqual(frozen.possibleCount, 0)
+        XCTAssertTrue(try frozen.possiblePage(offset: 0, limit: 1).isEmpty)
         XCTAssertTrue(try frozen.possiblePage(offset: 2).isEmpty)
         XCTAssertThrowsError(try frozen.possiblePage(offset: -1))
         _ = try await f.catalog.applyDecision(.confirm(face: f.keys[1], personID: person))
         _ = try await f.catalog.applyDecision(.rename(personID: person, displayName: "Fictional Grace"))
         let latest = try await f.catalog.faceGroupSearchSnapshot(query: query)
         XCTAssertGreaterThan(latest.revision, frozen.revision)
-        XCTAssertEqual(latest.confirmed.totalCount, 2); XCTAssertEqual(latest.possibleCount, 1)
-        XCTAssertEqual(frozen.confirmed.totalCount, 1); XCTAssertEqual(frozen.possibleCount, 2)
+        XCTAssertEqual(latest.confirmed.totalCount, 3); XCTAssertEqual(latest.possibleCount, 0)
+        XCTAssertEqual(frozen.confirmed.totalCount, 3); XCTAssertEqual(frozen.possibleCount, 0)
         XCTAssertEqual(frozen.confirmed.selectedPeople.first?.displayName, "Fictional Ada")
-        XCTAssertEqual(try frozen.possiblePage(offset: 1, limit: 1).first?.photo.id, second.first?.photo.id)
     }
     func testSharedMembershipReuseAndStaleRevisionRecompute() async throws {
         let (f, person) = try await namedFixture()
@@ -62,13 +61,14 @@ final class FaceGroupSearchTests: XCTestCase {
         let newer = try await f.catalog.faceGroupSearchSnapshot(query: query, sharedMembership: shared)
         XCTAssertGreaterThan(newer.revision, shared.revision)
         XCTAssertFalse(newer.possibleResults.contains { $0.photo.id == f.photos[1].id })
-        XCTAssertEqual(reused.possibleCount, 2)
+        XCTAssertEqual(reused.confirmed.totalCount, 3)
+        XCTAssertEqual(reused.possibleCount, 0)
     }
     func testSourceRebindRemovesPossibleButPreservesConfirmed() async throws {
         let (f, person) = try await namedFixture()
         _ = try await f.catalog.acquireSource(identity: "different-fictional-source", confirmed: true)
         let result = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: .any, selectedPersonIDs: [person]))
-        XCTAssertEqual(result.confirmed.totalCount, 1); XCTAssertEqual(result.possibleCount, 0)
+        XCTAssertEqual(result.confirmed.totalCount, 3); XCTAssertEqual(result.possibleCount, 0)
     }
     func testCombinedCapturePinsReadWhileOtherHandleAttemptsCommit() async throws {
         let (f, person) = try await namedFixture()
@@ -85,12 +85,12 @@ final class FaceGroupSearchTests: XCTestCase {
             guard sqlite3_exec(handle, "COMMIT", nil, nil, nil) == SQLITE_BUSY else { throw ScanError.database }
         })
         XCTAssertEqual(result.revision, result.membership.revision)
-        XCTAssertEqual(result.confirmed.totalCount, 1); XCTAssertEqual(result.possibleCount, 2)
+        XCTAssertEqual(result.confirmed.totalCount, 3); XCTAssertEqual(result.possibleCount, 0)
         _ = try await f.catalog.applyDecision(.confirm(face: f.keys[1], personID: person))
         let newer = try await f.catalog.faceGroupSearchSnapshot(query: query)
         XCTAssertEqual(newer.revision, result.revision + 1)
-        XCTAssertEqual(newer.confirmed.totalCount, 2)
-        XCTAssertEqual(result.possibleCount, 2)
+        XCTAssertEqual(newer.confirmed.totalCount, 3)
+        XCTAssertEqual(result.possibleCount, 0)
     }
     func testTwoPersonTogetherRequiresCombinedIdentitiesAndAnyAcceptsEither() async throws {
         let base = try await GroupFixture.make(self, photos: 3)
@@ -126,12 +126,13 @@ final class FaceGroupSearchTests: XCTestCase {
         let (f, person) = try await namedFixture()
         let before = try await f.membership()
         let old = try await f.catalog.faceGroupSearchSnapshot(query: PeopleQuery(mode: .any, selectedPersonIDs: [person]), sharedMembership: before)
-        XCTAssertEqual(old.possibleCount, 2)
+        XCTAssertEqual(old.possibleCount, 0)
         try await f.persist([(f.keys[1], G.vector([1: 1]))])
         let after = try await f.catalog.faceGroupSearchSnapshot(query: old.confirmed.query, sharedMembership: before)
         XCTAssertGreaterThan(after.revision, before.revision)
-        XCTAssertEqual(after.possibleCount, 1)
-        XCTAssertEqual(old.possibleCount, 2)
+        XCTAssertEqual(after.possibleCount, 0)
+        XCTAssertEqual(after.confirmed.totalCount, 3)
+        XCTAssertEqual(old.possibleCount, 0)
     }
 
     func testSourceRebindInvalidatesSharedMembershipButSameSourceReuseKeepsRevision() async throws {
@@ -140,11 +141,11 @@ final class FaceGroupSearchTests: XCTestCase {
         let query = try PeopleQuery(mode: .any, selectedPersonIDs: [person])
         _ = try await f.catalog.acquireSource(identity: "source-a", confirmed: false)
         let reused = try await f.catalog.faceGroupSearchSnapshot(query: query, sharedMembership: shared)
-        XCTAssertEqual(reused.revision, shared.revision); XCTAssertEqual(reused.possibleCount, 2)
+        XCTAssertEqual(reused.revision, shared.revision); XCTAssertEqual(reused.confirmed.totalCount, 3); XCTAssertEqual(reused.possibleCount, 0)
         _ = try await f.catalog.acquireSource(identity: "different-fictional-source", confirmed: true)
         let rebound = try await f.catalog.faceGroupSearchSnapshot(query: query, sharedMembership: shared)
         XCTAssertGreaterThan(rebound.revision, shared.revision)
-        XCTAssertEqual(rebound.confirmed.totalCount, 1); XCTAssertEqual(rebound.possibleCount, 0)
+        XCTAssertEqual(rebound.confirmed.totalCount, 3); XCTAssertEqual(rebound.possibleCount, 0)
         XCTAssertTrue(rebound.membership.incomplete)
     }
 

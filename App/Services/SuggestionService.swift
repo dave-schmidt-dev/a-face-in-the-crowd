@@ -14,6 +14,9 @@ final class SuggestionService: ObservableObject {
     /// Session-local review queue. Skips live only here (never persisted or logged) and are
     /// dropped when the catalog session changes.
     @Published private(set) var queue = ReviewQueue()
+    /// Optional person scope requested from People or Search. It filters the same canonical
+    /// queue and is cleared only by an explicit Show all action or a new catalog session.
+    @Published private(set) var focusedPersonIDs: Set<UUID>?
     /// Faces and name for the current card, looked up once per queue or People change, never per render.
     @Published private(set) var cardFaces: ReviewCardFaces?
     /// People revision a review decision must be ranked against before actions re-enable.
@@ -32,8 +35,7 @@ final class SuggestionService: ObservableObject {
         // One shared saved-analysis result feeds this queue; Verify never ranks on its own.
         services.faceGroups.$result.sink { [weak self] result in
             guard let self else { return }
-            if let result { _ = self.queue.reconcile(result) }
-            else { _ = self.queue.reconcile(nil as SuggestionResult?) }
+            self.reconcile(result)
             if let wait = self.awaitingRevision, result.map({ $0.revision >= wait }) == true {
                 self.awaitingRevision = nil; self.queue.settleAnswer()
             }
@@ -59,6 +61,22 @@ final class SuggestionService: ObservableObject {
 
     /// True when the current card may take an answer: no review decision is still being ranked.
     var canReview: Bool { awaitingRevision == nil }
+
+    /// Focuses the existing queue on a user-selected set of people and acknowledges the requested
+    /// card change. Existing session skips remain attached to their cards.
+    func focus(on personIDs: Set<UUID>) {
+        let active = Set(snapshot.people.filter { $0.person.mergedInto == nil }.map(\.id))
+        let resolved = personIDs.intersection(active)
+        guard !resolved.isEmpty else { showAllMatches(); return }
+        focusedPersonIDs = resolved
+        reconcile(services?.faceGroups.result, acknowledgeRequestedFocus: true)
+    }
+
+    /// Returns to the complete queue without resetting its skipped cards.
+    func showAllMatches() {
+        focusedPersonIDs = nil
+        reconcile(services?.faceGroups.result, acknowledgeRequestedFocus: true)
+    }
 
     /// Answers the displayed `card`. The queue refuses it (writing nothing, stale notice shown) unless
     /// it is still the current card and no change awaits Show latest. Skip stays in this session's
@@ -89,7 +107,25 @@ final class SuggestionService: ObservableObject {
     func resetSkips() { queue.resetSkips(); refreshCardFaces() }
 
     private func resetReview() {
-        queue = ReviewQueue(); awaitingRevision = nil; refreshCardFaces()
+        queue = ReviewQueue(); focusedPersonIDs = nil; awaitingRevision = nil; refreshCardFaces()
+    }
+
+    /// Every update, scoped or global, reconciles through the same queue so current-card guards,
+    /// explicit stale acknowledgements, and session-local skips keep one source of truth.
+    private func reconcile(_ result: FaceMembershipResult?, acknowledgeRequestedFocus: Bool = false) {
+        guard let result else {
+            _ = queue.reconcile(nil as SuggestionResult?)
+            refreshCardFaces()
+            return
+        }
+        let cards = focusedPersonIDs.map { ids in result.suggestions.filter { ids.contains($0.personID) } }
+            ?? result.suggestions
+        let scoped = FaceMembershipResult(revision: result.revision, suggestions: cards, groups: result.groups,
+                                          memberships: result.memberships, compared: result.compared,
+                                          ambiguous: result.ambiguous, incomplete: result.incomplete)
+        _ = queue.reconcile(scoped)
+        if acknowledgeRequestedFocus { queue.acknowledgeChange() }
+        refreshCardFaces()
     }
 
     private func refreshCardFaces() {

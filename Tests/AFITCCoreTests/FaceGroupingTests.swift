@@ -231,7 +231,7 @@ final class FaceGroupingTests: XCTestCase {
 
     // MARK: membership and production capture
 
-    func testPinnedNamingConfirmsOnlyCoverPreservesIDAndLaterMembers() async throws {
+    func testPinnedNamingConfirmsEveryMemberAndPreservesGroupID() async throws {
         let fixture = try await GroupFixture.make(self)
         let keys = fixture.keys
         try await fixture.persist(Array(keys.prefix(3)).map { ($0, G.vector([0: 1])) })
@@ -242,7 +242,8 @@ final class FaceGroupingTests: XCTestCase {
         let named = try await fixture.membership()
         XCTAssertEqual(named.groups, before.groups)
         let states = try await fixture.catalog.peopleSnapshot().faces.map(\.state)
-        XCTAssertEqual(states.filter { $0.personID != nil }.map(\.key), [keys[0]])
+        XCTAssertEqual(Set(states.filter { $0.personID != nil }.map(\.key)), Set(keys.prefix(3)))
+        XCTAssertEqual(Set(states.filter(\.isAnchor).map(\.key)), [keys[0]])
         try await fixture.persist([(keys[3], G.vector([0: 1]))])
         let appended = try await fixture.membership()
         XCTAssertEqual(appended.groups.map(\.seed), [keys[0]])
@@ -270,7 +271,8 @@ final class FaceGroupingTests: XCTestCase {
             expectedState: try XCTUnwrap(group.state(for: f1))))
         let labeled = try await fixture.catalog.peopleSnapshot()
         XCTAssertEqual(labeled.people.count, 1, "labelling aggregates through the person without a merge")
-        XCTAssertEqual(Set(labeled.faces.filter { $0.state.personID == person.id }.map(\.key)), [f1])
+        XCTAssertEqual(Set(labeled.faces.filter { $0.state.personID == person.id }.map(\.key)), [f1, f2, f3])
+        XCTAssertEqual(Set(labeled.faces.filter { $0.state.personID == person.id && $0.state.isAnchor }.map(\.key)), [f1])
 
         let membership = try await fixture.membership()
         XCTAssertEqual(membership.memberships[f4]?.personID, person.id)
@@ -278,7 +280,7 @@ final class FaceGroupingTests: XCTestCase {
         XCTAssertEqual(membership.memberships[f4]?.members, [f1, f2, f3, f4])
         XCTAssertEqual(membership.memberships[f1]?.groupSeed, f1)
         XCTAssertEqual(Set(membership.memberships[f1]?.members ?? []), [f1, f2, f3, f4])
-        XCTAssertEqual(Set(membership.suggestions.map(\.face)), [f2, f3, f4])
+        XCTAssertEqual(Set(membership.suggestions.map(\.face)), [f4])
     }
 
     func testSecondLabeledGroupAggregatesThroughTheSamePerson() async throws {
@@ -297,7 +299,8 @@ final class FaceGroupingTests: XCTestCase {
                                                  exemplarRevision: refreshed.exemplarRevision)
         let snapshot = try await fixture.catalog.peopleSnapshot()
         XCTAssertEqual(snapshot.people.count, 1)
-        XCTAssertEqual(Set(snapshot.faces.filter { $0.state.personID == person.id }.map(\.key)), [f1, f3])
+        XCTAssertEqual(Set(snapshot.faces.filter { $0.state.personID == person.id }.map(\.key)), [f1, f2, f3, f4])
+        XCTAssertEqual(Set(snapshot.faces.filter { $0.state.personID == person.id && $0.state.isAnchor }.map(\.key)), [f1, f3])
         let membership = try await fixture.membership()
         XCTAssertEqual(membership.groups.map(\.seed), [f1, f3])
         XCTAssertEqual(membership.memberships[f4]?.groupSeed, f3)
