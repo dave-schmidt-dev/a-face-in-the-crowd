@@ -6,13 +6,20 @@ struct PeopleView: View {
     @ObservedObject private var faceGroups: FaceGroupService
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
+    var isActive = true
     @State private var selectedFace: FaceItem?
+    @State private var picker = false
+    @State private var confirmation = false
+    @State private var reconnectConfirmation = false
+    @State private var selectionError: String?
+    @State private var finishingAfterSourceSelection = false
     /// Local string route: the outer stack's UUID path pruning cannot pop an open group detail.
     @State private var selectedGroupSeed: String?
 
-    init(services: AppServices) {
+    init(services: AppServices, isActive: Bool = true) {
         self.services = services
         self.faceGroups = services.faceGroups
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -54,17 +61,21 @@ struct PeopleView: View {
             if let status = faceGroups.retrySummary.statusLine {
                 Text(status).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("face-analysis-status")
             }
-            if faceGroups.retrySummary.untrackedIncompleteCount > 0, faceGroups.retrySummary.pauseReason == nil {
-                Text("Some photos still need face analysis. Scan from Library to finish available details.")
-                    .foregroundStyle(tokens.textSecondary).accessibilityIdentifier("face-analysis-incomplete")
-            }
-            if !faceGroups.retryablePhotos.isEmpty {
-                Button("Retry unfinished face analysis") {
-                    Task { await services.retrySavedFaceAnalysis(faceGroups.retryablePhotos) }
+            if !faceGroups.finishablePhotos.isEmpty {
+                Button("Finish face analysis") {
+                    if services.selectedFolder == nil {
+                        finishingAfterSourceSelection = true
+                        if services.usesSyntheticFixture { services.chooseSyntheticFixture() }
+                        else { picker = true }
+                    } else {
+                        Task { await services.finishFaceAnalysis() }
+                    }
                 }
                 .buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
-                .disabled(!services.canStart).accessibilityIdentifier("retry-saved-face-analysis")
+                .disabled(!services.canStart || faceGroups.isFinishingAnalysis)
+                .accessibilityIdentifier("finish-face-analysis")
             }
+            if let selectionError { Text(selectionError).foregroundStyle(tokens.destructive).accessibilityIdentifier("people-source-selection-error") }
             unnamedGroups(coverFaces: coverFaces)
             let unidentified = services.peopleSnapshot.faces.filter { $0.state.personID == nil && !$0.state.notPerson }
             UnidentifiedFacesCard(services: services, faces: unidentified) { selectedFace = $0 }
@@ -90,9 +101,30 @@ struct PeopleView: View {
             }
         }
         .task { if services.peopleRefreshWarning == nil { await services.refreshPeople(); await services.faceGroups.refresh() } }
+        .onChange(of: services.selectedFolder) { _, folder in
+            if folder != nil { requestFinishSourceConfirmation() }
+        }
+        .modifier(SourceFolderInteraction(services: services, picker: $picker, confirmation: $confirmation,
+                                          reconnectConfirmation: $reconnectConfirmation,
+                                          selectionError: $selectionError, isActive: isActive,
+                                          onScan: { confirmed in
+                                              if finishingAfterSourceSelection {
+                                                  finishingAfterSourceSelection = false
+                                                  Task { await services.finishFaceAnalysis(confirmedSource: confirmed) }
+                                              } else {
+                                                  services.startScan(confirmedSource: confirmed)
+                                              }
+                                          },
+                                          onFolderSelected: { requestFinishSourceConfirmation() },
+                                          onPickerCancelled: { finishingAfterSourceSelection = false },
+                                          onScanCancelled: { finishingAfterSourceSelection = false }))
     }
     private var groupPresented: Binding<Bool> {
         Binding(get: { selectedGroupSeed != nil }, set: { if !$0 { selectedGroupSeed = nil } })
+    }
+    private func requestFinishSourceConfirmation() {
+        guard finishingAfterSourceSelection else { return }
+        confirmation = true
     }
     /// Unnamed multi-face groups from the one shared saved-analysis snapshot. Opening, naming or
     /// viewing a group never reads a source and never starts a scan.

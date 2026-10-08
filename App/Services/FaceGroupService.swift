@@ -4,6 +4,7 @@ import AFITCCore
 
 struct FaceAnalysisRetrySummary: Equatable {
     var failedCount = 0
+    var unmatchedCount = 0
     var pausedCount = 0
     var capacityFullCount = 0
     var capacityIsExhausted = false
@@ -19,6 +20,7 @@ struct FaceAnalysisRetrySummary: Equatable {
         case nil: nil
         }
         if failedCount > 0 { parts.append("\(photoCount(failedCount)): analysis failed") }
+        if unmatchedCount > 0 { parts.append("\(photoCount(unmatchedCount)): faces could not be matched automatically") }
         if pausedCount > 0 {
             let reason = pauseDescription ?? "analysis is paused"
             parts.append("\(photoCount(pausedCount)) paused: \(reason)")
@@ -27,6 +29,10 @@ struct FaceAnalysisRetrySummary: Equatable {
             let count = photoCount(untrackedIncompleteCount)
             let verb = untrackedIncompleteCount == 1 ? "needs" : "need"
             parts.append("\(count) \(verb) analysis: \(pauseDescription)")
+        } else if untrackedIncompleteCount > 0 {
+            let count = photoCount(untrackedIncompleteCount)
+            let verb = untrackedIncompleteCount == 1 ? "needs" : "need"
+            parts.append("\(count) \(verb) face analysis")
         }
         if capacityFullCount > 0 {
             parts.append("\(photoCount(capacityFullCount)): \(capacityIsExhausted ? "local face capacity reached" : "capacity is available; retry to continue")")
@@ -45,6 +51,7 @@ struct FaceAnalysisRetrySummary: Equatable {
 @MainActor
 final class FaceGroupService: ObservableObject {
     static let unavailableText = "Face groups could not be read. Saved analysis and decisions remain available."
+    private static let noFaceDetailsReason = "No face details could be computed for this photo."
 
     /// Latest saved-analysis result; nil before the first computation, after a catalog session
     /// change, or while admission is closed.
@@ -52,8 +59,10 @@ final class FaceGroupService: ObservableObject {
     @Published private(set) var isComputing = false
     @Published private(set) var failureText: String?
     @Published private(set) var progress: FaceGroupingProgress?
-    @Published private(set) var retryablePhotos: [PhotoIdentity] = []
+    @Published private(set) var finishablePhotos: [PhotoIdentity] = []
+    @Published private(set) var photosRequiringExplicitRetry: [PhotoIdentity] = []
     @Published private(set) var retrySummary = FaceAnalysisRetrySummary()
+    @Published fileprivate(set) var isFinishingAnalysis = false
 
     private weak var services: AppServices?
     private var cancellables: Set<AnyCancellable> = []
@@ -74,6 +83,10 @@ final class FaceGroupService: ObservableObject {
         services.$isQuiescingCatalog.dropFirst().sink { [weak self] retiring in
             if retiring { self?.reset() }
         }.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.requestRefresh() }
+            .store(in: &cancellables)
         requestRefresh()
     }
 
@@ -88,7 +101,7 @@ final class FaceGroupService: ObservableObject {
         generation &+= 1
         dirty = false
         task?.cancel()
-        result = nil; failureText = nil; progress = nil; retryablePhotos = []; retrySummary = FaceAnalysisRetrySummary()
+        result = nil; failureText = nil; progress = nil; finishablePhotos = []; photosRequiringExplicitRetry = []; retrySummary = FaceAnalysisRetrySummary()
     }
 
     private func requestRefresh() {
@@ -131,18 +144,28 @@ final class FaceGroupService: ObservableObject {
             let failedIDs = Set(currentRecords.filter { $0.status == .failed }.map(\.photoID))
             let pausedIDs = Set(currentRecords.filter { $0.status == .paused }.map(\.photoID))
             let capacityIDs = Set(currentRecords.filter { $0.status == .capacityFull }.map(\.photoID))
+            let unmatchedIDs = Set(currentRecords.filter {
+                $0.status == .failed && $0.reason == Self.noFaceDetailsReason
+            }.map(\.photoID))
             let capacityIsExhausted = statusSnapshot.activeVectorCount >= FaceAnalysisRepository.defaultCapacity
-            let retryIDs = failedIDs.union(pausedIDs).union(capacityIsExhausted ? [] : capacityIDs)
+            let retryIDs = failedIDs.subtracting(unmatchedIDs).union(pausedIDs)
+                .union(capacityIsExhausted ? [] : capacityIDs)
             let trackedIDs = failedIDs.union(pausedIDs).union(capacityIDs)
+            let untrackedIDs = statusSnapshot.incompletePhotoIDs.subtracting(trackedIDs)
+            let pauseReason = services.faceEmbedding.groupingPauseReason
+            let canFinishNow = pauseReason == nil && !capacityIsExhausted
             if started == generation, services.sessionIsCurrent(statusOperation.session), !Task.isCancelled {
-                retryablePhotos = services.photos.filter { retryIDs.contains($0.id) }
+                photosRequiringExplicitRetry = canFinishNow ? services.photos.filter { retryIDs.contains($0.id) } : []
+                let finishIDs = canFinishNow ? untrackedIDs.union(retryIDs) : []
+                finishablePhotos = services.photos.filter { finishIDs.contains($0.id) }
                 retrySummary = FaceAnalysisRetrySummary(
-                    failedCount: failedIDs.count,
+                    failedCount: failedIDs.subtracting(unmatchedIDs).count,
+                    unmatchedCount: unmatchedIDs.count,
                     pausedCount: pausedIDs.count,
                     capacityFullCount: capacityIDs.count,
                     capacityIsExhausted: capacityIsExhausted,
-                    untrackedIncompleteCount: statusSnapshot.incompletePhotoIDs.subtracting(trackedIDs).count,
-                    pauseReason: services.faceEmbedding.groupingPauseReason)
+                    untrackedIncompleteCount: untrackedIDs.count,
+                    pauseReason: pauseReason)
             }
 
             guard let (repository, operation) = services.beginGroupingAdmission("grouping") else {
@@ -205,16 +228,25 @@ extension AppServices {
 
 
 extension AppServices {
-    /// Explicit user action only. Clears inspected current retry markers before one ordinary
-    /// scan; successful photos retain their reuse path. Naming and navigation never call this.
-    func retrySavedFaceAnalysis(_ photos: [PhotoIdentity]) async {
-        guard canStart, !photos.isEmpty, !catalogSession.activeKinds.contains("analysis-retry"),
-              let repository = privacyContext()?.0 else { return }
-        guard selectedFolder != nil else { setupError = "Choose the original source folder in Library before retrying face analysis."; return }
-        guard let operation = catalogSession.begin("analysis-retry") else { return }
-        defer { catalogSession.finish(operation) }
+    /// One explicit People action for missing analysis and current retry markers. Successful
+    /// photos retain reuse; only retry-marked photos receive explicit admission before scanning.
+    func finishFaceAnalysis(confirmedSource: Bool = false) async {
+        let faceGroups = self.faceGroups
+        guard canStart, !faceGroups.isFinishingAnalysis else { return }
+        guard selectedFolder != nil else {
+            setupError = "Choose the original source folder before finishing face analysis."
+            return
+        }
+        guard let repository = privacyContext()?.0,
+              let operation = catalogSession.begin("analysis-finish") else { return }
+        faceGroups.isFinishingAnalysis = true
+        defer { faceGroups.isFinishingAnalysis = false; catalogSession.finish(operation) }
+        let finishableIDs = Set(faceGroups.finishablePhotos.map(\.id))
+        let current = photos.filter { finishableIDs.contains($0.id) }
+        guard !current.isEmpty else { return }
+        let admissionIDs = Set(faceGroups.photosRequiringExplicitRetry.map(\.id))
         let work = Task {
-            for photo in photos {
+            for photo in current where admissionIDs.contains(photo.id) {
                 try Task.checkCancellation()
                 guard sessionIsCurrent(operation.session) else { throw CancellationError() }
                 try await repository.admitFaceAnalysisRetry(photo: photo, manifest: .openCVSFace2021December)
@@ -224,9 +256,9 @@ extension AppServices {
         do {
             try await work.value
             guard sessionIsCurrent(operation.session), canStart else { return }
-            startScan()
+            startScan(confirmedSource: confirmedSource)
         } catch {
-            if sessionIsCurrent(operation.session) { setupError = "Saved face analysis changed. Refresh People before retrying." }
+            if sessionIsCurrent(operation.session) { setupError = "Saved face analysis changed. Refresh People before finishing." }
         }
     }
 }

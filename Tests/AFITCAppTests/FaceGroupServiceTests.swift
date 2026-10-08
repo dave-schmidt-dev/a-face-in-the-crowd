@@ -215,15 +215,15 @@ final class FaceGroupServiceTests: XCTestCase {
             let fence = try await repository.captureFaceAnalysisPersistenceFence(photo: photo, sourceIdentity: binding)
             _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: XCTUnwrap(photo.contentHash), vectors: [], manifest: .openCVSFace2021December, status: status)
             await services.faceGroups.refresh()
-            XCTAssertEqual(services.faceGroups.retryablePhotos.map(\.id), [photo.id])
+            XCTAssertEqual(services.faceGroups.finishablePhotos.map(\.id), [photo.id])
             let membershipBeforeRetry = try XCTUnwrap(services.faceGroups.result)
             services.startScan(confirmedSource: true)
             try await wait { services.canStart && !services.isScanning }
             XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3 + index, "Ordinary scans retain the explicit retry hold for \(status)")
             XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3 + index)
-            await services.retrySavedFaceAnalysis([photo])
+            await services.finishFaceAnalysis(confirmedSource: true)
             try await wait { services.canStart && !services.isScanning }
-            try await wait { services.faceGroups.retryablePhotos.isEmpty }
+            try await wait { services.faceGroups.finishablePhotos.isEmpty }
             XCTAssertGreaterThanOrEqual(try XCTUnwrap(services.faceGroups.result).revision, membershipBeforeRetry.revision)
             XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 3 + index * 2)
             XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 4 + index)
@@ -243,18 +243,87 @@ final class FaceGroupServiceTests: XCTestCase {
         _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: XCTUnwrap(photo.contentHash),
             vectors: [], manifest: .openCVSFace2021December, status: .failed, reason: "safe synthetic failure")
         await services.faceGroups.refresh()
-        XCTAssertEqual(services.faceGroups.retryablePhotos.map(\.id), [photo.id])
+        XCTAssertEqual(services.faceGroups.finishablePhotos.map(\.id), [photo.id])
 
         thermal.value = .serious
-        await services.retrySavedFaceAnalysis([photo])
+        await services.finishFaceAnalysis(confirmedSource: true)
         try await wait { services.canStart && !services.isScanning && !services.faceGroups.isComputing }
 
         let remainingRecords = try await repository.faceAnalysisSnapshot().photoRecords.filter { $0.photoID == photo.id }
         XCTAssertTrue(remainingRecords.isEmpty, "Retry admission clears the old marker while thermal gating prevents another attempt")
-        XCTAssertTrue(services.faceGroups.retryablePhotos.isEmpty, "People must not retain a stale retry action when no retry record remains")
+        XCTAssertTrue(services.faceGroups.finishablePhotos.isEmpty, "People must not retain a stale finish action when no retry record remains")
         XCTAssertEqual(services.faceGroups.retrySummary.untrackedIncompleteCount, 1)
         XCTAssertEqual(services.faceGroups.retrySummary.statusLine, "1 photo needs analysis: device is warm")
         XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3, "Thermal gating must not run another synthetic analysis")
+        thermal.value = .nominal
+        NotificationCenter.default.post(name: ProcessInfo.thermalStateDidChangeNotification, object: nil)
+        try await wait { services.faceGroups.finishablePhotos.contains { $0.id == photo.id } }
+        XCTAssertNil(services.faceGroups.retrySummary.pauseReason)
+        XCTAssertEqual(services.faceGroups.retrySummary.statusLine, "1 photo needs face analysis")
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3, "Thermal recovery refreshes eligibility without source work")
+        try await retire(services, root: root)
+    }
+
+    @MainActor func testFinishAnalysisIncludesUntrackedAndRetryablePhotosAndClassifiesFailures() async throws {
+        let (services, root, source) = try await fixture()
+        let repository = try XCTUnwrap(services.privacyContext()?.0)
+        let photos = services.photos.sorted { $0.relativePath < $1.relativePath }
+        let retryable = try XCTUnwrap(photos.first { $0.relativePath.hasSuffix("synthetic-0.jpg") })
+        let untracked = try XCTUnwrap(photos.first { $0.relativePath.hasSuffix("synthetic-1.jpg") })
+        let unmatched = try XCTUnwrap(photos.first { $0.relativePath.hasSuffix("synthetic-2.jpg") })
+        let records = try await repository.faceAnalysisSnapshot().photoRecords
+        let binding = try XCTUnwrap(records.first { $0.photoID == retryable.id }).sourceBinding
+
+        for (photo, reason) in [(retryable, "Face analysis failed."),
+                                (unmatched, "No face details could be computed for this photo.")] {
+            let fence = try await repository.captureFaceAnalysisPersistenceFence(photo: photo, sourceIdentity: binding)
+            _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: XCTUnwrap(photo.contentHash),
+                vectors: [], manifest: .openCVSFace2021December, status: .failed, reason: reason)
+        }
+        let missingFence = try await repository.captureFaceAnalysisPersistenceFence(photo: untracked, sourceIdentity: binding)
+        _ = try await repository.saveFaceAnalysisBatch(fence: missingFence, verifiedContentHash: XCTUnwrap(untracked.contentHash),
+            vectors: [], manifest: .openCVSFace2021December, status: .paused, reason: "synthetic pause")
+        try await repository.admitFaceAnalysisRetry(photo: untracked, manifest: .openCVSFace2021December)
+        await services.faceGroups.refresh()
+
+        XCTAssertEqual(services.faceGroups.retrySummary.failedCount, 1)
+        XCTAssertEqual(services.faceGroups.retrySummary.unmatchedCount, 1)
+        XCTAssertEqual(services.faceGroups.retrySummary.untrackedIncompleteCount, 1)
+        let status = try XCTUnwrap(services.faceGroups.retrySummary.statusLine)
+        XCTAssertTrue(status.contains("analysis failed"))
+        XCTAssertTrue(status.contains("faces could not be matched automatically"))
+        XCTAssertTrue(status.contains("1 photo needs face analysis"))
+        XCTAssertFalse(status.contains("Face analysis failed."))
+        XCTAssertFalse(status.contains("No face details could be computed"))
+        XCTAssertEqual(Set(services.faceGroups.finishablePhotos.map(\.id)), [retryable.id, untracked.id])
+        XCTAssertEqual(services.faceGroups.photosRequiringExplicitRetry.map(\.id), [retryable.id])
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3, "Status discovery does not read or recompute source photos")
+
+        services.selectedFolder = nil
+        await services.faceGroups.refresh()
+        XCTAssertEqual(Set(services.faceGroups.finishablePhotos.map(\.id)), [retryable.id, untracked.id],
+                       "A disconnected source leaves the cached worklist available")
+        await services.finishFaceAnalysis()
+        XCTAssertEqual(services.setupError, "Choose the original source folder before finishing face analysis.")
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3, "The service does not start work before source selection")
+        services.choose(source)
+        await services.faceGroups.refresh()
+        XCTAssertEqual(Set(services.faceGroups.finishablePhotos.map(\.id)), [retryable.id, untracked.id],
+                       "Reconnecting the original source preserves the cached worklist")
+
+        await services.finishFaceAnalysis(confirmedSource: true)
+        await services.finishFaceAnalysis(confirmedSource: true)
+        try await wait { services.canStart && services.progress.phase == .completed && !services.isRefreshingPeople }
+        await services.faceGroups.refresh()
+        let completed = try await repository.faceAnalysisSnapshot()
+        XCTAssertEqual(completed.photoRecords.first { $0.photoID == retryable.id }?.status, .completed)
+        XCTAssertEqual(completed.photoRecords.first { $0.photoID == untracked.id }?.status, .completed)
+        XCTAssertEqual(completed.photoRecords.first { $0.photoID == unmatched.id }?.reason,
+                       "No face details could be computed for this photo.", "Stable no-face failures must not be retried automatically")
+        XCTAssertEqual(services.faceGroups.finishablePhotos.map(\.id), [])
+        XCTAssertEqual(services.faceGroups.retrySummary.unmatchedCount, 1)
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 5, "Only the actionable failed and untracked photos are analyzed")
+        XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 2, "A duplicate action during the scan cannot admit or start another scan")
         try await retire(services, root: root)
     }
     @MainActor func testRetiredSessionClearsSharedReviewWithoutLatePublication() async throws {
@@ -306,7 +375,7 @@ final class FaceGroupServiceTests: XCTestCase {
         let missing = try XCTUnwrap(services.faceGroups.result)
         XCTAssertGreaterThan(missing.revision, before.revision)
         XCTAssertTrue(missing.incomplete)
-        XCTAssertTrue(services.faceGroups.retryablePhotos.contains { $0.id == photo.id })
+        XCTAssertTrue(services.faceGroups.finishablePhotos.contains { $0.id == photo.id })
         XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 1)
         XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3)
         XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3)

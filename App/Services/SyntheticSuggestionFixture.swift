@@ -66,7 +66,8 @@ enum SyntheticAnalysisProbe {
     private static var count = 0
     private static var scans = 0
     private static var reads = 0
-    private static var retryFixtureFailureUsed = false
+    private static var finishFixtureFailureUsed = false
+    private static var finishFixtureMissingUsed = false
     static var scanCount: Int { lock.lock(); defer { lock.unlock() }; return scans }
     static var sourceReadCount: Int { lock.lock(); defer { lock.unlock() }; return reads }
     static func recordScan() { lock.lock(); defer { lock.unlock() }; scans += 1 }
@@ -79,18 +80,26 @@ enum SyntheticAnalysisProbe {
         lock.lock(); defer { lock.unlock() }
         count += 1
     }
-    /// The retry UI journey persists one failed status for synthetic-0 on its first scan.
-    static func consumeRetryFixtureFailure(for path: String) -> Bool {
-        guard ProcessInfo.processInfo.arguments.contains("--uitest-analysis-retry"),
+    /// The finish journey stores one retryable failure and leaves one photo without a status.
+    static func consumeFinishFixtureFailure(for path: String) -> Bool {
+        guard ProcessInfo.processInfo.arguments.contains("--uitest-analysis-finish"),
               SyntheticFaceVectorProducer.photoNumber(path) == 0 else { return false }
         lock.lock(); defer { lock.unlock() }
-        guard !retryFixtureFailureUsed else { return false }
-        retryFixtureFailureUsed = true
+        guard !finishFixtureFailureUsed else { return false }
+        finishFixtureFailureUsed = true
+        return true
+    }
+    static func consumeFinishFixtureMissingStatus(for path: String) -> Bool {
+        guard ProcessInfo.processInfo.arguments.contains("--uitest-analysis-finish"),
+              SyntheticFaceVectorProducer.photoNumber(path) == 1 else { return false }
+        lock.lock(); defer { lock.unlock() }
+        guard !finishFixtureMissingUsed else { return false }
+        finishFixtureMissingUsed = true
         return true
     }
     static func reset() {
         lock.lock(); defer { lock.unlock() }
-        count = 0; scans = 0; reads = 0; retryFixtureFailureUsed = false
+        count = 0; scans = 0; reads = 0; finishFixtureFailureUsed = false; finishFixtureMissingUsed = false
     }
 }
 
@@ -123,7 +132,7 @@ actor SyntheticPersistentAnalysisProducer: ScanEnrichment {
             await progress(reason.rawValue.replacingOccurrences(of: "Suggestion jobs", with: "Face analysis"))
             return
         }
-        if SyntheticAnalysisProbe.consumeRetryFixtureFailure(for: request.photo.relativePath) {
+        if SyntheticAnalysisProbe.consumeFinishFixtureFailure(for: request.photo.relativePath) {
             try Task.checkCancellation()
             guard let fence = try? await repository.captureFaceAnalysisPersistenceFence(
                 photo: request.photo, sourceIdentity: request.sourceIdentity),
@@ -134,8 +143,12 @@ actor SyntheticPersistentAnalysisProducer: ScanEnrichment {
                                                                      verifiedContentHash: request.contentHash,
                                                                      vectors: [], manifest: manifest,
                                                                      status: .failed,
-                                                                     reason: "Synthetic first attempt failed.")
+                                                                     reason: "Face analysis failed.")
             if outcome == .stale { throw TransientFaceEmbeddingError.stale }
+            return
+        }
+        if SyntheticAnalysisProbe.consumeFinishFixtureMissingStatus(for: request.photo.relativePath) {
+            try Task.checkCancellation()
             return
         }
         try Task.checkCancellation()

@@ -4518,6 +4518,38 @@
         }
       }
     },
+    "task7.finish": {
+      "description": "People completion combines current missing analysis and safe explicit retries",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceAnalysisPersistenceTests.swift",
+            "Tests/AFITCCoreTests/PersistentFaceAdmissionTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testEmptyAttemptsAndStatusTracking",
+            "AFITCCoreTests.FaceAnalysisPersistenceTests/testReuseReadKeepsRevisionAndAnalysisCommitAdvancesIt",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testFailedAnalysisDoesNotInferAgainFromOrdinaryReadBytes",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testExplicitRetryAdmitsOneAttemptAndLeavesManualIdentityIntact",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testFailedAndCapacityFullAreExplicitRetryStates",
+            "AFITCCoreTests.PersistentFaceAdmissionTests/testPausedSuggestionGateAdmitsNoCatchUpRead"
+          ]
+        },
+        "AFITCAppTests": {
+          "type": "unit",
+          "swiftpmOnly": true,
+          "testFiles": [
+            "Tests/AFITCAppTests/FaceGroupServiceTests.swift"
+          ],
+          "selectors": [
+            "AFITCAppTests.FaceGroupServiceTests/testRetryStatesNeedExplicitAdmissionAndOnlyReadAffectedPhoto",
+            "AFITCAppTests.FaceGroupServiceTests/testRetryListClearsWhenThermalGatePausesGrouping",
+            "AFITCAppTests.FaceGroupServiceTests/testFinishAnalysisIncludesUntrackedAndRetryablePhotosAndClassifiesFailures"
+          ]
+        }
+      }
+    },
     "app.services": {
       "description": "Portable actual AppServices backup progress and owned fixture isolation; explicit SwiftPM-only registration contract",
       "targets": {
@@ -4600,8 +4632,8 @@
         }
       }
     },
-    "ui.analysis-retry": {
-      "description": "People shows and retries a durable synthetic analysis failure",
+    "ui.analysis-finish": {
+      "description": "People completes missing and retryable synthetic analysis without leaving People",
       "targets": {
         "AFITCCoreTests": {
           "type": "unit",
@@ -4619,7 +4651,7 @@
             "UITests/FaceGroupingFlowTests.swift"
           ],
           "selectors": [
-            "UITests.FaceGroupingFlowTests/testPeopleRetryShowsAndClearsPersistedFailure"
+            "UITests.FaceGroupingFlowTests/testPeopleFinishesMissingAndFailedAnalysisInPlace"
           ]
         }
       }
@@ -5089,6 +5121,7 @@
       "task7.7",
       "task7.8",
       "task7.retry",
+      "task7.finish",
       "app.services"
     ],
     "phase-group-owner": [
@@ -5097,8 +5130,8 @@
     "phase-group-links": [
       "ui.group-links"
     ],
-    "phase-analysis-retry": [
-      "ui.analysis-retry"
+    "phase-analysis-finish": [
+      "ui.analysis-finish"
     ]
   }
 }

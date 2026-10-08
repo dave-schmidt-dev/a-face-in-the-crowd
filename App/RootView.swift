@@ -225,9 +225,9 @@ public struct RootView: View {
                 // One compact status strip per screen, first; Library draws its own around the grid.
                 if section != .library { StatusView(services: services) }
                 if section == .library {
-                    LibraryView(services: services)
+                    LibraryView(services: services, isActive: section == selection)
                 } else if section == .people {
-                    PeopleView(services: services)
+                    PeopleView(services: services, isActive: section == selection)
                 } else if section == .search {
                     SearchView(services: services, onReviewPossible: { personIDs in
                         services.suggestions.focus(on: personIDs)

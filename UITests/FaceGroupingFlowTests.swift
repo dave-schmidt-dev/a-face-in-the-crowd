@@ -90,28 +90,62 @@ final class FaceGroupingFlowTests: XCTestCase {
         XCTAssertTrue(repair.waitForExistence(timeout: 10), "Undo restores the repair action")
     }
 
-    func testPeopleRetryShowsAndClearsPersistedFailure() {
-        let app = launchFixture(extra: ["--uitest-analysis-retry"])
+    func testPeopleFinishesMissingAndFailedAnalysisInPlace() {
+        let app = launchFixture(extra: ["--uitest-analysis-finish"])
         navigateTo("Library", app); scanFixture(app)
         navigateTo("People", app)
 
         let status = app.staticTexts["face-analysis-status"].firstMatch
         XCTAssertTrue(waitUntilTrue(15) {
-            status.exists && status.label.contains("1 photo") && status.label.contains("analysis failed")
-        }, "People shows the saved failed-analysis count")
-        let retry = app.buttons["retry-saved-face-analysis"].firstMatch
-        XCTAssertTrue(retry.waitForExistence(timeout: 10)); revealElement(retry, app)
-        XCTAssertTrue(isRevealed(retry, app)); XCTAssertTrue(retry.isEnabled)
-        attachScreenshot("face-analysis-retry-available", app)
+            status.exists && status.label.contains("1 photo: analysis failed")
+                && status.label.contains("1 photo needs face analysis")
+        }, "People distinguishes one retryable failure and one missing status")
+        let finish = app.buttons["finish-face-analysis"].firstMatch
+        XCTAssertTrue(finish.waitForExistence(timeout: 10)); revealElement(finish, app)
+        XCTAssertTrue(isRevealed(finish, app)); XCTAssertTrue(finish.isEnabled)
+        attachScreenshot("face-analysis-finish-available", app)
 
-        retry.tap()
+        let settings = app.buttons["settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 10)); revealElement(settings, app); settings.tap()
+        let disconnect = app.buttons["disconnect-source"].firstMatch
+        XCTAssertTrue(disconnect.waitForExistence(timeout: 10)); disconnect.tap()
+        let privacyConfirmation = app.alerts["Confirm privacy action"]
+        XCTAssertTrue(privacyConfirmation.waitForExistence(timeout: 10))
+        privacyConfirmation.buttons["Continue"].tap()
+        let sourceState = app.staticTexts["backup-source-state"]
+        XCTAssertTrue(waitUntilTrue(20) { sourceState.label == "No source folder selected" })
+        app.buttons["Done"].tap()
+        navigateTo("People", app)
+        XCTAssertTrue(waitUntilTrue(15) {
+            status.exists && status.label.contains("1 photo: analysis failed")
+                && status.label.contains("1 photo needs face analysis")
+        }, "Disconnecting the source must retain the saved analysis worklist")
+        XCTAssertTrue(finish.waitForExistence(timeout: 10), "People keeps the completion action after source disconnect")
+        revealElement(finish, app)
+        attachScreenshot("face-analysis-finish-source-disconnected", app)
+
+        finish.tap()
+        XCTAssertTrue(app.alerts["Scan this folder?"].buttons["Start scan"].waitForExistence(timeout: 10),
+                      "People selects the source and asks before scanning")
+        app.alerts["Scan this folder?"].buttons["Start scan"].tap()
+        let reconnect = app.alerts["Confirm the original source"]
+        XCTAssertTrue(reconnect.waitForExistence(timeout: 10), "The source identity guard requires explicit confirmation")
+        reconnect.buttons["Cancel"].tap()
+        navigateTo("Search", app)
+        navigateTo("People", app)
+        XCTAssertFalse(reconnect.exists, "Cancel clears the pending source-confirmation request")
+        XCTAssertTrue(finish.waitForExistence(timeout: 10), "Missing analysis remains available after cancelling source confirmation")
+        revealElement(finish, app)
+        finish.tap()
+        XCTAssertTrue(reconnect.waitForExistence(timeout: 10), "A new explicit scan can request source confirmation again")
+        reconnect.buttons["This is the original folder"].tap()
         let scanActivity = app.staticTexts["scan-message"].firstMatch
-        XCTAssertTrue(scanActivity.waitForExistence(timeout: 10), "Retry starts the ordinary scan")
+        XCTAssertTrue(scanActivity.waitForExistence(timeout: 10), "Finish starts the ordinary cached scan")
         let phase = app.staticTexts["scan-phase"].firstMatch
         XCTAssertTrue(waitUntilTrue(30) { phase.value as? String == "completed" })
-        XCTAssertTrue(status.waitForNonExistence(timeout: 10), "Successful retry clears the saved failure status")
-        XCTAssertFalse(app.buttons["retry-saved-face-analysis"].exists)
-        XCTAssertFalse(app.staticTexts["face-analysis-incomplete"].exists)
-        attachScreenshot("face-analysis-retry-complete", app)
+        XCTAssertTrue(app.scrollViews["screen-People"].exists, "Completion stays on People")
+        XCTAssertTrue(status.waitForNonExistence(timeout: 10), "Completed analysis clears the status")
+        XCTAssertFalse(app.buttons["finish-face-analysis"].exists)
+        attachScreenshot("face-analysis-finish-complete", app)
     }
 }
