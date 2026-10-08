@@ -96,6 +96,22 @@ public struct FaceAnalysisSnapshot: Sendable {
     }
 }
 
+/// Lightweight durable state for People retry messaging, independent of vector grouping work.
+public struct FaceAnalysisStatusSnapshot: Sendable {
+    public let photoRecords: [PhotoAnalysisRecord]
+    public let activeVectorCount: Int
+    public let sourceBinding: String?
+    public let hasSourceBinding: Bool
+    public let incompletePhotoIDs: Set<UUID>
+
+    public init(photoRecords: [PhotoAnalysisRecord], activeVectorCount: Int, sourceBinding: String?,
+                hasSourceBinding: Bool, incompletePhotoIDs: Set<UUID>) {
+        self.photoRecords = photoRecords; self.activeVectorCount = activeVectorCount
+        self.sourceBinding = sourceBinding; self.hasSourceBinding = hasSourceBinding
+        self.incompletePhotoIDs = incompletePhotoIDs
+    }
+}
+
 public struct FaceAnalysisRepository: Sendable {
     public static let defaultCapacity = 20_000
     public let catalog: CatalogRepository
@@ -104,6 +120,22 @@ public struct FaceAnalysisRepository: Sendable {
 }
 
 extension CatalogRepository {
+    /// Reads only durable status rows and counts; People can update retry controls while model
+    /// grouping is paused or fails without loading vectors or suppressions into app memory.
+    public func faceAnalysisStatusSnapshot() throws -> FaceAnalysisStatusSnapshot {
+        try peopleRead { db in
+            let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
+            return FaceAnalysisStatusSnapshot(
+                photoRecords: try FaceAnalysisSQL.allPhotoRecords(db),
+                activeVectorCount: try FaceAnalysisSQL.countCurrentVectors(db),
+                sourceBinding: bindings.count == 1 ? bindings[0] : nil,
+                hasSourceBinding: bindings.count == 1,
+                incompletePhotoIDs: try Self.incompleteAnalysisPhotoIDs(
+                    db, modelIdentifier: ModelManifest.openCVSFace2021December.identifier,
+                    preprocessingVersion: ModelManifest.openCVSFace2021December.preprocessingVersion))
+        }
+    }
+
     public func faceAnalysisSnapshot() throws -> FaceAnalysisSnapshot {
         try peopleRead { db in
             let vectors = try FaceAnalysisSQL.allVectors(db)

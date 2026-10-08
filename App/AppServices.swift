@@ -10,7 +10,7 @@ public final class AppServices: ObservableObject {
     public let diagnostics: DiagnosticLog
     let presentation: AppPresentationState
     let catalogSession = CatalogSessionLifecycle()
-    let faceEmbedding = FaceEmbeddingCoordinator()
+    let faceEmbedding: FaceEmbeddingCoordinator
     @Published private(set) var catalogSessionID: UInt64 = 1
     @Published private(set) var isQuiescingCatalog = false
     #if DEBUG
@@ -174,9 +174,11 @@ public final class AppServices: ObservableObject {
     private var scanTask: Task<Void, Never>?
     private var previewDirectory: URL?
     private var observers: [NSObjectProtocol] = []
-    public init(databaseInfo: CatalogDatabaseInfo = CatalogDatabaseInfo(), launch: LaunchOptions = .process) {
+    public init(databaseInfo: CatalogDatabaseInfo = CatalogDatabaseInfo(), launch: LaunchOptions = .process,
+                analysisResources: FaceJobResources = FaceJobResources()) {
         self.databaseInfo = databaseInfo
         self.launch = launch
+        self.faceEmbedding = FaceEmbeddingCoordinator(analysisResources: analysisResources)
         let (support, cache, container) = AppOwnedPaths.current(launch: launch)
         diagnostics = DiagnosticLog(directory: support.appendingPathComponent("Diagnostics", isDirectory: true),
                                     debugEnabled: launch.has("--debug"))
@@ -242,6 +244,13 @@ public final class AppServices: ObservableObject {
     func beginGroupingAdmission(_ kind: String) -> (CatalogRepository, CatalogSessionLifecycle.Operation)? {
         guard (canStart || groupingBoundaryOpen), faceEmbedding.groupingPauseReason == nil,
               let repository, let operation = catalogSession.begin(kind) else { return nil }
+        return (repository, operation)
+    }
+    /// Durable retry messaging is a small status read, not model grouping; it remains available
+    /// while thermal or memory pressure pauses the more expensive membership computation.
+    func beginFaceRetryStatusAdmission() -> (CatalogRepository, CatalogSessionLifecycle.Operation)? {
+        guard (canStart || groupingBoundaryOpen), let repository,
+              let operation = catalogSession.begin("face-retry-status") else { return nil }
         return (repository, operation)
     }
     public func choose(_ url: URL) {

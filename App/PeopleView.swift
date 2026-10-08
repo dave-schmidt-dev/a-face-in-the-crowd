@@ -51,7 +51,13 @@ struct PeopleView: View {
             }
             if faceGroups.isComputing { ProgressView("Updating face groups").accessibilityIdentifier("face-groups-progress") }
             if let failure = faceGroups.failureText { Text(failure).accessibilityIdentifier("face-groups-failure") }
-            if faceGroups.result?.incomplete == true { Text("Some faces have no saved analysis. Scan from Library to finish available face details.").foregroundStyle(tokens.textSecondary) }
+            if let status = faceGroups.retrySummary.statusLine {
+                Text(status).foregroundStyle(tokens.textSecondary).accessibilityIdentifier("face-analysis-status")
+            }
+            if faceGroups.retrySummary.untrackedIncompleteCount > 0, faceGroups.retrySummary.pauseReason == nil {
+                Text("Some photos still need face analysis. Scan from Library to finish available details.")
+                    .foregroundStyle(tokens.textSecondary).accessibilityIdentifier("face-analysis-incomplete")
+            }
             if !faceGroups.retryablePhotos.isEmpty {
                 Button("Retry unfinished face analysis") {
                     Task { await services.retrySavedFaceAnalysis(faceGroups.retryablePhotos) }

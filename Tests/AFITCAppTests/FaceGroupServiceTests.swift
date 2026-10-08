@@ -6,17 +6,27 @@ import AFITCCore
 /// Actual AppServices over generated JPEGs and persisted fictional vectors. No private media,
 /// model qualification or UI acceptance is implied by these service tests.
 final class FaceGroupServiceTests: XCTestCase {
+    private final class ThermalStateBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored = ProcessInfo.ThermalState.nominal
+        var value: ProcessInfo.ThermalState {
+            get { lock.withLock { stored } }
+            set { lock.withLock { stored = newValue } }
+        }
+    }
     @MainActor private func wait(_ condition: () -> Bool) async throws {
         let deadline = ContinuousClock.now.advanced(by: .seconds(10))
         while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(10)) }
         XCTAssertTrue(condition(), "App operation did not finish")
     }
-    @MainActor private func fixture(observing: ((AppServices) -> Void)? = nil) async throws -> (AppServices, URL, URL) {
+    @MainActor private func fixture(analysisResources: FaceJobResources? = nil,
+                                    observing: ((AppServices) -> Void)? = nil) async throws -> (AppServices, URL, URL) {
         SyntheticAnalysisProbe.reset()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let source = try AppSessionFixture.root(in: root)
-        let services = AppServices(launch: LaunchOptions(arguments: ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces"], ownedRoot: root))
+        let services = AppServices(launch: LaunchOptions(arguments: ["--uitest-synthetic-source", "--uitest-synthetic-detector", "--uitest-synthetic-faces"], ownedRoot: root),
+                                   analysisResources: analysisResources ?? FaceJobResources())
         addTeardownBlock { try await self.retire(services, root: root) }
         try await wait { services.canStart && services.hasLoadedPeopleSnapshot && !services.isRestoringSource }
         observing?(services)
@@ -206,18 +216,45 @@ final class FaceGroupServiceTests: XCTestCase {
             _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: XCTUnwrap(photo.contentHash), vectors: [], manifest: .openCVSFace2021December, status: status)
             await services.faceGroups.refresh()
             XCTAssertEqual(services.faceGroups.retryablePhotos.map(\.id), [photo.id])
+            let membershipBeforeRetry = try XCTUnwrap(services.faceGroups.result)
             services.startScan(confirmedSource: true)
             try await wait { services.canStart && !services.isScanning }
             XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 3 + index, "Ordinary scans retain the explicit retry hold for \(status)")
             XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3 + index)
             await services.retrySavedFaceAnalysis([photo])
             try await wait { services.canStart && !services.isScanning }
-            await services.faceGroups.refresh()
-            XCTAssertTrue(services.faceGroups.retryablePhotos.isEmpty)
+            try await wait { services.faceGroups.retryablePhotos.isEmpty }
+            XCTAssertGreaterThanOrEqual(try XCTUnwrap(services.faceGroups.result).revision, membershipBeforeRetry.revision)
             XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 3 + index * 2)
             XCTAssertEqual(SyntheticAnalysisProbe.sourceReadCount, 4 + index)
             XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 4 + index)
         }
+        try await retire(services, root: root)
+    }
+    @MainActor func testRetryListClearsWhenThermalGatePausesGrouping() async throws {
+        let thermal = ThermalStateBox()
+        let resources = FaceJobResources { thermal.value }
+        let (services, root, _) = try await fixture(analysisResources: resources)
+        let repository = try XCTUnwrap(services.privacyContext()?.0)
+        let photo = try XCTUnwrap(services.photos.first)
+        let records = try await repository.faceAnalysisSnapshot().photoRecords
+        let binding = try XCTUnwrap(records.first { $0.photoID == photo.id }).sourceBinding
+        let fence = try await repository.captureFaceAnalysisPersistenceFence(photo: photo, sourceIdentity: binding)
+        _ = try await repository.saveFaceAnalysisBatch(fence: fence, verifiedContentHash: XCTUnwrap(photo.contentHash),
+            vectors: [], manifest: .openCVSFace2021December, status: .failed, reason: "safe synthetic failure")
+        await services.faceGroups.refresh()
+        XCTAssertEqual(services.faceGroups.retryablePhotos.map(\.id), [photo.id])
+
+        thermal.value = .serious
+        await services.retrySavedFaceAnalysis([photo])
+        try await wait { services.canStart && !services.isScanning && !services.faceGroups.isComputing }
+
+        let remainingRecords = try await repository.faceAnalysisSnapshot().photoRecords.filter { $0.photoID == photo.id }
+        XCTAssertTrue(remainingRecords.isEmpty, "Retry admission clears the old marker while thermal gating prevents another attempt")
+        XCTAssertTrue(services.faceGroups.retryablePhotos.isEmpty, "People must not retain a stale retry action when no retry record remains")
+        XCTAssertEqual(services.faceGroups.retrySummary.untrackedIncompleteCount, 1)
+        XCTAssertEqual(services.faceGroups.retrySummary.statusLine, "1 photo needs analysis: device is warm")
+        XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 3, "Thermal gating must not run another synthetic analysis")
         try await retire(services, root: root)
     }
     @MainActor func testRetiredSessionClearsSharedReviewWithoutLatePublication() async throws {

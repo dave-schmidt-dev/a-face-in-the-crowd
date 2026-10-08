@@ -14,9 +14,10 @@ final class FaceEmbeddingCoordinator {
     private let store = TransientFaceEmbeddingStore()
     private var observer: NSObjectProtocol?
     /// Analysis admission gate: memory warnings and thermal state pause catch-up reads.
-    private let analysisResources = FaceJobResources()
+    private let analysisResources: FaceJobResources
 
-    init() {
+    init(analysisResources: FaceJobResources = FaceJobResources()) {
+        self.analysisResources = analysisResources
         analysisResources.isEnabled = true
         // Memory pressure closes the analysis gate first, then drops the retained batch
         // synchronously so no publication can slip in between.

@@ -89,4 +89,29 @@ final class FaceGroupingFlowTests: XCTestCase {
         XCTAssertTrue(waitUntilTrue { count.label == "1 confirmed photo" }, "Undo restores the prior single-face assignment")
         XCTAssertTrue(repair.waitForExistence(timeout: 10), "Undo restores the repair action")
     }
+
+    func testPeopleRetryShowsAndClearsPersistedFailure() {
+        let app = launchFixture(extra: ["--uitest-analysis-retry"])
+        navigateTo("Library", app); scanFixture(app)
+        navigateTo("People", app)
+
+        let status = app.staticTexts["face-analysis-status"].firstMatch
+        XCTAssertTrue(waitUntilTrue(15) {
+            status.exists && status.label.contains("1 photo") && status.label.contains("analysis failed")
+        }, "People shows the saved failed-analysis count")
+        let retry = app.buttons["retry-saved-face-analysis"].firstMatch
+        XCTAssertTrue(retry.waitForExistence(timeout: 10)); revealElement(retry, app)
+        XCTAssertTrue(isRevealed(retry, app)); XCTAssertTrue(retry.isEnabled)
+        attachScreenshot("face-analysis-retry-available", app)
+
+        retry.tap()
+        let scanActivity = app.staticTexts["scan-message"].firstMatch
+        XCTAssertTrue(scanActivity.waitForExistence(timeout: 10), "Retry starts the ordinary scan")
+        let phase = app.staticTexts["scan-phase"].firstMatch
+        XCTAssertTrue(waitUntilTrue(30) { phase.value as? String == "completed" })
+        XCTAssertTrue(status.waitForNonExistence(timeout: 10), "Successful retry clears the saved failure status")
+        XCTAssertFalse(app.buttons["retry-saved-face-analysis"].exists)
+        XCTAssertFalse(app.staticTexts["face-analysis-incomplete"].exists)
+        attachScreenshot("face-analysis-retry-complete", app)
+    }
 }

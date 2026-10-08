@@ -142,19 +142,37 @@ extension CatalogRepository {
     /// Consistent pinned completion state shared by saved-group capture and restore messaging.
     static func recomputationNeeded(_ db: OpaquePointer, modelIdentifier: String,
                                     preprocessingVersion: String) throws -> Bool {
+        try !incompleteAnalysisPhotoIDs(db, modelIdentifier: modelIdentifier,
+                                        preprocessingVersion: preprocessingVersion).isEmpty
+    }
+
+    /// Current successful detections whose saved face analysis is still incomplete.
+    static func incompleteAnalysisPhotoIDs(_ db: OpaquePointer, modelIdentifier: String,
+                                           preprocessingVersion: String) throws -> Set<UUID> {
         let photos: [PhotoIdentity] = try PeopleSQL.rows(db, "SELECT payload FROM photos")
         let bindings: [String?] = try PeopleSQL.rows(db, "SELECT payload FROM source_binding WHERE singleton=1")
-        for photo in photos where photo.missing != true && photo.analysis.status == .successful &&
-            photo.analysis.contentVersion == photo.contentVersion {
-            guard let hash = photo.contentHash, !hash.isEmpty else { continue }
-            let suppressed = try Self.currentSuppressedKeys(db, source: bindings.first ?? nil, hashes: [photo.id: hash])
-            if !photo.analysis.faces.isEmpty && photo.analysis.faces.allSatisfy({ suppressed.contains(FaceKey(photo: photo, face: $0)) }) { continue }
+        let eligible = photos.filter {
+            $0.missing != true && $0.analysis.status == .successful && $0.analysis.contentVersion == $0.contentVersion &&
+                $0.contentHash?.isEmpty == false
+        }
+        let hashes = Dictionary(uniqueKeysWithValues: eligible.compactMap { photo in
+            photo.contentHash.map { (photo.id, $0) }
+        })
+        let suppressed = try Self.currentSuppressedKeys(db, source: bindings.first ?? nil, hashes: hashes)
+        var incomplete = Set<UUID>()
+        for photo in eligible {
+            guard let hash = photo.contentHash else { continue }
+            let faceKeys = photo.analysis.faces.map { FaceKey(photo: photo, face: $0) }
+            if !faceKeys.isEmpty && faceKeys.allSatisfy({ suppressed.contains($0) }) { continue }
             guard bindings.count == 1,
                   let record = try FaceAnalysisSQL.readPhotoStatus(db, photoID: photo.id,
                     contentVersion: photo.contentVersion, contentHash: hash, model: modelIdentifier, prep: preprocessingVersion),
-                  record.sourceBinding == bindings[0], record.status == .completed || record.status == .emptySuccess else { return true }
+                  record.sourceBinding == bindings[0], record.status == .completed || record.status == .emptySuccess else {
+                incomplete.insert(photo.id)
+                continue
+            }
         }
-        return false
+        return incomplete
     }
 
 }
