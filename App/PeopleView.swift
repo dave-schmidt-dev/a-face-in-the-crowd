@@ -5,6 +5,7 @@ struct PeopleView: View {
     @ObservedObject var services: AppServices
     @ObservedObject private var faceGroups: FaceGroupService
     @ObservedObject private var privacy: CatalogPrivacyService
+    @ObservedObject private var presentation: AppPresentationState
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     var isActive = true
@@ -18,13 +19,12 @@ struct PeopleView: View {
     @State private var selectedGroupSeed: String?
     @State private var renamePerson: UUID?
     @State private var mergePerson: UUID?
-    /// Set only when this screen's own Delete menu action asks for confirmation.
-    @State private var gridDeletePending = false
 
     init(services: AppServices, isActive: Bool = true) {
         self.services = services
         self.faceGroups = services.faceGroups
         self.privacy = services.privacy
+        self.presentation = services.presentation
         self.isActive = isActive
     }
 
@@ -67,9 +67,7 @@ struct PeopleView: View {
                                     .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
                                     .accessibilityIdentifier("person-menu-merge-\(summary.id.uuidString)")
                                 Button(role: .destructive) {
-                                    privacy.request(.person(summary.id))
-                                    // A refused request starts no check, so no stale flag can claim a later detail request.
-                                    gridDeletePending = privacy.busy || privacy.confirmation != nil
+                                    privacy.request(.person(summary.id), origin: .peopleGrid)
                                 } label: { Label("Delete person", systemImage: "trash") }
                                     .disabled(!privacy.canRequest)
                                     .accessibilityIdentifier("person-menu-delete-\(summary.id.uuidString)")
@@ -122,11 +120,16 @@ struct PeopleView: View {
                 if let id = renamePerson {
                     ScrollView {
                         VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
-                            PersonNameEditor(services: services, personID: id) { renamePerson = nil }
+                            DecisionStatus(services: services)
+                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                                PersonNameEditor(services: services, personID: id) { renamePerson = nil }
+                            }.card()
                         }
-                        .card().padding(DesignTokens.Spacing.l)
+                        .padding(DesignTokens.Spacing.l)
                         .frame(maxWidth: 640, alignment: .leading).frame(maxWidth: .infinity)
                     }
+                    // A swipe would leave an edited draft behind; Save or Cancel decides it.
+                    .interactiveDismissDisabled(presentation.drafts[id]?.dirty == true)
                     .scrollDismissesKeyboard(.interactively)
                     .modifier(PeoplePalette())
                     .navigationTitle("Rename person")
@@ -148,8 +151,7 @@ struct PeopleView: View {
         .onChange(of: services.selectedFolder) { _, folder in
             if folder != nil { requestFinishSourceConfirmation() }
         }
-        .onChange(of: privacy.confirmation == nil && !privacy.busy) { _, settled in if settled { gridDeletePending = false } }
-        .modifier(PrivacyConfirmation(privacy: privacy, person: true, enabled: gridDeletePending))
+        .modifier(PrivacyConfirmation(privacy: privacy, person: true, origin: .peopleGrid))
         .modifier(SourceFolderInteraction(services: services, picker: $picker, confirmation: $confirmation,
                                           reconnectConfirmation: $reconnectConfirmation,
                                           selectionError: $selectionError, isActive: isActive,

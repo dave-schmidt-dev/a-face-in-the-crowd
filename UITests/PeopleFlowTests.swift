@@ -255,6 +255,7 @@ final class PeopleFlowTests: XCTestCase {
         XCTAssertTrue(rename.waitForExistence(timeout: 5), "Rename menu action")
         XCTAssertTrue(merge.exists, "Merge menu action")
         XCTAssertTrue(delete.exists, "Delete menu action")
+        XCTAssertTrue(waitUntilTrue(5) { rename.isHittable }, "Rename menu action hittable")
         rename.tap()
         let field = app.textFields["rename-person-name"]
         XCTAssertTrue(field.waitForExistence(timeout: 5), "Rename sheet uses the shared name editor")
@@ -268,6 +269,7 @@ final class PeopleFlowTests: XCTestCase {
         person("Fixture C", app: app).press(forDuration: 1.0)
         let secondDelete = app.buttons["person-menu-delete-" + uuid]
         XCTAssertTrue(secondDelete.waitForExistence(timeout: 5), "Delete menu action after rename")
+        XCTAssertTrue(waitUntilTrue(5) { secondDelete.isHittable }, "Delete menu action hittable")
         secondDelete.tap()
         let alert = app.alerts.matching(identifier: "Confirm privacy action")
         XCTAssertTrue(alert.firstMatch.waitForExistence(timeout: 10))

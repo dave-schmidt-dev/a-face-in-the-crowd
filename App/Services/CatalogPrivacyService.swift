@@ -19,6 +19,10 @@ final class CatalogPrivacyService: ObservableObject {
     @Published private(set) var state = State.idle
     @Published private(set) var message = ""
     @Published var confirmation: Confirmation?
+    /// The screen that asked for the pending confirmation. It lives here, not in view state, so a
+    /// rebuilt screen still owns its request and no other screen presents or cancels it.
+    enum Origin: Equatable { case standard, peopleGrid }
+    @Published private(set) var requestOrigin = Origin.standard
     @Published private(set) var probe = "Deletes 0 · Effects 0 · Adopt 0"
     @Published private(set) var catalogDeleted = false
     @Published private(set) var completedCleanup = "None"
@@ -72,8 +76,9 @@ final class CatalogPrivacyService: ObservableObject {
     var pendingCleanup: Bool { (committed != nil || retained?.action == .catalog) && state == .cleanupRequired }
     var busy: Bool { task != nil || protectedPermit != nil }
     var canRequest: Bool { services?.protection.admitsWork == true && !catalogDeleted && !busy && !blocksActions && (services?.isQuiescingCatalog == false || services?.backup.privacyMayDrain == false) }
-    func request(_ action: Action) {
+    func request(_ action: Action, origin: Origin = .standard) {
         guard canRequest, let services, let context = services.privacyContext() else { return }
+        requestOrigin = origin
         guard services.backup.privacyMayDrain else {
             message = "Finish catalog recovery before a privacy action."; return
         }
@@ -398,10 +403,10 @@ struct CatalogDeletionSection: View {
 struct PrivacyConfirmation: ViewModifier {
     @ObservedObject var privacy: CatalogPrivacyService
     let person: Bool
-    var enabled: Bool = true
+    var origin: CatalogPrivacyService.Origin = .standard
     private var presented: Binding<Bool> {
         Binding(get: {
-            guard enabled, let value = privacy.confirmation else { return false }
+            guard privacy.requestOrigin == origin, let value = privacy.confirmation else { return false }
             if case .person = value.action { return person }; return !person
         }, set: { if !$0 { privacy.cancelConfirmation() } })
     }
