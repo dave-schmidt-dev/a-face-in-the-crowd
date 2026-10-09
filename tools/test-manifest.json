@@ -3790,6 +3790,23 @@
         }
       }
     },
+    "task7.edge-geometry": {
+      "description": "Edge-overflow faces cannot block face analysis completion",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/CatalogFacePipelineFenceTests.swift",
+            "Tests/AFITCCoreTests/PersistentFaceScanTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.CatalogFacePipelineFenceTests/testDetectorStatusExactFaceMembershipAndGeometryInvalidate",
+            "AFITCCoreTests.CatalogFacePipelineFenceTests/testEdgeOverflowFacesAreExcludedFromExactFaceMembershipFence",
+            "AFITCCoreTests.PersistentFaceScanTests/testEdgeOverflowFacesDoNotBlockFaceAnalysisCompletion"
+          ]
+        }
+      }
+    },
     "task7.4": {
       "description": "Saved-analysis People groups and portable App service causal integration",
       "targets": {
@@ -5056,6 +5073,7 @@
       "task2.yunet-pixelprep-normal",
       "task2.3-yunet-runtime-generic",
       "task2.3-core-face-fence",
+      "task7.edge-geometry",
       "task2.model-resources",
       "task2.3-producer",
       "ui.journeys",
@@ -5123,6 +5141,7 @@
       "task2.yunet-pixelprep-normal",
       "task2.3-yunet-runtime-generic",
       "task2.3-core-face-fence",
+      "task7.edge-geometry",
       "task2.model-resources",
       "task2.3-producer",
       "ui.journeys",

@@ -101,6 +101,7 @@ The format follows Keep a Changelog 1.1.0, and functional releases will follow S
 - Face previews release decoded images when leaving the screen or receiving a memory warning, and discard cancelled or stale decode completions. Memory-release placeholders remain truthful.
 - Valid photo previews remain available when face detection fails; analysis remains unresolved and failure counts stay explicit. Protected catalogs reject malformed empty payloads, and preview-cache bookkeeping avoids repeated full-directory scans.
 - Native verification selects an installed iPad from an available runtime’s supported device types, preventing incompatible device/runtime pairs and comparing runtime versions numerically.
+- A Vision face box that extends past the photo edge no longer blocks face analysis: the pipeline fence now keeps exactly the faces the catalog indexes, so a photo with any valid face completes and an all-edge-overflow photo records empty success instead of being reread on every scan.
 
 No functional app release exists yet.
 

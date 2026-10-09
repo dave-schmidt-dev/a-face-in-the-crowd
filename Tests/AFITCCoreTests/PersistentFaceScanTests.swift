@@ -328,6 +328,27 @@ final class PersistentFaceScanTests: XCTestCase {
         XCTAssertTrue(rows.isEmpty)
     }
 
+    func testEdgeOverflowFacesDoNotBlockFaceAnalysisCompletion() async throws {
+        let h = try await ProducerHarness.make(self)
+        let mixed = try await h.savePhoto(rects: [ProducerHarness.primaryRect, [-0.05, 0.3, 0.2, 0.3]], path: "mixed.jpg")
+        let overflow = try await h.savePhoto(rects: [[0.9, 0.1, 0.2, 0.2]], path: "overflow.jpg")
+        let persistent = h.persistent(ProducerFakeLoader(yuNet: ProducerYuNetBackend(), sFace: ProducerSFaceBackend()))
+        let source = EnrichmentSource(data: h.bytes, entries: [entry(h.bytes, path: "mixed.jpg"),
+                                                               entry(h.bytes, path: "overflow.jpg")])
+        let result = await scanner(h.catalog).scan(source: source, detector: EnrichmentDetector(),
+                                                   confirmedSource: true, enrichment: persistent) { _, _ in }
+        XCTAssertEqual(result.phase, .completed)
+        let snapshot = try await h.catalog.faceAnalysisStatusSnapshot()
+        XCTAssertFalse(snapshot.incompletePhotoIDs.contains(mixed.id), "one valid face completes the photo")
+        XCTAssertFalse(snapshot.incompletePhotoIDs.contains(overflow.id), "excluded overflow faces reach a terminal state")
+        let mixedStatus = try await h.catalog.photoAnalysisStatus(photoID: mixed.id, contentVersion: mixed.contentVersion,
+                                                                  contentHash: h.hash, manifest: manifest)
+        XCTAssertEqual(mixedStatus, .completed)
+        let overflowStatus = try await h.catalog.photoAnalysisStatus(photoID: overflow.id, contentVersion: overflow.contentVersion,
+                                                                     contentHash: h.hash, manifest: manifest)
+        XCTAssertEqual(overflowStatus, .emptySuccess)
+    }
+
     func testPipelineFailureRecordsExplicitFailureState() async throws {
         let h = try await ProducerHarness.make(self)
         let photo = try await h.savePhoto(rects: [ProducerHarness.primaryRect])

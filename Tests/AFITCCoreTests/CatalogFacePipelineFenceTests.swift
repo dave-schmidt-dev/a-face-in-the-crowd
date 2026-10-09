@@ -108,7 +108,9 @@ final class CatalogFacePipelineFenceTests: XCTestCase {
         var invalid = f.photo
         invalid.analysis = FaceAnalysisState(status: .successful, faces: [FaceGeometry(id: face.id, rectangle: [0, 0, 0, 0], landmarks: [])])
         try await f.catalog.save(invalid, progress: ScanProgress())
-        await expect(.ineligible) { _ = try await f.catalog.captureFacePipelineFence(photo: invalid, sourceIdentity: "owned-source") }
+        let zero = try await f.catalog.captureFacePipelineFence(photo: invalid, sourceIdentity: "owned-source")
+        XCTAssertTrue(zero.faces.isEmpty, "an all-invalid photo yields a zero-face fence")
+        await expect(.stale) { try await f.validate(fence) }
         try await f.catalog.save(f.photo, progress: ScanProgress())
         var duplicate = f.photo; duplicate.analysis = FaceAnalysisState(status: .successful, faces: [face, face])
         await expect(.ineligible) { _ = try await f.catalog.captureFacePipelineFence(photo: duplicate, sourceIdentity: "owned-source") }
@@ -116,6 +118,24 @@ final class CatalogFacePipelineFenceTests: XCTestCase {
         try await f.catalog.substituteFenceFixtureIndexKey(f.key)
         await expect(.ineligible) { _ = try await f.capture() }
         await expect(.stale) { try await f.validate(fence) }
+    }
+    func testEdgeOverflowFacesAreExcludedFromExactFaceMembershipFence() async throws {
+        let f = try await FenceFixture.make(self), valid = f.photo.analysis.faces[0]
+        let leftOverflow = FaceGeometry(rectangle: [-0.05, 0.3, 0.2, 0.3], landmarks: [])
+        let rightOverflow = FaceGeometry(rectangle: [0.9, 0.1, 0.2, 0.2], landmarks: [])
+        var photo = f.photo
+        photo.analysis = FaceAnalysisState(status: .successful, detectorVersion: photo.analysis.detectorVersion,
+            contentVersion: photo.contentVersion, faces: [valid, leftOverflow, rightOverflow])
+        try await f.catalog.save(photo, progress: ScanProgress())
+        let fence = try await f.catalog.captureFacePipelineFence(photo: photo, sourceIdentity: "owned-source")
+        XCTAssertEqual(fence.faces.map(\.key), [f.key], "only the bounded face is in the fence")
+        XCTAssertEqual(fence.faces.map(\.geometry), [valid])
+        try await f.catalog.validateFacePipelineFence(fence, sourceIdentity: "owned-source", verifiedContentHash: FenceFixture.hash)
+        photo.analysis = FaceAnalysisState(status: .successful, detectorVersion: photo.analysis.detectorVersion,
+            contentVersion: photo.contentVersion, faces: [leftOverflow, rightOverflow])
+        try await f.catalog.save(photo, progress: ScanProgress())
+        let zero = try await f.catalog.captureFacePipelineFence(photo: photo, sourceIdentity: "owned-source")
+        XCTAssertTrue(zero.faces.isEmpty, "only edge-overflow faces yield a zero-face fence")
     }
     func testEveryManualStateChangeInvalidatesCapturedFaces() async throws {
         for kind in 0..<6 {

@@ -58,14 +58,17 @@ fileprivate struct FacePipelinePhoto: Sendable, Equatable {
               photo.analysis.status == .successful,
               photo.analysis.contentVersion == photo.contentVersion,
               !photo.analysis.detectorVersion.isEmpty,
-              Set(photo.analysis.faces.map(\.id)).count == photo.analysis.faces.count,
-              photo.analysis.faces.allSatisfy({ PeopleSQL.validGeometry($0.rectangle) &&
-                  $0.landmarks.allSatisfy { $0.allSatisfy(\.isFinite) } }) else {
+              Set(photo.analysis.faces.map(\.id)).count == photo.analysis.faces.count else {
+            throw FacePipelineFenceError.ineligible
+        }
+        // Mirrors PeopleSQL.syncPhoto: rectangles outside the photo never enter current_faces.
+        let retained = photo.analysis.faces.filter { PeopleSQL.validGeometry($0.rectangle) }
+        guard retained.allSatisfy({ $0.landmarks.allSatisfy { $0.allSatisfy(\.isFinite) } }) else {
             throw FacePipelineFenceError.ineligible
         }
         id = photo.id; path = photo.relativePath; version = photo.contentVersion; self.hash = hash
         metadata = photo.metadata; detector = photo.analysis.detectorVersion; reason = photo.analysis.reason
-        geometry = photo.analysis.faces.sorted { $0.id.uuidString < $1.id.uuidString }
+        geometry = retained.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 }
 
