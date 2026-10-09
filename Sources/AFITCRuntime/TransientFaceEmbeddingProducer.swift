@@ -160,7 +160,7 @@ public actor TransientFaceEmbeddingProducer: ScanEnrichment {
     public func prepareForCatchUp(_ photo: PhotoIdentity) async -> Bool {
         do {
             try admit { store.isCurrent(token) }
-            if !photo.analysis.faces.isEmpty { _ = try await preparedModels() }
+            if photo.analysis.faces.contains(where: \.isIndexable) { _ = try await preparedModels() }
             try admit { store.isCurrent(token) }
             return true
         } catch { return false }

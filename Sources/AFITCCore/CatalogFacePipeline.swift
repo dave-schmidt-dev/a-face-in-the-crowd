@@ -62,7 +62,7 @@ fileprivate struct FacePipelinePhoto: Sendable, Equatable {
             throw FacePipelineFenceError.ineligible
         }
         // Mirrors PeopleSQL.syncPhoto: rectangles outside the photo never enter current_faces.
-        let retained = photo.analysis.faces.filter { PeopleSQL.validGeometry($0.rectangle) }
+        let retained = photo.analysis.faces.filter(\.isIndexable)
         guard retained.allSatisfy({ $0.landmarks.allSatisfy { $0.allSatisfy(\.isFinite) } }) else {
             throw FacePipelineFenceError.ineligible
         }

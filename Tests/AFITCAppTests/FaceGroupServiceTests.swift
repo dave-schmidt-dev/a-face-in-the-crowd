@@ -311,8 +311,8 @@ final class FaceGroupServiceTests: XCTestCase {
         XCTAssertEqual(Set(services.faceGroups.finishablePhotos.map(\.id)), [retryable.id, untracked.id],
                        "Reconnecting the original source preserves the cached worklist")
 
-        await services.finishFaceAnalysis(confirmedSource: true)
-        await services.finishFaceAnalysis(confirmedSource: true)
+        await services.finishFaceAnalysis()
+        await services.finishFaceAnalysis()
         try await wait { services.canStart && services.progress.phase == .completed && !services.isRefreshingPeople }
         await services.faceGroups.refresh()
         let completed = try await repository.faceAnalysisSnapshot()

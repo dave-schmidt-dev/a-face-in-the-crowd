@@ -256,7 +256,8 @@ extension AppServices {
         do {
             try await work.value
             guard sessionIsCurrent(operation.session), canStart else { return }
-            startScan(confirmedSource: confirmedSource, targets: Set(current.map(\.relativePath)))
+            // A confirmed reconnect needs the full verification pass; targeted passes never rebind the source.
+            startScan(confirmedSource: confirmedSource, targets: confirmedSource ? nil : Set(current.map(\.relativePath)))
         } catch {
             if sessionIsCurrent(operation.session) { setupError = "Saved face analysis changed. Refresh People before finishing." }
         }

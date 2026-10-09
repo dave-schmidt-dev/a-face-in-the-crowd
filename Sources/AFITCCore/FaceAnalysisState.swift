@@ -8,6 +8,8 @@ public struct FaceGeometry: Codable, Sendable, Equatable {
     public init(id: UUID = UUID(), rectangle: [Double], landmarks: [[Double]]) {
         self.id = id; self.rectangle = rectangle; self.landmarks = landmarks
     }
+    /// False for rectangles outside the photo: they never enter current_faces or the fence.
+    public var isIndexable: Bool { PeopleSQL.validGeometry(rectangle) }
 }
 /// A successful zero-face index is not an assertion that a photo has no people.
 public struct FaceAnalysisState: Codable, Sendable, Equatable {

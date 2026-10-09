@@ -349,6 +349,27 @@ final class PersistentFaceScanTests: XCTestCase {
         XCTAssertEqual(overflowStatus, .emptySuccess)
     }
 
+    func testOverflowOnlyTrustedPhotoReachesEmptySuccessWhenModelsUnavailable() async throws {
+        let h = try await ProducerHarness.make(self)
+        var photo = try await h.savePhoto(rects: [[0.9, 0.1, 0.2, 0.2]], path: "overflow.jpg")
+        let lease = try await h.catalog.acquireSource(identity: ProducerHarness.sourceIdentity, confirmed: true)
+        photo.previewPath = try await h.catalog.storePreview(JPEGPreviewDecoder.jpeg(JPEGPreviewDecoder.decode(h.bytes)),
+                                                             id: photo.id, generation: "1-\(lease)", lease: lease)
+        try await h.catalog.save(photo, progress: ScanProgress())
+        var loader = ProducerFakeLoader(yuNet: ProducerYuNetBackend(), sFace: ProducerSFaceBackend())
+        loader.fails = true
+        let source = EnrichmentSource(data: h.bytes, entries: [entry(h.bytes, path: "overflow.jpg")])
+        let result = await scanner(h.catalog).scan(source: source, detector: EnrichmentDetector(),
+                                                   confirmedSource: true, enrichment: h.persistent(loader)) { _, _ in }
+        XCTAssertEqual(result.phase, .completed)
+        let reads = await source.reads
+        XCTAssertEqual(reads, 1, "the admitted catch-up read is not refused by unavailable models")
+        XCTAssertEqual(loader.loads.value, 0, "no model is needed for a photo with no indexable face")
+        let status = try await h.catalog.photoAnalysisStatus(photoID: photo.id, contentVersion: photo.contentVersion,
+                                                             contentHash: h.hash, manifest: manifest)
+        XCTAssertEqual(status, .emptySuccess)
+    }
+
     func testPipelineFailureRecordsExplicitFailureState() async throws {
         let h = try await ProducerHarness.make(self)
         let photo = try await h.savePhoto(rects: [ProducerHarness.primaryRect])

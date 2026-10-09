@@ -58,6 +58,7 @@ public actor ScanCoordinator {
     public func pause() { paused = true }
     /// `targets` (relative paths) limits the pass to those photos: others are skipped unseen, enumeration
     /// stops after the last target, nothing is marked missing and the persisted checkpoint is untouched.
+    /// A targeted pass never rebinds the source (`confirmedSource` is ignored); unseen targets count as failed.
     public func scan(source: any PhotoSource, detector: any DetectionProvider, confirmedSource: Bool = false,
                      targets: Set<String>? = nil, enrichment: (any ScanEnrichment)? = nil, update: @escaping @Sendable (ScanProgress, PhotoIdentity?) async -> Void) async -> ScanProgress {
         var progress = ScanProgress()
@@ -76,7 +77,7 @@ public actor ScanCoordinator {
             try checkStop()
             try await source.open()
             let identity = try await source.identity()
-            lease = try await repository.acquireSource(identity: identity, confirmed: confirmedSource)
+            lease = try await repository.acquireSource(identity: identity, confirmed: confirmedSource && targets == nil)
             let generation = lease!
             if targets != nil { pinnedCheckpoint = try await repository.checkpoint() ?? ScanProgress() }
             if let bookmark = try await source.permissionBookmark() {
@@ -286,7 +287,10 @@ public actor ScanCoordinator {
             }
             try checkStop()
             progress.enumerationFinished = true; progress.phase = .completed
-            if targets != nil {
+            if let remaining, !remaining.isEmpty {
+                progress.failed += remaining.count
+                progress.message = "Some listed photos were not found in the source folder."
+            } else if targets != nil {
                 progress.message = "Face analysis finished for the listed photos."
             } else if previewsUnavailable > 0 {
                 progress.message = previewsUnavailable == 1

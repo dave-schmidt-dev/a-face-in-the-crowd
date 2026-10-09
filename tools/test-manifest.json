@@ -3802,7 +3802,8 @@
           "selectors": [
             "AFITCCoreTests.CatalogFacePipelineFenceTests/testDetectorStatusExactFaceMembershipAndGeometryInvalidate",
             "AFITCCoreTests.CatalogFacePipelineFenceTests/testEdgeOverflowFacesAreExcludedFromExactFaceMembershipFence",
-            "AFITCCoreTests.PersistentFaceScanTests/testEdgeOverflowFacesDoNotBlockFaceAnalysisCompletion"
+            "AFITCCoreTests.PersistentFaceScanTests/testEdgeOverflowFacesDoNotBlockFaceAnalysisCompletion",
+            "AFITCCoreTests.PersistentFaceScanTests/testOverflowOnlyTrustedPhotoReachesEmptySuccessWhenModelsUnavailable"
           ]
         }
       }
@@ -4578,6 +4579,8 @@
           "selectors": [
             "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanReadsEnrichesOnlyTargetsAndMarksNothingMissing",
             "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanStopsEnumeratingAfterLastTarget",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanWithChangedSourceIdentityNeverRebindsEvenWhenConfirmed",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanReportsListedPhotosNotFoundInSource",
             "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanLeavesCheckpointUnchangedOnCompletionAndCancellation",
             "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testNilTargetsScanStillMarksUnseenPhotosMissing"
           ]

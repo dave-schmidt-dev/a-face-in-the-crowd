@@ -10,10 +10,12 @@ actor EnrichmentSource: PhotoSource {
     let trace: ProducerTrace
     private var position = 0
     private(set) var reads = 0
-    init(data: Data, entries: [SourceEntry], trace: ProducerTrace = ProducerTrace()) {
-        self.data = data; self.entries = entries; self.trace = trace
+    let sourceID: String?
+    init(data: Data, entries: [SourceEntry], trace: ProducerTrace = ProducerTrace(),
+         sourceID: String? = ProducerHarness.sourceIdentity) {
+        self.data = data; self.entries = entries; self.trace = trace; self.sourceID = sourceID
     }
-    func identity() async throws -> String? { ProducerHarness.sourceIdentity }
+    func identity() async throws -> String? { sourceID }
     func open() async throws { position = 0; trace.append("open") }
     func next() async throws -> SourceEntry? {
         guard position < entries.count else { return nil }
@@ -314,6 +316,43 @@ final class ScanEmbeddingEnrichmentTests: XCTestCase {
         XCTAssertEqual(cancelled.phase, .cancelled)
         let afterCancel = try await h.catalog.checkpoint()
         XCTAssertEqual(afterCancel, before)
+    }
+
+    func testTargetedScanWithChangedSourceIdentityNeverRebindsEvenWhenConfirmed() async throws {
+        let h = try await ProducerHarness.make(self)
+        let all = entries(["a.jpg", "b.jpg"], h)
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: all), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        let checkpoint = try await h.catalog.checkpoint()
+        let before = try await h.catalog.photos()
+        for other in ["other-source", nil] as [String?] {
+            let source = EnrichmentSource(data: h.bytes, entries: all, sourceID: other)
+            let result = await scanner(h).scan(source: source, detector: EnrichmentDetector(), confirmedSource: true,
+                                               targets: ["b.jpg"]) { _, _ in }
+            XCTAssertEqual(result.phase, .failed)
+            XCTAssertEqual(result.message, ScanError.sourceConfirmationRequired.message)
+            let reads = await source.reads
+            XCTAssertEqual(reads, 0)
+        }
+        // The original source still reconnects without confirmation: the binding was never rewritten.
+        _ = try await h.catalog.acquireSource(identity: ProducerHarness.sourceIdentity, confirmed: false)
+        let afterCheckpoint = try await h.catalog.checkpoint()
+        XCTAssertEqual(afterCheckpoint, checkpoint)
+        let after = try await h.catalog.photos()
+        XCTAssertEqual(after, before)
+    }
+
+    func testTargetedScanReportsListedPhotosNotFoundInSource() async throws {
+        let h = try await ProducerHarness.make(self)
+        let all = entries(["a.jpg", "b.jpg"], h)
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: all), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        let result = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: [all[0]]),
+                                           detector: EnrichmentDetector(), confirmedSource: true,
+                                           targets: ["a.jpg", "b.jpg", "gone.jpg"]) { _, _ in }
+        XCTAssertEqual(result.phase, .completed)
+        XCTAssertEqual(result.failed, 2, "each listed photo never enumerated counts as failed")
+        XCTAssertEqual(result.message, "Some listed photos were not found in the source folder.")
     }
 
     func testNilTargetsScanStillMarksUnseenPhotosMissing() async throws {
