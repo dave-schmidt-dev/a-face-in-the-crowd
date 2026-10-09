@@ -398,9 +398,10 @@ struct CatalogDeletionSection: View {
 struct PrivacyConfirmation: ViewModifier {
     @ObservedObject var privacy: CatalogPrivacyService
     let person: Bool
+    var enabled: Bool = true
     private var presented: Binding<Bool> {
         Binding(get: {
-            guard let value = privacy.confirmation else { return false }
+            guard enabled, let value = privacy.confirmation else { return false }
             if case .person = value.action { return person }; return !person
         }, set: { if !$0 { privacy.cancelConfirmation() } })
     }

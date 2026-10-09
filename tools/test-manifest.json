@@ -4703,6 +4703,30 @@
         }
       }
     },
+    "ui.person-actions": {
+      "description": "Long-press a confirmed person card in People to rename, merge or delete it without opening Person detail",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/FaceGroupRunnerContractTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.FaceGroupRunnerContractTests/testPhase7UnionCoversTask7Phase6AndFocusedJourney"
+          ]
+        },
+        "UITests": {
+          "type": "ui",
+          "phaseGateOnly": true,
+          "testFiles": [
+            "UITests/PeopleFlowTests.swift"
+          ],
+          "selectors": [
+            "UITests.PeopleFlowTests/testLongPressPersonCardRenamesAndOffersEditActions"
+          ]
+        }
+      }
+    },
     "ui.live-analysis-probe": {
       "description": "Opt-in physical iPad observation of People face-analysis status and one guarded Finish action",
       "targets": {
@@ -5198,6 +5222,9 @@
     ],
     "phase-analysis-finish": [
       "ui.analysis-finish"
+    ],
+    "phase-person-actions": [
+      "ui.person-actions"
     ],
     "phase-live-analysis-probe": [
       "ui.live-analysis-probe"

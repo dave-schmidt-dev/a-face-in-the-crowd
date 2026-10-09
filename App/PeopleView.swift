@@ -4,6 +4,7 @@ import AFITCCore
 struct PeopleView: View {
     @ObservedObject var services: AppServices
     @ObservedObject private var faceGroups: FaceGroupService
+    @ObservedObject private var privacy: CatalogPrivacyService
     @Environment(\.tokens) private var tokens
     @Environment(\.dynamicTypeSize) private var typeSize
     var isActive = true
@@ -15,10 +16,15 @@ struct PeopleView: View {
     @State private var finishingAfterSourceSelection = false
     /// Local string route: the outer stack's UUID path pruning cannot pop an open group detail.
     @State private var selectedGroupSeed: String?
+    @State private var renamePerson: UUID?
+    @State private var mergePerson: UUID?
+    /// Set only when this screen's own Delete menu action asks for confirmation.
+    @State private var gridDeletePending = false
 
     init(services: AppServices, isActive: Bool = true) {
         self.services = services
         self.faceGroups = services.faceGroups
+        self.privacy = services.privacy
         self.isActive = isActive
     }
 
@@ -53,6 +59,21 @@ struct PeopleView: View {
                             .buttonStyle(.plain)
                             .accessibilityLabel(card.accessibilityText)
                             .accessibilityIdentifier("person-\(summary.id.uuidString)")
+                            .contextMenu {
+                                Button { renamePerson = summary.id } label: { Label("Rename", systemImage: "pencil") }
+                                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                                    .accessibilityIdentifier("person-menu-rename-\(summary.id.uuidString)")
+                                Button { mergePerson = summary.id } label: { Label("Merge duplicate person", systemImage: "arrow.triangle.merge") }
+                                    .disabled(services.isSavingDecision || services.peopleRefreshWarning != nil)
+                                    .accessibilityIdentifier("person-menu-merge-\(summary.id.uuidString)")
+                                Button(role: .destructive) {
+                                    privacy.request(.person(summary.id))
+                                    // A refused request starts no check, so no stale flag can claim a later detail request.
+                                    gridDeletePending = privacy.busy || privacy.confirmation != nil
+                                } label: { Label("Delete person", systemImage: "trash") }
+                                    .disabled(!privacy.canRequest)
+                                    .accessibilityIdentifier("person-menu-delete-\(summary.id.uuidString)")
+                            }
                     }
                 }
             }
@@ -75,6 +96,7 @@ struct PeopleView: View {
                 .disabled(!services.canStart || faceGroups.isFinishingAnalysis)
                 .accessibilityIdentifier("finish-face-analysis")
             }
+            if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("people-privacy-message") }
             if let selectionError { Text(selectionError).foregroundStyle(tokens.destructive).accessibilityIdentifier("people-source-selection-error") }
             unnamedGroups(coverFaces: coverFaces)
             let unidentified = services.peopleSnapshot.faces.filter { $0.state.personID == nil && !$0.state.notPerson }
@@ -95,6 +117,28 @@ struct PeopleView: View {
         .sheet(item: $selectedFace) { face in
             NavigationStack { ManualFaceView(services: services, face: face, initialPerson: nil) }
         }
+        .sheet(isPresented: renamePresented) {
+            NavigationStack {
+                if let id = renamePerson {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                            PersonNameEditor(services: services, personID: id) { renamePerson = nil }
+                        }
+                        .card().padding(DesignTokens.Spacing.l)
+                        .frame(maxWidth: 640, alignment: .leading).frame(maxWidth: .infinity)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                    .modifier(PeoplePalette())
+                    .navigationTitle("Rename person")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+        }
+        .sheet(isPresented: mergePresented) {
+            if let id = mergePerson {
+                NavigationStack { MergePersonView(services: services, sourceID: id) }
+            }
+        }
         .navigationDestination(isPresented: groupPresented) {
             if let seed = selectedGroupSeed {
                 FaceGroupView(services: services, faceGroups: faceGroups, seed: seed)
@@ -104,6 +148,8 @@ struct PeopleView: View {
         .onChange(of: services.selectedFolder) { _, folder in
             if folder != nil { requestFinishSourceConfirmation() }
         }
+        .onChange(of: privacy.confirmation == nil && !privacy.busy) { _, settled in if settled { gridDeletePending = false } }
+        .modifier(PrivacyConfirmation(privacy: privacy, person: true, enabled: gridDeletePending))
         .modifier(SourceFolderInteraction(services: services, picker: $picker, confirmation: $confirmation,
                                           reconnectConfirmation: $reconnectConfirmation,
                                           selectionError: $selectionError, isActive: isActive,
@@ -121,6 +167,12 @@ struct PeopleView: View {
     }
     private var groupPresented: Binding<Bool> {
         Binding(get: { selectedGroupSeed != nil }, set: { if !$0 { selectedGroupSeed = nil } })
+    }
+    private var renamePresented: Binding<Bool> {
+        Binding(get: { renamePerson != nil }, set: { if !$0 { renamePerson = nil } })
+    }
+    private var mergePresented: Binding<Bool> {
+        Binding(get: { mergePerson != nil }, set: { if !$0 { mergePerson = nil } })
     }
     private func requestFinishSourceConfirmation() {
         guard finishingAfterSourceSelection else { return }

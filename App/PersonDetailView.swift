@@ -22,7 +22,6 @@ struct PersonDetailView: View {
         self.services = services; self.personID = personID; self.onReviewMatches = onReviewMatches
         presentation = services.presentation; privacy = services.privacy; faceGroups = services.faceGroups
     }
-    private var editingName: Binding<String> { Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) }) }
     @State private var selectedFace: FaceItem?
     @State private var merging = false
     @State private var editing = false
@@ -36,7 +35,9 @@ struct PersonDetailView: View {
                 if let summary = services.peopleSnapshot.people.first(where: { $0.id == personID }) {
                     header(summary)
                     if showsDraftEditor {
-                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) { draftEditor(summary.person) }.card()
+                        VStack(alignment: .leading, spacing: DesignTokens.Spacing.s) {
+                            PersonNameEditor(services: services, personID: personID) { editing = false }
+                        }.card()
                     }
                     DecisionStatus(services: services)
                     groupRepairs(summary)
@@ -61,7 +62,7 @@ struct PersonDetailView: View {
                     manage(summary)
                 } else {
                     Text("This person is no longer available.")
-                    if showsDraftEditor { draftEditor(nil) }
+                    if showsDraftEditor { PersonNameEditor(services: services, personID: personID) { editing = false } }
                 }
             }.id("person-top").padding(DesignTokens.Spacing.l).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
         }
@@ -216,7 +217,31 @@ struct PersonDetailView: View {
             if !privacy.message.isEmpty { Text(privacy.message).accessibilityIdentifier("person-privacy-message") }
         }
     }
-    @ViewBuilder private func draftEditor(_ person: PersonRecord?) -> some View {
+
+}
+
+/// One shared name editor for Person detail and the People long-press Rename sheet. Draft
+/// ownership, conflict handling, disabled conditions and identifiers are identical in both.
+struct PersonNameEditor: View {
+    @ObservedObject var services: AppServices
+    let personID: UUID
+    let onDone: () -> Void
+    @ObservedObject private var presentation: AppPresentationState
+    @Environment(\.tokens) private var tokens
+    init(services: AppServices, personID: UUID, onDone: @escaping () -> Void) {
+        self.services = services; self.personID = personID; self.onDone = onDone
+        presentation = services.presentation
+    }
+    private var person: PersonRecord? {
+        services.peopleSnapshot.people.first(where: { $0.id == personID })?.person
+    }
+    private var editingName: Binding<String> {
+        Binding(get: { presentation.drafts[personID]?.ownerText ?? "" }, set: { presentation.edit(personID, text: $0) })
+    }
+    var body: some View {
+        fields.onAppear { if let person { presentation.ensureDraft(person) } }
+    }
+    @ViewBuilder private var fields: some View {
         Text("Name").font(.subheadline.bold()).foregroundStyle(tokens.textSecondary)
         TextField("Person name", text: editingName).textFieldStyle(.roundedBorder).accessibilityIdentifier("rename-person-name")
         if let conflict = presentation.drafts[personID]?.conflict {
@@ -240,7 +265,7 @@ struct PersonDetailView: View {
             Task {
                 if await services.decide(.rename(personID: personID, displayName: text)), services.sessionIsCurrent(session) {
                     presentation.acceptedCommit(personID, text: text)
-                    editing = false
+                    onDone()
                 }
             }
         }.buttonStyle(CapsuleButtonStyle(minHeight: 48))
@@ -249,12 +274,11 @@ struct PersonDetailView: View {
         Button("Cancel") {
             presentation.discardDraft(personID)
             if let person { presentation.ensureDraft(person) }
-            editing = false
+            onDone()
         }.buttonStyle(CapsuleButtonStyle(prominent: false, minHeight: 48))
             .disabled(services.isSavingDecision)
             .accessibilityIdentifier("cancel-person-name")
     }
-
 }
 
 struct ManualFaceView: View {

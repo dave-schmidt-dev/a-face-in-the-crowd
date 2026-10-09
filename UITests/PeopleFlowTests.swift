@@ -243,6 +243,37 @@ final class PeopleFlowTests: XCTestCase {
         assertPeople(records, ids: [savedID], name: "Fixture A", photoCount: 1)
         XCTAssertFalse(records.values.contains { $0.contains("Fixture B") })
     }
+    func testLongPressPersonCardRenamesAndOffersEditActions() {
+        let app = catalog()
+        tap("unidentified-face", app: app); name("Fixture A", app: app)
+        let card = person("Fixture A", app: app)
+        let uuid = String(card.identifier.dropFirst("person-".count))
+        card.press(forDuration: 1.0)
+        let rename = app.buttons["person-menu-rename-" + uuid]
+        let merge = app.buttons["person-menu-merge-" + uuid]
+        let delete = app.buttons["person-menu-delete-" + uuid]
+        XCTAssertTrue(rename.waitForExistence(timeout: 5), "Rename menu action")
+        XCTAssertTrue(merge.exists, "Merge menu action")
+        XCTAssertTrue(delete.exists, "Delete menu action")
+        rename.tap()
+        let field = app.textFields["rename-person-name"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "Rename sheet uses the shared name editor")
+        clearAndType(field, "Fixture C", app)
+        tap("save-person-name", app: app)
+        // The sheet takes its keyboard with it; touching the grid before both are gone races the hide key.
+        XCTAssertTrue(field.waitForNonExistence(timeout: 5), "Saving dismisses the Rename sheet")
+        _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 3)
+        XCTAssertTrue(person("Fixture C", app: app).waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["decision-error"].exists)
+        person("Fixture C", app: app).press(forDuration: 1.0)
+        let secondDelete = app.buttons["person-menu-delete-" + uuid]
+        XCTAssertTrue(secondDelete.waitForExistence(timeout: 5), "Delete menu action after rename")
+        secondDelete.tap()
+        let alert = app.alerts.matching(identifier: "Confirm privacy action")
+        XCTAssertTrue(alert.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(alert.count, 1)
+        app.alerts["Confirm privacy action"].buttons["Cancel"].tap()
+    }
     func testCommittedMergeDismissesDespiteRefreshFailureAndPersistsOnce() {
         let app = catalog(extraArguments: ["--uitest-fail-people-refresh-after-merge"])
         tap("unidentified-face", app: app); name("Fixture A", app: app)
