@@ -227,4 +227,122 @@ final class ScanEmbeddingEnrichmentTests: XCTestCase {
         let saved = try await h.catalog.photos()
         XCTAssertEqual(saved.map(\.analysis.status), [.successful], "accepted photo remains")
     }
+
+    // MARK: targeted scans (Finish analyzes only listed photos)
+
+    private func entries(_ names: [String], _ h: ProducerHarness) -> [SourceEntry] {
+        names.map { SourceEntry(relativePath: $0, metadata: SourceMetadata(revision: "r-\($0)", size: h.bytes.count)) }
+    }
+
+    func testTargetedScanReadsEnrichesOnlyTargetsAndMarksNothingMissing() async throws {
+        let h = try await ProducerHarness.make(self)
+        let all = entries(["a.jpg", "b.jpg", "c.jpg"], h)
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: all), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        // b.jpg left the folder; a targeted scan must not mark it (or the unlisted a.jpg) missing.
+        let source = EnrichmentSource(data: h.bytes, entries: [all[0], all[2]])
+        let enrichment = RecordingEnrichment()
+        var published: [String] = []
+        let result = await scanner(h).scan(source: source, detector: EnrichmentDetector(), confirmedSource: true,
+                                           targets: ["c.jpg"], enrichment: enrichment) { _, photo in
+            if let photo { published.append(photo.relativePath) }
+        }
+        XCTAssertEqual(result.phase, .completed)
+        XCTAssertEqual(result.discovered, 1); XCTAssertEqual(result.processed, 1)
+        XCTAssertEqual(result.message, "Face analysis finished for the listed photos.")
+        XCTAssertTrue(Set(published).isSubset(of: ["c.jpg"]), "no cached replay or callbacks for non-targets")
+        let reads = await source.reads
+        XCTAssertEqual(reads, 0, "trusted unchanged target needs no read; non-targets are never read")
+        XCTAssertTrue(enrichment.requests.allSatisfy { $0.entry.relativePath == "c.jpg" })
+        let saved = try await h.catalog.photos()
+        XCTAssertEqual(saved.filter { $0.missing == true }.count, 0, "targeted scans never mark photos missing")
+
+        // A changed target is read and enriched; the unlisted changed entry is not.
+        let changed = [SourceEntry(relativePath: "a.jpg", metadata: SourceMetadata(revision: "new-a", size: 1)),
+                       SourceEntry(relativePath: "c.jpg", metadata: SourceMetadata(revision: "new-c", size: 1))]
+        let second = EnrichmentSource(data: h.bytes, entries: changed)
+        let secondEnrichment = RecordingEnrichment()
+        _ = await scanner(h).scan(source: second, detector: EnrichmentDetector(), confirmedSource: true,
+                                  targets: ["c.jpg"], enrichment: secondEnrichment) { _, _ in }
+        let secondReads = await second.reads
+        XCTAssertEqual(secondReads, 1)
+        XCTAssertEqual(secondEnrichment.requests.map(\.entry.relativePath), ["c.jpg"])
+    }
+
+    func testTargetedScanStopsEnumeratingAfterLastTarget() async throws {
+        let h = try await ProducerHarness.make(self)
+        let trace = ProducerTrace()
+        let source = CountingSource(entries: entries(["a.jpg", "b.jpg", "c.jpg", "d.jpg"], h), data: h.bytes, trace: trace)
+        let result = await scanner(h).scan(source: source, detector: EnrichmentDetector(), confirmedSource: true,
+                                           targets: ["b.jpg"]) { _, _ in }
+        XCTAssertEqual(result.phase, .completed)
+        let pulled = await source.pulled
+        XCTAssertEqual(pulled, 2, "enumeration stops once every target was seen")
+        let saved = try await h.catalog.photos()
+        XCTAssertEqual(saved.map(\.relativePath), ["b.jpg"])
+    }
+
+    func testTargetedScanLeavesCheckpointUnchangedOnCompletionAndCancellation() async throws {
+        let h = try await ProducerHarness.make(self)
+        let all = entries(["a.jpg", "b.jpg"], h)
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: all), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        let before = try await h.catalog.checkpoint()
+        XCTAssertEqual(before?.phase, .completed)
+
+        let changed = [SourceEntry(relativePath: "a.jpg", metadata: SourceMetadata(revision: "new-a", size: 1))]
+        let done = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: changed), detector: EnrichmentDetector(),
+                                         confirmedSource: true, targets: ["a.jpg"]) { _, _ in }
+        XCTAssertEqual(done.phase, .completed)
+        let afterDone = try await h.catalog.checkpoint()
+        XCTAssertEqual(afterDone, before)
+
+        let gate = ProducerHoldGate(), trace = ProducerTrace()
+        let producer = h.producer(ProducerFakeLoader(yuNet: ProducerYuNetBackend(gate: gate, trace: trace),
+                                                     sFace: ProducerSFaceBackend(trace: trace)))
+        let coordinator = scanner(h)
+        let moved = [SourceEntry(relativePath: "b.jpg", metadata: SourceMetadata(revision: "new-b", size: 1))]
+        let scan = Task {
+            await coordinator.scan(source: EnrichmentSource(data: h.bytes, entries: moved, trace: trace),
+                                   detector: EnrichmentDetector(), confirmedSource: true, targets: ["b.jpg"],
+                                   enrichment: producer) { _, _ in }
+        }
+        try await gate.waitEntered()
+        await coordinator.cancel()
+        await gate.release()
+        let cancelled = await scan.value
+        XCTAssertEqual(cancelled.phase, .cancelled)
+        let afterCancel = try await h.catalog.checkpoint()
+        XCTAssertEqual(afterCancel, before)
+    }
+
+    func testNilTargetsScanStillMarksUnseenPhotosMissing() async throws {
+        let h = try await ProducerHarness.make(self)
+        let all = entries(["a.jpg", "b.jpg"], h)
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: all), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        _ = await scanner(h).scan(source: EnrichmentSource(data: h.bytes, entries: [all[0]]), detector: EnrichmentDetector(),
+                                  confirmedSource: true) { _, _ in }
+        let saved = try await h.catalog.photos()
+        XCTAssertEqual(saved.filter { $0.missing == true }.map(\.relativePath), ["b.jpg"])
+    }
+}
+
+/// Source that counts how many entries enumeration pulled.
+actor CountingSource: PhotoSource {
+    let entries: [SourceEntry]
+    let data: Data
+    let trace: ProducerTrace
+    private var position = 0
+    private(set) var pulled = 0
+    init(entries: [SourceEntry], data: Data, trace: ProducerTrace) { self.entries = entries; self.data = data; self.trace = trace }
+    func identity() async throws -> String? { ProducerHarness.sourceIdentity }
+    func open() async throws { position = 0 }
+    func next() async throws -> SourceEntry? {
+        guard position < entries.count else { return nil }
+        defer { position += 1; pulled += 1 }
+        return entries[position]
+    }
+    func read(_ entry: SourceEntry) async throws -> Data { data }
+    func close() async {}
 }

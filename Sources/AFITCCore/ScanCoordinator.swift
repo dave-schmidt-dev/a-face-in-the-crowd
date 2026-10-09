@@ -56,39 +56,46 @@ public actor ScanCoordinator {
         }
     }
     public func pause() { paused = true }
+    /// `targets` (relative paths) limits the pass to those photos: others are skipped unseen, enumeration
+    /// stops after the last target, nothing is marked missing and the persisted checkpoint is untouched.
     public func scan(source: any PhotoSource, detector: any DetectionProvider, confirmedSource: Bool = false,
-                     enrichment: (any ScanEnrichment)? = nil, update: @escaping @Sendable (ScanProgress, PhotoIdentity?) async -> Void) async -> ScanProgress {
+                     targets: Set<String>? = nil, enrichment: (any ScanEnrichment)? = nil, update: @escaping @Sendable (ScanProgress, PhotoIdentity?) async -> Void) async -> ScanProgress {
         var progress = ScanProgress()
         guard !running else { progress.phase = .failed; progress.message = "A scan is already running."; return progress }
         running = true; cancelled = false; paused = false; observer = update
         defer { running = false; observer = nil }
         var lease: Int?
         var previewRecoveryPending = false
+        var pinnedCheckpoint: ScanProgress?  // targeted passes persist this instead of their own progress
         do {
             let cached = try await repository.photos()
             progress.phase = .discovering
             progress.message = "Opening source. Showing last verified catalog before integrity checks."
             await publish(progress, nil)
-            for photo in cached { try checkStop(); await publish(progress, photo) }
+            for photo in cached where targets?.contains(photo.relativePath) ?? true { try checkStop(); await publish(progress, photo) }
             try checkStop()
             try await source.open()
             let identity = try await source.identity()
             lease = try await repository.acquireSource(identity: identity, confirmed: confirmedSource)
             let generation = lease!
+            if targets != nil { pinnedCheckpoint = try await repository.checkpoint() ?? ScanProgress() }
             if let bookmark = try await source.permissionBookmark() {
                 try await repository.storeGrant(bookmark, lease: generation)
             }
             progress.phase = .discovering
-            try await repository.save(progress: progress, lease: generation)
+            try await repository.save(progress: pinnedCheckpoint ?? progress, lease: generation)
             await publish(progress, nil)
             let existing = Dictionary(uniqueKeysWithValues: cached.map { ($0.relativePath, $0) })
             var seen = Set<String>()
+            var remaining = targets
             var previewsUnavailable = 0
             while true {
                 try checkStop()
                 try await repository.requireLease(generation)
+                if remaining?.isEmpty == true { break }
                 guard let entry = try await source.next() else { break }
                 guard seen.insert(entry.relativePath).inserted else { continue }
+                if remaining != nil, remaining?.remove(entry.relativePath) == nil { continue }
                 progress.discovered += 1; progress.phase = .processing
                 progress.message = "Checking source integrity. Cached previews show the last verified content."
                 await publish(progress, nil)
@@ -111,7 +118,7 @@ public actor ScanCoordinator {
                             photo.previewPath = nil
                             previewRecoveryPending = true
                             progress.message = "Cached preview unavailable. Accepted analysis remains while the source is checked."
-                            try await repository.save(photo, progress: progress, lease: generation)
+                            try await repository.save(photo, progress: pinnedCheckpoint ?? progress, lease: generation)
                             await publish(progress, photo)
                         }
                     }
@@ -154,7 +161,7 @@ public actor ScanCoordinator {
                             photo.analysis = FaceAnalysisState(status: .pending, contentVersion: photo.contentVersion)
                             previewRecoveryPending = false
                             // Invalidation is durable before processing; interruption cannot resurrect old faces.
-                            try await repository.save(photo, progress: progress, lease: generation)
+                            try await repository.save(photo, progress: pinnedCheckpoint ?? progress, lease: generation)
                             await publish(progress, photo)
                             progress.message = "Preparing preview and detecting faces."
                             await publish(progress, nil)
@@ -266,7 +273,7 @@ public actor ScanCoordinator {
                         progress.failed += 1
                     }
                 }
-                try await repository.save(photo, progress: progress, lease: generation)
+                try await repository.save(photo, progress: pinnedCheckpoint ?? progress, lease: generation)
                 await publish(progress, photo)
                 // Only this iteration's verified bytes qualify: an ordinary read or the single
                 // admitted catch-up read. The trusted no-read path never enriches.
@@ -279,22 +286,26 @@ public actor ScanCoordinator {
             }
             try checkStop()
             progress.enumerationFinished = true; progress.phase = .completed
-            if previewsUnavailable > 0 {
+            if targets != nil {
+                progress.message = "Face analysis finished for the listed photos."
+            } else if previewsUnavailable > 0 {
                 progress.message = previewsUnavailable == 1
                     ? "Source integrity verified. One cached preview remains unavailable; accepted analysis is unchanged."
                     : "Source integrity verified. \(previewsUnavailable) cached previews remain unavailable; accepted analyses are unchanged."
             } else {
                 progress.message = "Source integrity verified. Counts describe this completed discovery pass."
             }
-            for photo in try await repository.markMissing(except: seen, progress: progress, lease: generation) {
-                await publish(progress, photo)
+            if targets == nil {
+                for photo in try await repository.markMissing(except: seen, progress: progress, lease: generation) {
+                    await publish(progress, photo)
+                }
             }
         } catch let error as CounterError {
             progress.phase = .failed
             progress.message = error == .exhausted
                 ? "Catalog limit reached. Accepted photos remain in the catalog."
                 : "Catalog counters could not be read safely. Accepted photos remain in the catalog."
-            if let lease { try? await repository.save(progress: progress, lease: lease) }
+            if let lease, targets == nil || pinnedCheckpoint != nil { try? await repository.save(progress: pinnedCheckpoint ?? progress, lease: lease) }
         } catch is CancellationError {
             progress.phase = .cancelled
             if previewRecoveryPending {
@@ -302,7 +313,7 @@ public actor ScanCoordinator {
             } else {
                 progress.message = "Scan cancelled. Accepted photos remain; resume to check the source."
             }
-            if let lease { try? await repository.save(progress: progress, lease: lease) }
+            if let lease, targets == nil || pinnedCheckpoint != nil { try? await repository.save(progress: pinnedCheckpoint ?? progress, lease: lease) }
         } catch let error as ScanError {
             progress.phase = (error == .paused || error == .storagePressure) ? .paused : .failed
             if previewRecoveryPending {
@@ -310,13 +321,13 @@ public actor ScanCoordinator {
             } else {
                 progress.message = error.message
             }
-            if let lease { try? await repository.save(progress: progress, lease: lease) }
+            if let lease, targets == nil || pinnedCheckpoint != nil { try? await repository.save(progress: pinnedCheckpoint ?? progress, lease: lease) }
         } catch {
             progress.phase = .failed
             progress.message = previewRecoveryPending
                 ? "Preview unavailable. Accepted analysis remains; recovery can be retried when access is available."
                 : "Scan failed. Accepted photos remain in the catalog."
-            if let lease { try? await repository.save(progress: progress, lease: lease) }
+            if let lease, targets == nil || pinnedCheckpoint != nil { try? await repository.save(progress: pinnedCheckpoint ?? progress, lease: lease) }
         }
         await source.close(); await publish(progress, nil)
         return progress

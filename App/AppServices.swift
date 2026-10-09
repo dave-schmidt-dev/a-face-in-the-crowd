@@ -257,7 +257,7 @@ public final class AppServices: ObservableObject {
         guard !isQuiescingCatalog, !privacy.catalogDeleted else { return }
         sourceSelectionGeneration += 1; selectedFolder = url; setupError = nil; faceEmbedding.invalidate()
     }
-    public func startScan(confirmedSource: Bool = false) {
+    public func startScan(confirmedSource: Bool = false, targets: Set<String>? = nil) {
         guard canStart, let selectedFolder, let coordinator, let repository,
               let operation = catalogSession.begin("scan") else { return }
         let enrichment = faceEmbedding.beginScan(repository: repository, operation: operation,
@@ -297,7 +297,7 @@ public final class AppServices: ObservableObject {
             detector = FaceDetectionService()
             #endif
             let result = await coordinator.scan(source: scanSource, detector: detector, confirmedSource: confirmedSource,
-                                                enrichment: enrichment) { [weak self] progress, photo in
+                                                targets: targets, enrichment: enrichment) { [weak self] progress, photo in
                 await self?.receive(progress, photo, session: operation.session)
                 if photo != nil { await self?.refreshGroupsAtScanBoundary(session: operation.session) }
             }

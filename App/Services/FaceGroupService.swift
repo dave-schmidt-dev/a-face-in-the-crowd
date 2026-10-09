@@ -256,7 +256,7 @@ extension AppServices {
         do {
             try await work.value
             guard sessionIsCurrent(operation.session), canStart else { return }
-            startScan(confirmedSource: confirmedSource)
+            startScan(confirmedSource: confirmedSource, targets: Set(current.map(\.relativePath)))
         } catch {
             if sessionIsCurrent(operation.session) { setupError = "Saved face analysis changed. Refresh People before finishing." }
         }

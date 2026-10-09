@@ -324,6 +324,9 @@ final class FaceGroupServiceTests: XCTestCase {
         XCTAssertEqual(services.faceGroups.retrySummary.unmatchedCount, 1)
         XCTAssertEqual(SyntheticAnalysisProbe.computationCount, 5, "Only the actionable failed and untracked photos are analyzed")
         XCTAssertEqual(SyntheticAnalysisProbe.scanCount, 2, "A duplicate action during the scan cannot admit or start another scan")
+        XCTAssertEqual(services.progress.discovered, 2, "Finish scans only the listed photos, not the whole folder")
+        XCTAssertEqual(services.progress.message, "Face analysis finished for the listed photos.")
+        XCTAssertEqual(services.photos.filter { $0.missing == true }.count, 0, "Targeted Finish marks no other photo missing")
         try await retire(services, root: root)
     }
     @MainActor func testRetiredSessionClearsSharedReviewWithoutLatePublication() async throws {

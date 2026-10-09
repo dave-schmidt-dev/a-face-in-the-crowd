@@ -4567,6 +4567,33 @@
         }
       }
     },
+    "task7.finish-targeted": {
+      "description": "Finish analyzes only listed unfinished photos",
+      "targets": {
+        "AFITCCoreTests": {
+          "type": "unit",
+          "testFiles": [
+            "Tests/AFITCCoreTests/ScanEmbeddingEnrichmentTests.swift"
+          ],
+          "selectors": [
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanReadsEnrichesOnlyTargetsAndMarksNothingMissing",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanStopsEnumeratingAfterLastTarget",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testTargetedScanLeavesCheckpointUnchangedOnCompletionAndCancellation",
+            "AFITCCoreTests.ScanEmbeddingEnrichmentTests/testNilTargetsScanStillMarksUnseenPhotosMissing"
+          ]
+        },
+        "AFITCAppTests": {
+          "type": "unit",
+          "swiftpmOnly": true,
+          "testFiles": [
+            "Tests/AFITCAppTests/FaceGroupServiceTests.swift"
+          ],
+          "selectors": [
+            "AFITCAppTests.FaceGroupServiceTests/testFinishAnalysisIncludesUntrackedAndRetryablePhotosAndClassifiesFailures"
+          ]
+        }
+      }
+    },
     "app.services": {
       "description": "Portable actual AppServices backup progress and owned fixture isolation; explicit SwiftPM-only registration contract",
       "targets": {
@@ -5074,6 +5101,7 @@
       "task2.3-yunet-runtime-generic",
       "task2.3-core-face-fence",
       "task7.edge-geometry",
+      "task7.finish-targeted",
       "task2.model-resources",
       "task2.3-producer",
       "ui.journeys",
@@ -5156,6 +5184,7 @@
       "task7.8",
       "task7.retry",
       "task7.finish",
+      "task7.finish-targeted",
       "app.services"
     ],
     "phase-group-owner": [
